@@ -50,3 +50,23 @@ export function greeting(timeZone: string, now: Date = new Date()): string {
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
+
+/**
+ * "Today", "Tomorrow" or a short weekday ("Fri") for instants within the coming week,
+ * otherwise a short date, all in the viewer's zone (FR-019).
+ */
+export function relativeDayLabel(isoUtc: string, timeZone: string, now: Date = new Date()): string {
+  const key = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const target = key(new Date(isoUtc));
+  for (let offset = 0; offset < 7; offset += 1) {
+    if (key(new Date(localDayAt(offset, 12, 0, timeZone, now))) === target) {
+      if (offset === 0) return 'Today';
+      if (offset === 1) return 'Tomorrow';
+      return new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short' }).format(new Date(isoUtc));
+    }
+  }
+  return new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', day: 'numeric', month: 'short' }).format(
+    new Date(isoUtc),
+  );
+}
