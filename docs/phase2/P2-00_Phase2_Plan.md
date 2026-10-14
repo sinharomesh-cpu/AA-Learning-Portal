@@ -1,6 +1,6 @@
 # AA Pro — P2-00 Phase 2 Plan: Sign-in, accounts and permissions
 
-**Version:** 1.1 · 14 Oct 2026 · **Status:** for owner approval · **Baseline:** FRD v1.1 + change request CR-01 (OC-36)
+**Version:** 1.2 · 14 Oct 2026 · **Status:** for owner approval · **Baseline:** FRD v1.1 + change request CR-01 (OC-36)
 **Decisions this plan relies on:** OC-21, OC-23, OC-35 (D-23a, D-37), OC-36 (D-09, parent-added teachers), OC-37 (D-11b).
 
 ## 1. What Phase 2 delivers, in plain words
@@ -33,7 +33,7 @@ Versions were checked on npm on 14 Oct 2026 and are re-confirmed before installa
 
 **Hosted database.** None is needed to build and test Phase 2. A hosted test environment is proposed at the end of the phase (WP2-9) and needs its own approval, together with D-28.
 
-## 3. New screens needed for OC-36 and OC-38
+## 3. New screens needed for OC-36, OC-38 and OC-39
 
 These designs do not exist yet. I will add them to the design canvas for your approval **before** building them (the same process as P19/P21):
 
@@ -44,6 +44,7 @@ These designs do not exist yet. I will add them to the design canvas for your ap
 | 59 | **Teacher · Set your password** | Opened from the email link. Valid, expired and already-used states. Same password rules as other adults. |
 | 60 | **Admin · Approval queue update (M-29)** | Shows "Added by a parent" and the parent's masked email. No child names (OC-21). |
 | 62 | **Create an account** (desktop, phone) — OC-38 | Reached from a new "Create an account" link on M-01. Two choices: "I'm a parent" and "I'm a teacher". Name, email and password, then a "Check your email" step to confirm the address. A teacher then continues to the existing onboarding form (M-20), and after that sees "We're reviewing your profile" (M-21) until a Super Admin approves. This screen was missing from the approved set. |
+| 63 | **Public landing page** (desktop, phone) — OC-39 | The page visitors see before signing in, at the site's main address. Sections:<br>• **Home intro**<br>• **How it works**: for parents, students and teachers<br>• **Safety and privacy**<br>• **About us**<br>• **FAQ**<br>• **Contact us**<br>• **Sign in** and **Create an account** buttons, in the header and the footer<br><br>Same design system as the app. **Content rules:**<br>• **About us** is a draft marked "Draft — owner to edit", with no invented facts about the company: no founders, figures, partner schools or testimonials.<br>• **Safety and privacy** states only decided rules: approved teachers, parent controls, children have no email or phone, and no audio recordings unless approved. It makes no claim about where data is stored until D-28 is decided.<br>• **Contact us** uses an address the owner provides. A contact form would need email sending, so until a provider is approved it only shows the address. |
 | 61 | **Emails** | "A parent added you to AA Pro"; "You're approved — set your password"; parent told "approved" or "not approved"; existing teacher told "a parent linked you". |
 
 The one-lesson invitation without an account (M-11) stays as it is and is built in Phase 6.
@@ -62,9 +63,10 @@ Each work package is a pull request. It is merged by me after all automatic chec
 | **WP2-6** Teachers | Teacher self-sign-up (board 62, OC-38) and profile; account status pages; **parent-added teachers (OC-36)** with set-password links; teacher–child links that the parent controls | M-20, M-21, M-22, boards 57–61 |
 | **WP2-7** Email outbox | Every email above written to the outbox, with a local mailbox page for development and tests only | M-32/33 (account emails only) |
 | **WP2-8** Real data in pages | All Phase 1 pages read the database through ownership-checked queries. The sample-data sign-in is retired from the main app. | All Phase 1 screens |
+| **WP2-10** Public landing page (OC-39) | The information page and its sections (board 63). Signed-in users still go straight to their own home. Search engines stay blocked until launch. | Board 63 |
 | **WP2-9** Review and hand-over | An independent security review by a separate reviewer that has not seen the build, accessibility checks, a test-environment proposal and the completion report P2-01 | — |
 
-**Order:** WP2-1 and WP2-2 come first. WP2-3 to WP2-6 build on them. Boards 57–62 are drawn in parallel and must be approved before WP2-6 builds them.
+**Order:** WP2-1 and WP2-2 come first. WP2-3 to WP2-6 build on them. Boards 57–63 are drawn in parallel and must be approved before WP2-6 builds them.
 
 ## 5. What happens to the online preview
 
@@ -84,21 +86,22 @@ The current Vercel preview shows the Phase 1 sample-data prototype. Once WP2-8 r
 2. Password policy (OC-35): ≥ 12 / ≥ 8 / ≤ 64 characters, a breached password is refused, and passphrases with spaces are accepted.
 3. Super Admin (OC-21, OC-37): MFA is required. The admin cannot open child content, cannot impersonate anyone, and cannot reset child passwords. Every admin action is in the audit log.
 4. OC-38: a self-registered teacher must confirm their email and cannot sign in to the teacher portal, see any child or calendar, or be booked until a Super Admin approves them. After approval, they see children only once a parent links them (OC-36) or, from Phase 3, confirms a booking.
-5. OC-36:
+5. OC-39: the landing page has all its sections, works on phone and desktop, passes the accessibility checks, and contains no invented company facts. Signed-in users are sent to their own home.
+6. OC-36:
    - a parent-added teacher cannot sign in before approval;
    - the set-password link is single-use and expires;
    - no password is ever emailed;
    - the teacher sees only the ticked children;
    - removing a child from the teacher ends the teacher's access at once;
    - an existing approved teacher is linked straight away.
-6. Isolation tests:
+7. Isolation tests:
    - a parent cannot reach another family's child;
    - a teacher cannot reach an unlinked child or another teacher's calendar;
    - a child cannot reach a sibling's data.
 
    Each case is tested by direct URL and by changing request values.
-7. No password, token or child data appears in logs, emails (other than the intended content), audit records or the repository.
-8. All CI checks pass, plus a new database-backed integration test job.
+8. No password, token or child data appears in logs, emails (other than the intended content), audit records or the repository.
+9. All CI checks pass, plus a new database-backed integration test job.
 
 ## 7. Risks
 
@@ -124,4 +127,5 @@ The current Vercel preview shows the Phase 1 sample-data prototype. Once WP2-8 r
 ## 9. What I need from you
 
 1. **Approve this plan** (or tell me what to change).
-2. Later in the phase: approve boards 57–62 when I show them.
+2. Later in the phase: approve boards 57–63 when I show them.
+3. For the landing page: correct the draft "About us" text, and give the contact email address to show.
