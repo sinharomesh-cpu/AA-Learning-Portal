@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.14 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.15 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -8,9 +8,12 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
 
+**v1.15 changes (owner, 14 Oct 2026, 22:22 IST):**
+- **OC-51:** D-16 closed: when a teacher shares a resource with a student, the **parent can see it too**.
+- **OC-52:** a **"Back to home"** link on both sign-in pages (owner found no way back to the landing page). The AA Pro wordmark there also links home. Logged as DV-28.
+
 **v1.14 changes (owner messages of 14 Oct 2026, 21:56–22:04 IST, plus follow-up answers):**
 - **OC-44 (D-35)**, **OC-45 (D-08)**, **OC-46 (D-07)**, **OC-47 (D-15)**, **OC-48 (D-16, change request CR-04: teacher directory)**, **OC-49 (D-22)** and **OC-50 (D-11b revised, change request CR-05: Admins with permissions; replaces OC-37)**. Rules in the rows below.
-- Still open inside D-16: whether parents also see the resources a teacher shares with their child (to be shown on a design board).
 
 **v1.13 changes (owner, 14 Oct 2026, 21:47 IST: "All approved"):**
 - **OC-43:** landing page text updated for OC-41 as Claude suggested: the fourth Safety card becomes "Your books stay in AA Pro" (teachers read, cannot download), replacing "AI lessons aren't recorded"; a new FAQ "How do teachers get my child's books?". Board 63 updated to match. Boards 57–62 and 64 are not drawn yet and are not covered by this approval.
@@ -127,6 +130,8 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-48** | **D-16 and CR-04:** (1) **Teacher directory:** parents can search and view teachers who registered on AA Pro (approved teachers only). (2) Resources a teacher shares are visible to **the teacher and the student** when the teacher is linked to that student. Open detail: whether the parent also sees them. | Owner, 14 Oct 2026, 21:56 | Directory board 65; built with booking in Phase 3 |
 | **OC-49** | **D-22 AI-class reminders** go to **both parent and student**: the parent by email (WhatsApp later, after consent and provider approval); the student **on screen in AA Pro** from 15 minutes before, because children have no email or phone (OC-35). | Owner, 14 Oct 2026 (22:01 "Parents and students both"; follow-up "On screen in AA Pro") | Phase 7 (student banner Phase 3) |
 | **OC-50** | **D-11b revised (CR-05), replaces OC-37:** (1) The **owner is the only Super Admin**. (2) The Super Admin can **create Admin accounts** and choose, per Admin, **which functions they may manage** (for example accounts, teacher approvals, audit log). (3) Lock-out protection: at Super Admin setup, **10 one-time recovery codes** are issued for the owner to print and keep safe. (4) OC-21 limits apply to every Admin as well: no sign-in-as-user, no access to children's learning content; Admins also sign in with MFA. | Owner, 14 Oct 2026 (22:04; follow-up "Owner + recovery codes") | Phase 2 WP2-5; board 66 |
+| **OC-51** | **D-16 closed:** resources a teacher shares with a linked student are visible to the **teacher, the student and the student's parent**. | Owner, 14 Oct 2026, 22:22 IST | Phase 4 |
+| **OC-52** | **Back to home** on the adult and child sign-in pages; the wordmark links home too. | Owner, 14 Oct 2026, 22:22 IST | Built (PR "Back to home") |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -169,7 +174,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ~~D-09~~ | **Closed → OC-36.** | | | | | |
 | ~~D-11b~~ | **Closed → OC-37.** | | | | | |
 | ~~D-15~~ | **Closed → OC-47.** | | | | | |
-| **D-16** | *(Mostly settled by OC-41 and OC-48.)* Remaining: does the parent also see resources a teacher shares with their child? | Yes, visible to the parent | Teacher and student only | Library visibility | **Yes** | Phase 4 |
+| ~~D-16~~ | **Closed → OC-41, OC-48, OC-51.** | | | | | |
 | **D-17** | Library "needs approval" state | Drop it. Resources are assigned (visible) or not, plus a "not available" state for failed or processing files. | Keep an approval workflow | Library states | **Yes** | Phase 4 |
 | ~~D-22~~ | **Closed → OC-49.** | | | | | |
 | ~~D-37~~ | **Closed → OC-35.** | | | | | |
@@ -202,4 +207,4 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | Phase 2 | **Authorised (OC-40)**; in progress |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
 | A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
-| Open, not decided | D-05, D-10, D-16 (one detail), D-17, D-24, D-25, D-26, D-28, D-01a |
+| Open, not decided | D-05, D-10, D-17, D-24, D-25, D-26, D-28, D-01a |

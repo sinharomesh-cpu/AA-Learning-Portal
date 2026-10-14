@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { BackToHome } from '@/components/BackToHome';
 import { Card } from '@/components/Card';
 import { Wordmark } from '@/components/Wordmark';
 import { personasWithRole } from '@/fixtures/personas';
@@ -25,9 +26,10 @@ export default async function ChildSignInPage() {
   }));
   return (
     <div className="min-h-dvh bg-surface-container-low">
+      <BackToHome />
       <main className="mx-auto grid max-w-[1040px] items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:py-12">
         <div className="flex flex-col gap-4">
-          <Wordmark size={36} />
+          <Wordmark size={36} href="/" />
           <h1 className="text-headline-xl-mobile lg:text-headline-xl">Hello! Ready to learn?</h1>
           <p className="text-body-lg text-on-surface-variant">
             {demo ? 'Pick your name to start.' : 'Type the username and password your parent gave you.'}

@@ -55,6 +55,15 @@ test('create an account says plainly that accounts are not open yet', async ({ p
   await expect(page.getByText('Parent and teacher accounts are not open yet.')).toBeVisible();
 });
 
+test('both sign-in pages lead back to the home page (OC-52)', async ({ page }) => {
+  for (const path of ['/sign-in', '/sign-in/child']) {
+    await page.goto(path);
+    await page.getByRole('link', { name: 'Back to home' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Learning at home/);
+  }
+});
+
 test('security headers are sent', async ({ request }) => {
   const response = await request.get('/');
   const headers = response.headers();
