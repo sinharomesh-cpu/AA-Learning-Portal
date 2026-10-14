@@ -71,3 +71,4 @@
 | 54 | P19 Parent dashboard (phone) | 14 Oct 2026 | "Approve all four" |
 | 55 | P21 Teacher dashboard (desktop) — AA Pro adaptation | 14 Oct 2026 | "Approve all four" |
 | 56 | P21 Teacher dashboard (phone) | 14 Oct 2026 | "Approve all four" |
+| 63 | Public landing page (desktop and phone) — OC-39 | 14 Oct 2026 | "I approve the new design" (20:38 IST; at that time only board 63 was drawn) |
