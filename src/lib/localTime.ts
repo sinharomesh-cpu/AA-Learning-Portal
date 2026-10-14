@@ -3,6 +3,20 @@
  * Used only by synthetic fixtures so demo lessons always appear "today".
  */
 export function todayAt(hour: number, minute: number, timeZone: string, now: Date = new Date()): string {
+  return localDayAt(0, hour, minute, timeZone, now);
+}
+
+/**
+ * UTC instant for a wall-clock time `dayOffset` local days from the viewer's current day
+ * (0 = today, 1 = tomorrow, -1 = yesterday) in the given zone.
+ */
+export function localDayAt(
+  dayOffset: number,
+  hour: number,
+  minute: number,
+  timeZone: string,
+  now: Date = new Date(),
+): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
@@ -12,7 +26,7 @@ export function todayAt(hour: number, minute: number, timeZone: string, now: Dat
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
   const [y, m, d] = [get('year'), get('month'), get('day')];
   // First guess treats the wall time as UTC, then corrects by the zone's offset at that instant.
-  const guess = Date.UTC(y, m - 1, d, hour, minute);
+  const guess = Date.UTC(y, m - 1, d + dayOffset, hour, minute);
   const offsetMinutes = zoneOffsetMinutes(new Date(guess), timeZone);
   return new Date(guess - offsetMinutes * 60_000).toISOString();
 }

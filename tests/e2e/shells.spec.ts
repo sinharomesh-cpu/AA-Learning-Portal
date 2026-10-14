@@ -26,7 +26,7 @@ test.describe('student shell (S1 / S9)', () => {
     const phone = testInfo.project.name === 'phone';
     const items = [
       { name: phone ? 'Schedule' : 'My schedule', heading: 'My schedule' },
-      { name: 'Book AI class', heading: 'Book an AI class' },
+      { name: 'Book AI class', heading: 'Book a lesson with the AI Tutor' },
       { name: 'Library', heading: 'My library' },
       { name: 'History', heading: "Things I've learned" },
       { name: 'Home', heading: 'Science with Teacher A. Rao' },
