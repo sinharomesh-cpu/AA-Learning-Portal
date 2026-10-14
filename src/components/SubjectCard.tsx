@@ -8,37 +8,30 @@ interface SubjectCardProps {
   /** Name of an assigned book, or a note that none is assigned yet. Never invented (FRD §7). */
   detail: string;
   href: string;
-  compact?: boolean;
 }
 
-/** CMP-SubjectCard: subject tile on the student dashboard. No mastery percentages (OC-12). */
-export function SubjectCard({ subject, detail, href, compact = false }: SubjectCardProps) {
+/**
+ * CMP-SubjectCard: compact tile on phones (S9), tile with subject badge from `lg` up (S1).
+ * No mastery percentages (OC-12).
+ */
+export function SubjectCard({ subject, detail, href }: SubjectCardProps) {
   const s = SUBJECTS[subject];
   return (
     <Link
       href={href}
-      className={cx(
-        'flex flex-col gap-2.5 rounded-md border border-card-border bg-white text-on-surface no-underline hover:border-primary hover:text-on-surface',
-        compact ? 'min-h-[72px] justify-center rounded-[20px] p-3' : 'p-[18px]',
-      )}
+      className="flex min-h-[72px] flex-col justify-center gap-1 rounded-[20px] border border-card-border bg-white p-3 text-on-surface no-underline hover:border-primary hover:text-on-surface lg:justify-start lg:gap-2.5 lg:rounded-md lg:p-[18px]"
     >
-      {!compact ? (
-        <span
-          aria-hidden="true"
-          className={cx(
-            'flex h-[52px] w-[52px] items-center justify-center rounded-[16px] font-headline text-[17px] font-extrabold',
-            s.tile,
-          )}
-        >
-          {s.abbr}
-        </span>
-      ) : null}
-      <span className={cx('font-headline font-bold', compact ? 'text-base' : 'text-[20px] leading-7')}>{s.name}</span>
       <span
-        className={cx('text-on-surface-variant', compact ? 'text-[13px] font-medium' : 'text-[15px] leading-[22px]')}
+        aria-hidden="true"
+        className={cx(
+          'hidden h-[52px] w-[52px] items-center justify-center rounded-[16px] font-headline text-[17px] font-extrabold lg:flex',
+          s.tile,
+        )}
       >
-        {detail}
+        {s.abbr}
       </span>
+      <span className="font-headline text-base font-bold lg:text-[20px] lg:leading-7">{s.name}</span>
+      <span className="text-[13px] font-medium text-on-surface-variant lg:text-[15px] lg:leading-[22px]">{detail}</span>
     </Link>
   );
 }

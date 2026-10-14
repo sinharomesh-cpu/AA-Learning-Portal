@@ -16,6 +16,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The development indicator badge overlaps the phone bottom navigation.
+  devIndicators: false,
   reactStrictMode: true,
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
