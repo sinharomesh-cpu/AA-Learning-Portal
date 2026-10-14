@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.13 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.14 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.14 changes (owner messages of 14 Oct 2026, 21:56–22:04 IST, plus follow-up answers):**
+- **OC-44 (D-35)**, **OC-45 (D-08)**, **OC-46 (D-07)**, **OC-47 (D-15)**, **OC-48 (D-16, change request CR-04: teacher directory)**, **OC-49 (D-22)** and **OC-50 (D-11b revised, change request CR-05: Admins with permissions; replaces OC-37)**. Rules in the rows below.
+- Still open inside D-16: whether parents also see the resources a teacher shares with their child (to be shown on a design board).
 
 **v1.13 changes (owner, 14 Oct 2026, 21:47 IST: "All approved"):**
 - **OC-43:** landing page text updated for OC-41 as Claude suggested: the fourth Safety card becomes "Your books stay in AA Pro" (teachers read, cannot download), replacing "AI lessons aren't recorded"; a new FAQ "How do teachers get my child's books?". Board 63 updated to match. Boards 57–62 and 64 are not drawn yet and are not covered by this approval.
@@ -109,13 +113,20 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-34** | **Hosted demo preview approved** with sample data only (`AA_DEMO_MODE` + `AA_HOSTED_DEMO`, no real-service settings, site-wide demo banner, no search indexing). Lifts OC-28 for this preview only. Production deployment still needs separate approval. | Owner, 14 Oct 2026 ("Approve the preview") | Preview, after A-07 |
 | **OC-35** | **D-23a and D-37 approved as drafted.** Child sign-in, lockout and recovery exactly as G1-08 §3 (parent-set credentials, 5 failures → 15-minute lock keyed on the submitted username whether or not it exists, parent-only unlock and reset with step-up, no child email or phone). Passwords: adults ≥ 12, children ≥ 8, all ≤ 64, breached-password check, no composition rules or expiry. | Owner, 14 Oct 2026 ("As drafted") | Phase 2 |
 | **OC-36** | **D-09 teacher approval and linking, with parent-added teachers (CR-01).** (1) Every teacher account needs Super Admin approval before the teacher can sign in. (2) **A parent can add a teacher** by name and email, and ticks which of their own children the teacher may work with; the parent can change or remove this later. (3) On adding, the Super Admin gets an approval request and the teacher gets an email saying a parent added them to AA Pro and that a second email follows after approval. (4) After approval, the teacher gets an email with a **one-time set-password link** sent to the address the parent entered; no password is ever sent by email. (5) A teacher-student link exists only for the children the parent ticked, or through a parent-confirmed booking; the parent can remove it. (6) If the email already belongs to an approved teacher, the link to the ticked children starts at once (no second admin approval) and the teacher is emailed that a parent added them. (7) The existing one-lesson invitation without an AA Pro account (M-11, FR-004.2, UC-08) is **kept as well**, and stays in Phase 6 because it needs Zoom. Teacher self-sign-up with approval (M-20) also stays. | Owner, 14 Oct 2026 (D-09 answer; follow-ups "Set-password link", "Parent picks", "Keep both", "Linked straight away") | Phase 2. New screens needed (see P2-00) |
-| **OC-37** | **D-11b: two Super Admins at launch**, created by a one-off setup step the owner runs; each enrols MFA at first sign-in; no self-registration. | Owner, 14 Oct 2026 ("Two admins") | Phase 2 |
+| **OC-37** | *(Superseded by OC-50.)* **D-11b: two Super Admins at launch**, created by a one-off setup step the owner runs; each enrols MFA at first sign-in; no self-registration. | Owner, 14 Oct 2026 ("Two admins") | Phase 2 |
 | **OC-38** | **Teachers can register themselves.** A teacher creates an account (name, email, password), confirms the email, completes the onboarding profile (M-20) and waits for Super Admin approval (M-21, M-29) before reaching the teacher portal. Once approved, they see a child only after a parent links them (OC-36) or confirms a booking (Phase 3). The missing "Create an account" screen becomes board 62. | Owner, 14 Oct 2026, 20:04 IST | Phase 2 (WP2-3, WP2-6) |
 | **OC-39** | **Public landing page (CR-02).** Sections: home intro, How it works (parents, students, teachers), Safety and privacy, About us, FAQ, Contact us, plus Sign in and Create an account. Claude drafts the About us text, marked as a draft with no invented company facts; the owner edits it before launch. The owner provides the contact email. | Owner, 14 Oct 2026, 20:08 IST | Phase 2 (board 63, WP2-10) |
 | **OC-40** | **Phase 2 authorised:** plan P2-00 v1.2 approved (WP2-1 … WP2-10, boards 57–63). Test data only; no hosted database, email provider or production deployment without separate approval. | Owner, 14 Oct 2026, 20:15 IST | Phase 2 |
 | **OC-41** | **Teachers see parent uploads by subject (CR-03).** (1) For each teacher and each child, the parent ticks the subjects that teacher teaches (one, several or all). (2) The teacher can open **every** material the parent uploaded for that child in those subjects, arranged by subject card, then book or chapter; there is no per-file switch. (3) A teacher sees nothing for other subjects, other children or other families. (4) The teacher can open the materials **any time while the student is assigned** to them; access ends at once when the parent removes the teacher or a subject. (5) **View only inside AA Pro: teachers can see books and chapters but cannot download them.** | Owner, 14 Oct 2026 ("parent have the checklist options … only math's will visible to teacher"; 20:31 IST: "Teacher can view the books and chapters but not able to download", "Teacher can open and see the material anytime if they have student assign") | Phase 2: link subjects (migration 0002). Phase 4: uploads and the teacher's material view (board 64) |
 | **OC-42** | **Board 63 public landing page approved** (desktop and phone). Boards 57–62 and 64 not yet drawn at the time; to be approved separately. | Owner, 14 Oct 2026, 20:38 IST | WP2-10 |
 | **OC-43** | **Landing page wording for OC-41:** "Your books stay in AA Pro" safety card and the FAQ "How do teachers get my child's books?"; board 63 updated. | Owner, 14 Oct 2026, 21:47 IST ("All approved") | WP2-10 |
+| **OC-44** | **D-35 Join window:** the Join button for a teacher session opens **10 minutes before the start** and stays available **until the scheduled end**. | Owner, 14 Oct 2026 (21:56 "10 min before"; follow-up "Until the lesson ends") | Phase 3 / Phase 6 |
+| **OC-45** | **D-08 Teacher-proposed lessons:** a lesson proposed by a teacher must be **accepted or rejected by the parent**; nothing is scheduled (and no Zoom meeting is created) until the parent accepts. | Owner, 14 Oct 2026 (21:56, 22:01) | Phase 3 |
+| **OC-46** | **D-07 Cancel and reschedule:** (1) Teacher sessions: parent and teacher can cancel or reschedule **up to 30 minutes before the start**; inside 30 minutes neither can. (2) A teacher who booked a class may cancel or reschedule it; **a teacher's reschedule needs the parent's approval**; a teacher's **cancellation is notified to the parent**. (3) AI lessons: the student or parent can cancel or move them **any time before the start**. | Owner, 14 Oct 2026 (21:56, 22:01; follow-up "Anytime before start") | Phase 3 |
+| **OC-47** | **D-15 Group sessions:** **1:1 only** in v1; group sessions may come in a later phase, depending on demand. | Owner, 14 Oct 2026, 21:56 | Phase 3 data model stays 1:1 |
+| **OC-48** | **D-16 and CR-04:** (1) **Teacher directory:** parents can search and view teachers who registered on AA Pro (approved teachers only). (2) Resources a teacher shares are visible to **the teacher and the student** when the teacher is linked to that student. Open detail: whether the parent also sees them. | Owner, 14 Oct 2026, 21:56 | Directory board 65; built with booking in Phase 3 |
+| **OC-49** | **D-22 AI-class reminders** go to **both parent and student**: the parent by email (WhatsApp later, after consent and provider approval); the student **on screen in AA Pro** from 15 minutes before, because children have no email or phone (OC-35). | Owner, 14 Oct 2026 (22:01 "Parents and students both"; follow-up "On screen in AA Pro") | Phase 7 (student banner Phase 3) |
+| **OC-50** | **D-11b revised (CR-05), replaces OC-37:** (1) The **owner is the only Super Admin**. (2) The Super Admin can **create Admin accounts** and choose, per Admin, **which functions they may manage** (for example accounts, teacher approvals, audit log). (3) Lock-out protection: at Super Admin setup, **10 one-time recovery codes** are issued for the owner to print and keep safe. (4) OC-21 limits apply to every Admin as well: no sign-in-as-user, no access to children's learning content; Admins also sign in with MFA. | Owner, 14 Oct 2026 (22:04; follow-up "Owner + recovery codes") | Phase 2 WP2-5; board 66 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -153,21 +164,21 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ID | Question | Recommended option | Alternatives | Impact | Approval? | Blocks |
 |---|---|---|---|---|---|---|
 | **D-05** | Which parent restrictions exist for AI booking? | Recurring blocked periods; one-off blocked dates; maximum AI minutes per day; minimum lead time | Weekly cap; per-subject limits; parent-PIN override | Slot engine; M-09 | **Yes** | Phase 3 |
-| **D-07** | Cancel/reschedule policy | AI: student or parent up to start. Human: parent up to 2 h before; teacher may cancel with mandatory parent notice; inside 2 h, contact support. | Other cut-offs; teacher cannot cancel | States, notifications, Zoom updates | **Yes** | Phase 3 |
-| **D-08** | Must the parent confirm teacher-proposed meetings? | Yes. Zoom is created only after parent confirmation. | Teacher books directly; parent notified | Child safety; extra state | **Yes** | Phase 3 |
+| ~~D-07~~ | **Closed → OC-46.** | | | | | |
+| ~~D-08~~ | **Closed → OC-45.** | | | | | |
 | ~~D-09~~ | **Closed → OC-36.** | | | | | |
 | ~~D-11b~~ | **Closed → OC-37.** | | | | | |
-| **D-15** | Group human sessions | 1:1 only in v1 | Small groups with consent rules | Data model; privacy | **Yes** | Phase 3 |
-| **D-16** | *(Partly settled by OC-41: teachers see parent uploads for ticked subjects.)* Remaining: how teachers share their own resources, and visibility | Teachers share only with assigned students, no parent gate, visible to the parent. Teachers see parent uploads only if shared. | Parent-gated sharing; teacher sees all of the child's files | Resource permissions | **Yes** | Phase 4 |
+| ~~D-15~~ | **Closed → OC-47.** | | | | | |
+| **D-16** | *(Mostly settled by OC-41 and OC-48.)* Remaining: does the parent also see resources a teacher shares with their child? | Yes, visible to the parent | Teacher and student only | Library visibility | **Yes** | Phase 4 |
 | **D-17** | Library "needs approval" state | Drop it. Resources are assigned (visible) or not, plus a "not available" state for failed or processing files. | Keep an approval workflow | Library states | **Yes** | Phase 4 |
-| **D-22** | Student AI-class reminders | Parent by email (WhatsApp later); student sees an on-screen banner from T−15; children are not messaged | Student email/WhatsApp | Child data collection | **Yes** | Phase 7 |
+| ~~D-22~~ | **Closed → OC-49.** | | | | | |
 | ~~D-37~~ | **Closed → OC-35.** | | | | | |
 | **D-24** | Session summaries: source and retention | Summary generated after the session; transcript discarded; summaries kept for a period you set (proposed 12 months) | Keep the transcript; no summaries | Privacy, cost | **Yes** | Phase 5 |
 | **D-25** | External invitation content | The email contains the real Zoom join link and no child profile data | Time-limited AA Pro link | M-32 | **Yes** | Phase 6 |
 | **D-26** | Rights in uploaded textbooks | The parent confirms permitted use on upload; only lesson pages are sent to the AI Tutor | No attestation; legal review first | Upload flow, legal exposure | **Yes** | Phase 4 |
 | **D-10** | Zoom hosting model | Platform-owned account (Server-to-Server OAuth), verified in a spike first | Teacher-owned accounts | Concurrency, cost | **Yes**, after spike | Phase 6 |
 | **D-28** | Data residency, hosting region and retention | Decide before any deployment with real data | — | Provider/region, legal | **Yes** | Pre-production |
-| **D-35** | When does the Join button become available before a human meeting, and until when after the start? | Recommend: 10 minutes before start until the scheduled end. | 5 or 15 minutes before; until 10 minutes after start | M-10, M-19, M-24, S1; Zoom join-link exposure (FR-020) | **Yes** | Phase 6 |
+| ~~D-35~~ | **Closed → OC-44.** | | | | | |
 | **D-01a** | Final AI tutor display name | Keep "AA Pro AI Tutor" / "AI Tutor" | A persona label under AA Pro | Copy only (central config) | **Yes**, non-blocking | None |
 
 ## Part D — Actions for you (not decisions)
@@ -191,4 +202,4 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | Phase 2 | **Authorised (OC-40)**; in progress |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
 | A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
-| Open, not decided | D-05, D-07, D-08, D-10, D-15, D-16, D-17, D-22, D-24, D-25, D-26, D-28, D-35, D-01a |
+| Open, not decided | D-05, D-10, D-16 (one detail), D-17, D-24, D-25, D-26, D-28, D-01a |
