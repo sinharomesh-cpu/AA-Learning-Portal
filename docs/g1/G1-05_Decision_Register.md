@@ -1,12 +1,19 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.8 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.9 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.9 changes (owner answers of 14 Oct 2026, about 19:40 IST):**
+- **A-07 done:** the owner imported the repository into Vercel (Hobby plan, team "Zeus") and reports the preview working. GitHub records Vercel's deployment of commit `7045b14` as successful. Claude could not open the address from its own session.
+- **OC-35:** **D-23a** child sign-in, lockout and recovery specification (G1-08 §3) approved as drafted, including the M-02 lock-message change. **D-37** password policy approved as drafted.
+- **OC-36:** **D-09** decided with a new owner use case: **a parent can add a teacher** who does not yet use AA Pro (change request CR-01 to FRD v1.1). Rules in the OC-36 row below.
+- **OC-37:** **D-11b** two Super Admin accounts at launch, created by a one-off setup step run by the owner; MFA enrolled at first sign-in; no self-registration.
+- **D-28** stays open: the owner has no preference yet. It must be decided before any real data is stored. Phase 2 uses test data only.
 
 **v1.8 changes (owner instruction of 14 Oct 2026, 19:01 IST: "Approve the preview"):**
 - **OC-34:** a hosted demo preview of the prototype is approved, with sample data only. This lifts the OC-28 limit for the demo preview only; production deployment still needs separate approval. The code refuses a hosted demo build unless `AA_HOSTED_DEMO=true` is set, and refuses any demo build that has a real-service setting. Steps are in `docs/deployment/hosted-demo-preview.md`.
@@ -85,6 +92,9 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-32** | **Claude makes all commits and merges.** Claude commits, opens pull requests, and merges each PR once every CI check passes (lint, typecheck, test, build, e2e, privacy-and-brand, secret-scan). The owner is informed by milestone reports. Production deployment still needs the owner's explicit approval (OC-09). | Owner, 14 Oct 2026, 17:59 IST | Settles D-36 (no required human approval) |
 | **OC-33** | **Boards P19 and P21 approved:** Parent dashboard (desktop, phone) and Teacher dashboard (desktop, phone), canvas version 61. Their pending notes (D-07, D-08, D-09, D-15, D-16, D-22, D-35) stay undecided. | Owner, 14 Oct 2026 ("Approve all four") | WP-6, WP-7 unblocked |
 | **OC-34** | **Hosted demo preview approved** with sample data only (`AA_DEMO_MODE` + `AA_HOSTED_DEMO`, no real-service settings, site-wide demo banner, no search indexing). Lifts OC-28 for this preview only. Production deployment still needs separate approval. | Owner, 14 Oct 2026 ("Approve the preview") | Preview, after A-07 |
+| **OC-35** | **D-23a and D-37 approved as drafted.** Child sign-in, lockout and recovery exactly as G1-08 §3 (parent-set credentials, 5 failures → 15-minute lock keyed on the submitted username whether or not it exists, parent-only unlock and reset with step-up, no child email or phone). Passwords: adults ≥ 12, children ≥ 8, all ≤ 64, breached-password check, no composition rules or expiry. | Owner, 14 Oct 2026 ("As drafted") | Phase 2 |
+| **OC-36** | **D-09 teacher approval and linking, with parent-added teachers (CR-01).** (1) Every teacher account needs Super Admin approval before the teacher can sign in. (2) **A parent can add a teacher** by name and email, and ticks which of their own children the teacher may work with; the parent can change or remove this later. (3) On adding, the Super Admin gets an approval request and the teacher gets an email saying a parent added them to AA Pro and that a second email follows after approval. (4) After approval, the teacher gets an email with a **one-time set-password link** sent to the address the parent entered; no password is ever sent by email. (5) A teacher-student link exists only for the children the parent ticked, or through a parent-confirmed booking; the parent can remove it. (6) If the email already belongs to an approved teacher, the link to the ticked children starts at once (no second admin approval) and the teacher is emailed that a parent added them. (7) The existing one-lesson invitation without an AA Pro account (M-11, FR-004.2, UC-08) is **kept as well**, and stays in Phase 6 because it needs Zoom. Teacher self-sign-up with approval (M-20) also stays. | Owner, 14 Oct 2026 (D-09 answer; follow-ups "Set-password link", "Parent picks", "Keep both", "Linked straight away") | Phase 2. New screens needed (see P2-00) |
+| **OC-37** | **D-11b: two Super Admins at launch**, created by a one-off setup step the owner runs; each enrols MFA at first sign-in; no self-registration. | Owner, 14 Oct 2026 ("Two admins") | Phase 2 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -115,7 +125,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ~~D-39~~ | **Closed → OC-27.** | | | | | |
 | ~~D-40~~ | **Closed → OC-28.** | | | | | |
 | ~~D-41~~ | **Closed → OC-29.** | | | | | |
-| **D-23a** | Approve the detailed child sign-in, lockout and recovery specification (G1-08 §3), including the required change to the M-02 lock message | As drafted | Amend any rule | Phase 2 auth design; M-02, M-08 | **Yes** | Phase 2 implementation of child auth |
+| ~~D-23a~~ | **Closed → OC-35.** | | | | | |
 
 ### C2. Business rules (needed before the phase shown; placeholders are used in designs meanwhile)
 
@@ -124,13 +134,13 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **D-05** | Which parent restrictions exist for AI booking? | Recurring blocked periods; one-off blocked dates; maximum AI minutes per day; minimum lead time | Weekly cap; per-subject limits; parent-PIN override | Slot engine; M-09 | **Yes** | Phase 3 |
 | **D-07** | Cancel/reschedule policy | AI: student or parent up to start. Human: parent up to 2 h before; teacher may cancel with mandatory parent notice; inside 2 h, contact support. | Other cut-offs; teacher cannot cancel | States, notifications, Zoom updates | **Yes** | Phase 3 |
 | **D-08** | Must the parent confirm teacher-proposed meetings? | Yes. Zoom is created only after parent confirmation. | Teacher books directly; parent notified | Child safety; extra state | **Yes** | Phase 3 |
-| **D-09** | Who approves teachers and links them to students? | Super Admin approves teachers; a link is created when a parent confirms a booking; the parent can revoke it | Super Admin creates all links; teacher requests links | Relationship model; M-21, M-29 | **Yes** | Phase 2 |
-| **D-11b** | How are Super Admin accounts created? (Remainder of D-11 not covered by OC-21) | At least two Super Admins, created by a one-off setup script run by you. MFA is enrolled at first sign-in. There is no self-registration. | One Super Admin; created by hand in the database | Lock-out risk if the single admin loses MFA | **Yes** | Phase 2 |
+| ~~D-09~~ | **Closed → OC-36.** | | | | | |
+| ~~D-11b~~ | **Closed → OC-37.** | | | | | |
 | **D-15** | Group human sessions | 1:1 only in v1 | Small groups with consent rules | Data model; privacy | **Yes** | Phase 3 |
 | **D-16** | Teacher resource sharing and visibility | Teachers share only with assigned students, no parent gate, visible to the parent. Teachers see parent uploads only if shared. | Parent-gated sharing; teacher sees all of the child's files | Resource permissions | **Yes** | Phase 4 |
 | **D-17** | Library "needs approval" state | Drop it. Resources are assigned (visible) or not, plus a "not available" state for failed or processing files. | Keep an approval workflow | Library states | **Yes** | Phase 4 |
 | **D-22** | Student AI-class reminders | Parent by email (WhatsApp later); student sees an on-screen banner from T−15; children are not messaged | Student email/WhatsApp | Child data collection | **Yes** | Phase 7 |
-| **D-37** | Password length policy (part of D-23a) | Adults (Parent, Teacher, Super Admin): at least 12 characters. Child: at least 8 characters, set by the parent; passphrases allowed. Both: maximum 64 characters, checked against a breached-password list, with no forced composition rules (NIST SP 800-63B approach). | The same 12-character minimum for children | M-02, M-03, M-08 copy | **Yes** | Phase 2 |
+| ~~D-37~~ | **Closed → OC-35.** | | | | | |
 | **D-24** | Session summaries: source and retention | Summary generated after the session; transcript discarded; summaries kept for a period you set (proposed 12 months) | Keep the transcript; no summaries | Privacy, cost | **Yes** | Phase 5 |
 | **D-25** | External invitation content | The email contains the real Zoom join link and no child profile data | Time-limited AA Pro link | M-32 | **Yes** | Phase 6 |
 | **D-26** | Rights in uploaded textbooks | The parent confirms permitted use on upload; only lesson pages are sent to the AI Tutor | No attestation; legal review first | Upload flow, legal exposure | **Yes** | Phase 4 |
@@ -147,16 +157,17 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **A-04.** Share the design canvas with anyone else who should review it. It is private to you until shared from its Share menu.
 - **A-05.** Before the first push, add a repository secret named `IDENTIFYING_TERMS` (GitHub → repository → Settings → Secrets and variables → Actions → New repository secret). It holds the identifying demo terms that CI must never find in the repository. This keeps those terms out of Git entirely. The value is given to you in the chat, not in any document. Without the secret, the CI privacy check fails on purpose rather than passing silently.
 - **A-06 (optional).** The project root holds stale duplicate copies of several docs (for example a v1.0 G1-04 and older G1-05 copies) next to the current `claude/` versions. The authoritative copies are under `claude/`. You may delete the root duplicates. I will not delete them.
-- **A-07.** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
+- **A-07 (done 14 Oct 2026).** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
 
-## Summary: status after the owner's approval of 14 Oct 2026 (13:39 IST)
+## Summary: status on 14 Oct 2026 (about 19:40 IST)
 
 | ID | State |
 |---|---|
 | D-32 Designs | **Approved (OC-24)**, except M-31 (deferred). New boards P19/P21 approved (OC-33). |
 | D-34 Bootstrap | **Done (OC-25):** commit `0a42216` on `main`; CI green |
 | D-38 / D-39 / D-40 / D-41 | **Approved (OC-26 … OC-29)** |
-| Phase 1 | **Authorised (OC-30)** and in progress; each work package is a pull request for your review |
+| Phase 1 | **Complete** (P1-02). Hosted demo preview live on Vercel (OC-34, A-07) |
+| Phase 2 | Decisions D-23a, D-37, D-09, D-11b closed (OC-35 … OC-37). Plan P2-00 waiting for owner approval |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
 | A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
-| Open, not decided | D-05, D-07, D-08, D-09, D-10, D-11b, D-15, D-16, D-17, D-22, D-23a, D-24, D-25, D-26, D-28, D-35, D-37, D-01a |
+| Open, not decided | D-05, D-07, D-08, D-10, D-15, D-16, D-17, D-22, D-24, D-25, D-26, D-28, D-35, D-01a |
