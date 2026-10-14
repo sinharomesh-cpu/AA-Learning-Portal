@@ -1,0 +1,17 @@
+{
+  "$comment": "Colours used on the approved Tokens board (OC-24, board 2) that are not in the Stitch DESIGN.md front-matter. Each is recorded in docs/design/deviation-log.md (DV-03).",
+  "colors": {
+    "card-border": "#dfe3ec",
+    "success-container": "#e3f6ec",
+    "success-border": "#9fdcbf",
+    "on-success-container": "#00391f",
+    "warning-container": "#fff1dc",
+    "warning-border": "#ffb95f",
+    "on-warning-container": "#4d2f00",
+    "error-border": "#f2a59d",
+    "human-border": "#93ccff",
+    "on-primary-panel": "#e2efff",
+    "primary-hover": "#004b73",
+    "disabled-text": "#8a929c"
+  }
+}
