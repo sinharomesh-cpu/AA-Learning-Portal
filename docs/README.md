@@ -16,12 +16,12 @@
 | `G1-06_Repository_and_Project_Isolation_Plan.md` | Repository rules and the bootstrap plan |
 | `G1-07_Design_Review_Round2_Changelog.md` | Design review round 2 changes |
 | `G1-08_Owner_Action_Plan.md` | Owner action plan, including the child sign-in specification (D-23a) and branch protection steps |
+| `G1-09_Pre-Phase1_Approval_Package.md` | Pre-Phase 1 approval package (approved 14 Oct 2026) |
+| `G1-10_Phase1_Implementation_Plan.md` | Phase 1 implementation plan (approved 14 Oct 2026) |
 
 **Redacted copies.** Three documents differ from the owner's private project copies, and only by redaction:
 - `AA_Pro_Phase0_Audit_Report.md`, `G1-01_Canonical_Screen_Inventory.md` and `G1-04_Design_Change_and_Accessibility_Log.md`.
 - In them, the demo first names, the real school's name, email domain and Zoom subdomain, and two Stitch folder names are replaced with `[redacted]` markers.
-
-**Not yet in the repository.** The approval package (G1-09) and the Phase 1 plan (G1-10) stay in the owner's private project until approved.
 
 ## Design (`design/`)
 - `design/missing-screens.md`: the design canvas and the per-screen approval record (D-32).
