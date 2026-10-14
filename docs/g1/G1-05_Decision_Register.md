@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.12 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.13 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.13 changes (owner, 14 Oct 2026, 21:47 IST: "All approved"):**
+- **OC-43:** landing page text updated for OC-41 as Claude suggested: the fourth Safety card becomes "Your books stay in AA Pro" (teachers read, cannot download), replacing "AI lessons aren't recorded"; a new FAQ "How do teachers get my child's books?". Board 63 updated to match. Boards 57–62 and 64 are not drawn yet and are not covered by this approval.
 
 **v1.12 changes (owner, 14 Oct 2026, 20:38 IST: "I approve the new design"):**
 - **OC-42:** board 63 (public landing page, desktop and phone) approved. It was the only Phase 2 board drawn at that moment; boards 57–62 and 64 will be shown for approval separately. Built in WP2-10.
@@ -112,6 +115,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-40** | **Phase 2 authorised:** plan P2-00 v1.2 approved (WP2-1 … WP2-10, boards 57–63). Test data only; no hosted database, email provider or production deployment without separate approval. | Owner, 14 Oct 2026, 20:15 IST | Phase 2 |
 | **OC-41** | **Teachers see parent uploads by subject (CR-03).** (1) For each teacher and each child, the parent ticks the subjects that teacher teaches (one, several or all). (2) The teacher can open **every** material the parent uploaded for that child in those subjects, arranged by subject card, then book or chapter; there is no per-file switch. (3) A teacher sees nothing for other subjects, other children or other families. (4) The teacher can open the materials **any time while the student is assigned** to them; access ends at once when the parent removes the teacher or a subject. (5) **View only inside AA Pro: teachers can see books and chapters but cannot download them.** | Owner, 14 Oct 2026 ("parent have the checklist options … only math's will visible to teacher"; 20:31 IST: "Teacher can view the books and chapters but not able to download", "Teacher can open and see the material anytime if they have student assign") | Phase 2: link subjects (migration 0002). Phase 4: uploads and the teacher's material view (board 64) |
 | **OC-42** | **Board 63 public landing page approved** (desktop and phone). Boards 57–62 and 64 not yet drawn at the time; to be approved separately. | Owner, 14 Oct 2026, 20:38 IST | WP2-10 |
+| **OC-43** | **Landing page wording for OC-41:** "Your books stay in AA Pro" safety card and the FAQ "How do teachers get my child's books?"; board 63 updated. | Owner, 14 Oct 2026, 21:47 IST ("All approved") | WP2-10 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

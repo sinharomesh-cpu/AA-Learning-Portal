@@ -66,12 +66,11 @@ const ICONS: Record<(typeof SAFETY)[number]['id'], ReactNode> = {
       <path d="M4 20L20 4" />
     </>
   ),
-  'no-recording': (
+  books: (
     <>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0" />
-      <path d="M12 18v3" />
-      <path d="M4 4l16 16" />
+      <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
+      <path d="M4 19V5" />
+      <path d="M9 7h6" />
     </>
   ),
 };
