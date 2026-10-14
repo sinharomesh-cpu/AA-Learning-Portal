@@ -42,7 +42,8 @@ const PATTERNS = [
   ['phone-number', /\+\d{1,3}[ -]?\d{3,5}[ -]?\d{3,5}\b/],
 ];
 const EMAIL = /[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}/g;
-const ALLOWED_EMAIL_DOMAINS = /@example\.(com|org|net)$/i;
+// example.* is reserved for documentation; noreply@anthropic.com appears only in commit-attribution notes.
+const ALLOWED_EMAIL_DOMAINS = /(@example\.(com|org|net)|^noreply@anthropic\.com)$/i;
 const HOTLINK = /lh3\.googleusercontent\.com/i;
 const BRAND = [/\blumina\b/i, /\blumi\b/i, /p4bpay/i];
 const FORBIDDEN_PATH = [
