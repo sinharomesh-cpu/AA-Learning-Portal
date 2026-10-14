@@ -24,10 +24,15 @@ function trackedFiles() {
 
 function loadTerms() {
   const i = args.indexOf('--terms-file');
-  const raw = i >= 0 ? readFileSync(args[i + 1], 'utf8') : (process.env.IDENTIFYING_TERMS || '');
-  const terms = raw.split(/[\n,]+/).map((t) => t.trim().toLowerCase()).filter((t) => t.length >= 3);
+  const raw = i >= 0 ? readFileSync(args[i + 1], 'utf8') : process.env.IDENTIFYING_TERMS || '';
+  const terms = raw
+    .split(/[\n,]+/)
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length >= 3);
   if (terms.length === 0) {
-    console.error('FAIL: no identifying terms configured. Set the IDENTIFYING_TERMS repository secret (or pass --terms-file locally).');
+    console.error(
+      'FAIL: no identifying terms configured. Set the IDENTIFYING_TERMS repository secret (or pass --terms-file locally).',
+    );
     process.exit(2);
   }
   return terms;
@@ -57,14 +62,21 @@ const files = trackedFiles();
 for (const f of files) {
   for (const [rx, label] of FORBIDDEN_PATH) if (rx.test(f)) add(f, 'forbidden-file', label);
   let size = 0;
-  try { size = statSync(f).size; } catch { continue; }
+  try {
+    size = statSync(f).size;
+  } catch {
+    continue;
+  }
   if (size > MAX_BYTES) add(f, 'file-too-large', `${size} bytes`);
   if (BINARY.test(f)) continue;
   const text = readFileSync(f, 'utf8');
   const lower = text.toLowerCase();
-  terms.forEach((t, idx) => { if (lower.includes(t)) add(f, 'identifying-term', `term #${idx + 1}`); });
+  terms.forEach((t, idx) => {
+    if (lower.includes(t)) add(f, 'identifying-term', `term #${idx + 1}`);
+  });
   for (const [label, rx] of PATTERNS) if (rx.test(text)) add(f, label);
-  for (const m of text.match(EMAIL) || []) if (!ALLOWED_EMAIL_DOMAINS.test(m)) add(f, 'email-address', 'non-example domain');
+  for (const m of text.match(EMAIL) || [])
+    if (!ALLOWED_EMAIL_DOMAINS.test(m)) add(f, 'email-address', 'non-example domain');
   if (!f.startsWith('docs/') && HOTLINK.test(text)) add(f, 'hot-linked-image');
   if (f !== SELF && !f.startsWith('docs/') && !f.startsWith('design-reference/')) {
     for (const rx of BRAND) if (rx.test(text)) add(f, 'banned-brand-string', rx.source);

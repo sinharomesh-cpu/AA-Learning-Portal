@@ -1,0 +1,11 @@
+.next/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+design-reference/
+docs/
+package-lock.json
+.secrets.baseline
+next-env.d.ts
+*.md
