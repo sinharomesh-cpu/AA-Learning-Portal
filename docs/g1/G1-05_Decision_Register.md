@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.9 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.10 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.10 changes (owner instruction of 14 Oct 2026, 20:15 IST: "Yes, I approved you can go ahead wit Phase 2"):**
+- **OC-40:** Phase 2 plan P2-00 v1.2 approved; Phase 2 authorised. Work starts with WP2-1 (database foundation) and boards 57–63.
 
 **v1.9 changes (owner answers of 14 Oct 2026, about 19:40 IST):**
 - **A-07 done:** the owner imported the repository into Vercel (Hobby plan, team "Zeus") and reports the preview working. GitHub records Vercel's deployment of commit `7045b14` as successful. Claude could not open the address from its own session.
@@ -99,6 +102,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-37** | **D-11b: two Super Admins at launch**, created by a one-off setup step the owner runs; each enrols MFA at first sign-in; no self-registration. | Owner, 14 Oct 2026 ("Two admins") | Phase 2 |
 | **OC-38** | **Teachers can register themselves.** A teacher creates an account (name, email, password), confirms the email, completes the onboarding profile (M-20) and waits for Super Admin approval (M-21, M-29) before reaching the teacher portal. Once approved, they see a child only after a parent links them (OC-36) or confirms a booking (Phase 3). The missing "Create an account" screen becomes board 62. | Owner, 14 Oct 2026, 20:04 IST | Phase 2 (WP2-3, WP2-6) |
 | **OC-39** | **Public landing page (CR-02).** Sections: home intro, How it works (parents, students, teachers), Safety and privacy, About us, FAQ, Contact us, plus Sign in and Create an account. Claude drafts the About us text, marked as a draft with no invented company facts; the owner edits it before launch. The owner provides the contact email. | Owner, 14 Oct 2026, 20:08 IST | Phase 2 (board 63, WP2-10) |
+| **OC-40** | **Phase 2 authorised:** plan P2-00 v1.2 approved (WP2-1 … WP2-10, boards 57–63). Test data only; no hosted database, email provider or production deployment without separate approval. | Owner, 14 Oct 2026, 20:15 IST | Phase 2 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -171,7 +175,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | D-34 Bootstrap | **Done (OC-25):** commit `0a42216` on `main`; CI green |
 | D-38 / D-39 / D-40 / D-41 | **Approved (OC-26 … OC-29)** |
 | Phase 1 | **Complete** (P1-02). Hosted demo preview live on Vercel (OC-34, A-07) |
-| Phase 2 | Decisions D-23a, D-37, D-09, D-11b closed (OC-35 … OC-37). Plan P2-00 waiting for owner approval |
+| Phase 2 | **Authorised (OC-40)**; in progress |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
 | A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
 | Open, not decided | D-05, D-07, D-08, D-10, D-15, D-16, D-17, D-22, D-24, D-25, D-26, D-28, D-35, D-01a |
