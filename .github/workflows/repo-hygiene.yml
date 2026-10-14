@@ -1,0 +1,32 @@
+name: repo-hygiene
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-and-brand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Identifying data, brand strings and forbidden files
+        env:
+          IDENTIFYING_TERMS: ${{ secrets.IDENTIFYING_TERMS }}
+        run: node scripts/check-repo-hygiene.mjs
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install detect-secrets 1.5.0
+        run: python3 -m pip install --user detect-secrets==1.5.0
+      - name: Scan tracked files for secrets (fails on anything not in the audited baseline)
+        run: git ls-files -z | xargs -0 python3 -m detect_secrets.pre_commit_hook --baseline .secrets.baseline

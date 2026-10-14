@@ -1,0 +1,682 @@
+<!-- REDACTED DERIVATIVE of Stitch export file "zip8/student_dashboard_my_learning_space/code.html" (original SHA-256 d735481016b8380b66e0792f76ad43cfe7fae7b945fde951e6cb8a0086b3981b). Reference only, not production code. Identifying demo data replaced with synthetic values; meeting links, IDs, passcodes and phone numbers replaced with placeholders; hot-linked images replaced with a neutral placeholder. Brand strings are left as they were in the original. -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@500;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-dim":"#d2d9f4","secondary-fixed":"#ffddb8","on-error-container":"#93000a","on-tertiary-fixed":"#002113","on-error":"#ffffff","background":"#faf8ff","tertiary":"#006947","on-background":"#131b2e","surface-container":"#eaedff","tertiary-fixed-dim":"#4edea3","primary-container":"#007bb9","surface-container-high":"#e2e7ff","on-surface-variant":"#3f4850","primary":"#006194","on-secondary-fixed":"#2a1700","on-primary":"#ffffff","surface-variant":"#dae2fd","on-surface":"#131b2e","on-secondary":"#ffffff","surface-bright":"#faf8ff","on-primary-fixed-variant":"#004b73","error":"#ba1a1a","inverse-surface":"#283044","surface-container-low":"#f2f3ff","surface-container-lowest":"#ffffff","on-secondary-fixed-variant":"#653e00","secondary-fixed-dim":"#ffb95f","inverse-primary":"#93ccff","tertiary-container":"#00855b","primary-fixed":"#cce5ff","error-container":"#ffdad6","on-tertiary-fixed-variant":"#005236","on-primary-fixed":"#001d31","on-tertiary-container":"#f5fff6","primary-fixed-dim":"#93ccff","on-tertiary":"#ffffff","surface-tint":"#006398","outline-variant":"#bfc7d2","inverse-on-surface":"#eef0ff","tertiary-fixed":"#6ffbbe","on-secondary-container":"#684000","secondary-container":"#fea619","surface":"#faf8ff","secondary":"#855300","outline":"#707881","surface-container-highest":"#dae2fd","on-primary-container":"#fdfcff"},"borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},"spacing":{"space-lg":"2rem","space-xl":"3rem","space-md":"1.25rem","gutter-mobile":"1rem","space-sm":"0.75rem","margin-mobile":"1rem","gutter":"1.5rem","margin":"2.5rem","space-xs":"0.375rem"},"fontFamily":{"headline-lg":["Outfit"],"headline-xl-mobile":["Outfit"],"label-md":["Plus Jakarta Sans"],"headline-sm":["Outfit"],"headline-lg-mobile":["Outfit"],"body-lg":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"headline-xl":["Outfit"],"headline-md":["Outfit"],"body-sm":["Plus Jakarta Sans"],"label-lg":["Plus Jakarta Sans"]},"fontSize":{"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"800"}],"label-md":["14px",{"lineHeight":"20px","fontWeight":"700"}],"headline-sm":["20px",{"lineHeight":"28px","fontWeight":"600"}],"headline-lg-mobile":["26px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-lg":["18px",{"lineHeight":"28px","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"500"}],"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"700"}],"headline-xl":["40px",{"lineHeight":"52px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"700"}],"body-sm":["14px",{"lineHeight":"20px","fontWeight":"500"}],"label-lg":["16px",{"lineHeight":"24px","fontWeight":"700"}]}}}};</script></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased"><header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-28 max-w-[1280px] mx-auto px-gutter flex flex-col justify-between py-space-xs"><div class="flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm"><img alt="AA Pro Logo" class="h-8 w-auto object-contain" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E"><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-none">AA Pro</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">Kiran &amp; Meera • Learning Space</span></div></div><div class="flex items-center bg-surface-container-high p-space-xs rounded-full"><button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-primary text-on-primary font-label-sm text-label-sm transition-all shadow-[0_2px_6px_-1px_rgba(0,97,148,0.2)]" type="button"><span class="material-symbols-outlined text-[16px]">school</span><span class="">Student Mode</span></button><button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface font-label-sm text-label-sm transition-all" type="button"><span class="material-symbols-outlined text-[16px]">family_restroom</span><span class="">Parent Mode</span></button><button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface font-label-sm text-label-sm transition-all" type="button"><span class="material-symbols-outlined text-[16px]">co_present</span><span class="">Teacher Mode</span></button></div><div class="flex items-center gap-space-sm"><img alt="AA Pro Logo" class="h-8 w-auto object-contain" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E"><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-none">AA Pro</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">Kiran &amp; Meera • Learning Space</span></div></div></div><nav class="flex items-center gap-space-xs overflow-x-auto py-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-label-md"><a aria-current="page" class="px-space-sm py-space-xs rounded-full transition-colors whitespace-nowrap bg-primary-container text-on-primary-container font-label-md" data-path="student-dashboard" href="#">Dashboard</a><a class="px-space-sm py-space-xs rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors whitespace-nowrap" data-path="student-my-schedule" href="#">My Schedule</a><a class="px-space-sm py-space-xs rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors whitespace-nowrap" data-path="student-ai-classroom" href="#">AI Classroom</a><a class="px-space-sm py-space-xs rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors whitespace-nowrap" data-path="student-zoom-meetings" href="#">Zoom Meetings</a><a class="px-space-sm py-space-xs rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors whitespace-nowrap" data-path="student-learning-library" href="#">Learning Library</a><a class="px-space-sm py-space-xs rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors whitespace-nowrap" data-path="student-badges" href="#">Badges</a></nav></div></header><main class="w-full pt-28 bg-background min-h-screen"><div class="flex flex-col w-full">
+<!-- Prototype Banner Notice -->
+<div class="w-full bg-surface-container-high py-space-xs px-gutter flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<div class="flex items-center gap-space-xs max-w-[1280px] mx-auto w-full">
+<span class="material-symbols-outlined text-[16px] text-primary">verified_user</span>
+<span class="font-bold">Interactive Prototype Demonstration Data:</span>
+<span class="">Simulating Student Session • COPPA / Lumina ChildSafe Guard 2.4 Active</span>
+</div>
+</div>
+<div class="max-w-[1280px] w-full mx-auto px-gutter py-space-md flex flex-col gap-space-lg">
+<!-- Top Controls: Child Profile Switcher & ChildSafe Trust Indicator -->
+<section class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-space-md">
+<!-- Child Switcher Pill Deck -->
+<div class="flex items-center bg-surface-container p-1.5 rounded-full shadow-sm self-start">
+<!-- Kiran (Active) -->
+<button class="child-btn flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-primary text-on-primary transition-all shadow-md" id="btn-child-kiran" onclick="switchChild('kiran')" type="button">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest/20 flex items-center justify-center font-headline-sm text-headline-sm leading-none">🚀</div>
+<div class="flex flex-col text-left">
+<span class="font-headline-sm text-headline-sm leading-none text-on-primary">Kiran</span>
+<span class="font-label-sm text-label-sm text-primary-fixed leading-tight">Sample Primary School 5A • 5-Day Streak 🔥 • 450 XP</span>
+</div>
+</button>
+<!-- Meera (Switch Target) -->
+<button class="child-btn flex items-center gap-space-xs px-space-md py-space-xs rounded-full text-on-surface-variant hover:text-on-surface transition-all" id="btn-child-meera" onclick="switchChild('meera')" type="button">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center font-headline-sm text-headline-sm leading-none">🌟</div>
+<div class="flex flex-col text-left">
+<span class="font-headline-sm text-headline-sm leading-none">Meera</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">Sample Primary School 4G • 4-Day Streak ✨ • 380 XP</span>
+</div>
+</button>
+</div>
+<!-- Lumina ChildSafe Status Badge -->
+<div class="flex items-center gap-space-sm bg-tertiary/10 px-space-md py-space-xs rounded-full self-start md:self-auto">
+<div class="w-3 h-3 rounded-full bg-tertiary animate-pulse"></div>
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-tertiary" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+<span class="font-label-md text-label-md text-tertiary">Lumina ChildSafe 100% Gated</span>
+</div>
+<span class="bg-surface-container-lowest px-2 py-0.5 rounded-full font-label-sm text-label-sm text-tertiary">Safe Search Active</span>
+</div>
+</section>
+<!-- LIVE SESSION COUNTDOWN HERO ALERT (Human Teacher Zoom Mode) -->
+<section class="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary p-space-md md:p-space-lg shadow-xl">
+<!-- Decorative Backdrop Circles -->
+<div class="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-surface-container-lowest/10 pointer-events-none blur-2xl"></div>
+<div class="absolute right-1/3 -bottom-20 w-48 h-48 rounded-full bg-secondary-fixed/20 pointer-events-none blur-xl"></div>
+<div class="relative z-10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
+<!-- Session Identity & Detail -->
+<div class="flex items-start gap-space-md">
+<div class="relative flex-shrink-0">
+<div class="w-16 h-16 md:w-20 md:h-20 rounded-lg bg-surface-container-lowest flex items-center justify-center text-primary shadow-md overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Placeholder image" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E">
+</div>
+<span class="absolute -bottom-2 -right-2 bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full font-label-sm text-label-sm shadow flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">videocam</span>
+              LIVE
+            </span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex flex-wrap items-center gap-space-xs">
+<span class="bg-surface-container-lowest/25 text-on-primary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm uppercase tracking-wide flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">school</span>
+                Human Teacher Mode (Zoom Verified)
+              </span>
+<span class="bg-tertiary text-on-tertiary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm">
+                Sample Primary School Grade 5 Curriculum
+              </span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-primary leading-tight">
+              Plant Cells &amp; The Outer Solar System
+            </h2>
+<p class="font-body-md text-body-md text-primary-fixed">
+              With <span class="font-bold text-on-primary">Teacher A. Rao</span> • Starts in <span class="font-bold underline text-secondary-fixed" id="countdown-timer">12:18</span>
+</p>
+</div>
+</div>
+<!-- Join Actions + Audio Chime Toggle -->
+<div class="flex flex-col sm:flex-row items-start sm:items-center gap-space-sm bg-surface-container-lowest/15 p-space-sm rounded-lg backdrop-blur-md">
+<!-- Chime Reminder Pill -->
+<button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-surface-container-lowest/20 hover:bg-surface-container-lowest/30 text-on-primary transition-all font-label-sm text-label-sm" id="chime-toggle" onclick="toggleChime()" type="button">
+<span class="material-symbols-outlined text-[18px]" id="chime-icon">notifications_active</span>
+<span id="chime-text" class="">Chime On</span>
+</button>
+<!-- Primary View-and-Join Action (Strict student permissions: view & join only) -->
+<a class="flex items-center justify-center gap-space-xs px-space-lg py-space-sm rounded-full bg-secondary-container hover:bg-secondary-fixed text-on-secondary-container font-label-lg text-label-lg transition-transform active:translate-y-0.5 shadow-lg whitespace-nowrap" href="#" onclick="alert('Launching Zoom Classroom for Meeting ID: [meeting ID placeholder] (Participant: Kiran, Grade 5A). Secure student sandbox verified.'); return false;">
+<span class="material-symbols-outlined text-[22px]">video_chat</span>
+<span class="">Join Zoom Meeting</span>
+<span class="font-label-sm text-label-sm opacity-80">(ID: [meeting ID placeholder])</span>
+</a>
+</div>
+</div>
+</section>
+<!-- AI Companion Interactive Zone: "Tutor Lumina" vs "Human Teacher" Explainer -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-space-md">
+<!-- AI Mode Quick-Launch Card -->
+<div class="md:col-span-8 bg-surface-container-low p-space-md md:p-space-lg rounded-lg flex flex-col justify-between shadow-sm relative overflow-hidden">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary shadow-md">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-sm text-headline-sm text-on-surface">Tutor Lumina</span>
+<span class="bg-tertiary/15 text-tertiary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm">AI Companion Mode</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Always ready 24/7 • Instant hints for Sample Primary School homework</p>
+</div>
+</div>
+<button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-surface-container-lowest text-primary shadow-sm hover:bg-surface-container font-label-sm text-label-sm" onclick="playAudioPrompt()" type="button">
+<span class="material-symbols-outlined text-[18px]">volume_up</span>
+<span class="">Read to me</span>
+</button>
+</div>
+<!-- Speech Prompt Bubble with Organic Tail -->
+<div class="mt-space-md bg-surface-container-lowest p-space-md rounded-lg shadow-sm">
+<p class="font-body-lg text-body-lg text-on-surface leading-relaxed">
+            “Hi <span class="font-bold text-primary" id="dyn-student-name">Kiran</span>! Ready for your 4:30 PM Science Zoom? I prepared flashcards on <strong class="text-tertiary">Cell Vacuoles</strong> and Jupiter’s <strong class="text-secondary">Great Red Spot</strong> so you can impress Teacher A. Rao!”
+          </p>
+<div class="mt-space-sm flex flex-wrap gap-space-xs">
+<button class="px-space-sm py-space-xs bg-surface-container rounded-full font-label-sm text-label-sm text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">
+              🧪 Preview Plant Cell Quiz
+            </button>
+<button class="px-space-sm py-space-xs bg-surface-container rounded-full font-label-sm text-label-sm text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">
+              🪐 Explore Jupiter 3D Model
+            </button>
+<button class="px-space-sm py-space-xs bg-surface-container rounded-full font-label-sm text-label-sm text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">
+              📝 Ask a Practice Question
+            </button>
+</div>
+</div>
+<div class="mt-space-md flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">lock</span>
+            Private Kid-Safe AI • No external internet browsing
+          </span>
+<span class="font-bold text-primary">Zero distraction zone</span>
+</div>
+</div>
+<!-- Quick Stats & Weekly Journey Widget -->
+<div class="md:col-span-4 bg-surface-container-lowest p-space-md rounded-lg shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between pb-space-xs">
+<span class="font-headline-sm text-headline-sm text-on-surface">Weekly Quests</span>
+<span class="font-label-sm text-label-sm bg-secondary-fixed text-on-secondary-fixed px-2 py-0.5 rounded-full">Level 6 Cadet</span>
+</div>
+<div class="mt-space-sm flex flex-col gap-space-sm">
+<div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface mb-1">
+<span class="">Science Explorer Track</span>
+<span class="font-bold">85%</span>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 85%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface mb-1">
+<span class="">Maths Problem Blitz</span>
+<span class="font-bold">60%</span>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container rounded-full transition-all duration-500" style="width: 60%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface mb-1">
+<span class="">Hindi Varnamala Master</span>
+<span class="font-bold">92%</span>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-container rounded-full transition-all duration-500" style="width: 92%;"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-space-md flex items-center justify-between bg-surface-container-low p-space-sm rounded-lg mt-space-sm">
+<div class="flex items-center gap-2">
+<span class="text-2xl">⚡</span>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface leading-tight" id="dyn-xp">450 XP</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Top 5% in Sample Primary School 5A</div>
+</div>
+</div>
+<a class="px-space-sm py-space-xs bg-primary-fixed text-on-primary-fixed-variant rounded-full font-label-sm text-label-sm font-bold hover:bg-primary hover:text-on-primary transition-colors" href="#">
+            View Trophy Case
+          </a>
+</div>
+</div>
+</section>
+<!-- 6 SUBJECT CARDS (With Ingested Textbooks & Progress Meters) -->
+<section class="flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-on-surface">Curriculum Subjects</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Sample Primary School Aligned • Smart AI-Indexed NCERT &amp; Cambridge Courseware</p>
+</div>
+<div class="flex items-center gap-space-xs self-start">
+<span class="px-space-sm py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface">6 Ingested Modules Active</span>
+</div>
+</div>
+<!-- Subject Cards Grid (6 subjects) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">
+<!-- 1. Mathematics -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center text-primary text-2xl font-bold">
+                📐
+              </span>
+<span class="bg-primary/10 text-primary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-bold">
+                Chapter 7
+              </span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Mathematics</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Fractions, Decimals &amp; Area Perimeter</p>
+</div>
+<!-- Ingested Textbook Badge -->
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-full">
+<span class="material-symbols-outlined text-[16px] text-primary">auto_stories</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Sample Primary School Math Smart 5B (PDF Ingested)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span class="">Mastery Progress</span>
+<span class="font-bold text-on-surface">78%</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden mb-space-sm">
+<div class="h-full bg-primary rounded-full" style="width: 78%;"></div>
+</div>
+<button class="w-full py-space-xs rounded-full bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary font-label-md text-label-md transition-colors flex items-center justify-center gap-1" type="button">
+<span class="">Practice Chapter</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- 2. General Science -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="w-12 h-12 rounded-lg bg-tertiary-fixed flex items-center justify-center text-tertiary text-2xl font-bold">
+                🔬
+              </span>
+<span class="bg-tertiary/10 text-tertiary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-bold">
+                Chapter 5
+              </span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface group-hover:text-tertiary transition-colors">General Science</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Living Cells &amp; Solar System Explorers</p>
+</div>
+<!-- Ingested Textbook Badge -->
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-full">
+<span class="material-symbols-outlined text-[16px] text-tertiary">auto_stories</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Science Spark Gr 5 (Oxford + Sample Primary School)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span class="">Mastery Progress</span>
+<span class="font-bold text-on-surface">88%</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden mb-space-sm">
+<div class="h-full bg-tertiary rounded-full" style="width: 88%;"></div>
+</div>
+<button class="w-full py-space-xs rounded-full bg-surface-container-high hover:bg-tertiary hover:text-on-tertiary text-tertiary font-label-md text-label-md transition-colors flex items-center justify-center gap-1" type="button">
+<span class="">Explore Interactive Lab</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- 3. Social Studies (SST) -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="w-12 h-12 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary text-2xl font-bold">
+                🌍
+              </span>
+<span class="bg-secondary/10 text-secondary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-bold">
+                Chapter 9
+              </span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface group-hover:text-secondary transition-colors">Social Studies (SST)</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">The Indus Valley &amp; Early Civilizations</p>
+</div>
+<!-- Ingested Textbook Badge -->
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-full">
+<span class="material-symbols-outlined text-[16px] text-secondary">auto_stories</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Heritage &amp; World Vol 2 (Ingested)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span class="">Mastery Progress</span>
+<span class="font-bold text-on-surface">65%</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden mb-space-sm">
+<div class="h-full bg-secondary-container rounded-full" style="width: 65%;"></div>
+</div>
+<button class="w-full py-space-xs rounded-full bg-surface-container-high hover:bg-secondary hover:text-on-secondary text-secondary font-label-md text-label-md transition-colors flex items-center justify-center gap-1" type="button">
+<span class="">Explore Timeline</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- 4. English -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center text-primary text-2xl font-bold">
+                📚
+              </span>
+<span class="bg-primary/10 text-primary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-bold">
+                Unit 4
+              </span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">English</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Story Comprehension &amp; Adverb Quests</p>
+</div>
+<!-- Ingested Textbook Badge -->
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-full">
+<span class="material-symbols-outlined text-[16px] text-primary">auto_stories</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Cambridge Primary English 5 (Ingested)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span class="">Mastery Progress</span>
+<span class="font-bold text-on-surface">82%</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden mb-space-sm">
+<div class="h-full bg-primary rounded-full" style="width: 82%;"></div>
+</div>
+<button class="w-full py-space-xs rounded-full bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary font-label-md text-label-md transition-colors flex items-center justify-center gap-1" type="button">
+<span class="">Read Stories</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- 5. Hindi -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="w-12 h-12 rounded-lg bg-secondary-fixed-dim/40 flex items-center justify-center text-secondary text-2xl font-bold">
+                🇮🇳
+              </span>
+<span class="bg-secondary/10 text-secondary px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-bold">
+                पाठ ६
+              </span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface group-hover:text-secondary transition-colors">Hindi (हिंदी)</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">कविता पाठ और व्याकरण अभ्यास</p>
+</div>
+<!-- Ingested Textbook Badge -->
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-full">
+<span class="material-symbols-outlined text-[16px] text-secondary">auto_stories</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">रिमझिम भाग ५ (NCERT Ingested)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span class="">Mastery Progress</span>
+<span class="font-bold text-on-surface">71%</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden mb-space-sm">
+<div class="h-full bg-secondary rounded-full" style="width: 71%;"></div>
+</div>
+<button class="w-full py-space-xs rounded-full bg-surface-container-high hover:bg-secondary hover:text-on-secondary text-secondary font-label-md text-label-md transition-colors flex items-center justify-center gap-1" type="button">
+<span class="">कविता सुनें</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- 6. Information Technology (IT) -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="w-12 h-12 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary text-2xl font-bold">
+                💻
+              </span>
+<span class="bg-primary-container/20 text-primary-container px-space-xs py-0.5 rounded-full font-label-sm text-label-sm font-bold">
+                Module 3
+              </span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Information Technology</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Scratch Logic &amp; Internet Safety Basics</p>
+</div>
+<!-- Ingested Textbook Badge -->
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-full">
+<span class="material-symbols-outlined text-[16px] text-primary">auto_stories</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Sample Primary School Cyber Explorers 5 (Ingested)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span class="">Mastery Progress</span>
+<span class="font-bold text-on-surface">94%</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container rounded-full overflow-hidden mb-space-sm">
+<div class="h-full bg-primary-container rounded-full" style="width: 94%;"></div>
+</div>
+<button class="w-full py-space-xs rounded-full bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary font-label-md text-label-md transition-colors flex items-center justify-center gap-1" type="button">
+<span class="">Open Scratch Studio</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- STUDY HUB & GOOGLE CLASSROOM SYNCED ASSIGNMENTS -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+<!-- Synced Assignments (Study Hub) -->
+<div class="lg:col-span-8 bg-surface-container-lowest p-space-md md:p-space-lg rounded-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-xs">
+<div>
+<div class="flex items-center gap-space-xs">
+<img class="w-6 h-6 object-contain" data-alt="Google Classroom icon graphic with green chalkboard frame, neat clean vector illustration" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E">
+<h3 class="font-headline-md text-headline-md text-on-surface">Synced Homework &amp; Tasks</h3>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Live sync with Sample Primary School Google Classroom • View &amp; Solve permissions only</p>
+</div>
+<span class="bg-surface-container px-space-sm py-space-xs rounded-full font-label-sm text-label-sm text-on-surface-variant">
+            Last synced: Today 2:15 PM
+          </span>
+</div>
+<!-- Assignment List Items (Strictly View Slides & Solve with Lumina) -->
+<div class="flex flex-col gap-space-sm">
+<!-- Item 1: Science Due Tomorrow -->
+<div class="p-space-md rounded-lg bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary font-bold flex-shrink-0">
+                🌱
+              </div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-error font-bold">Due Tomorrow • 9:00 AM</span>
+<h5 class="font-headline-sm text-headline-sm text-on-surface">Lab Worksheet: Label the Onion Cell Organelles</h5>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Teacher: Teacher A. Rao • 4 of 6 questions answered</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs flex-wrap sm:flex-nowrap">
+<button class="px-space-sm py-space-xs rounded-full bg-surface-container-lowest text-on-surface hover:bg-surface-container font-label-sm text-label-sm flex items-center gap-1 transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">slideshow</span>
+<span class="">View Slides</span>
+</button>
+<button class="px-space-md py-space-xs rounded-full bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm flex items-center gap-1 transition-colors shadow" type="button">
+<span class="material-symbols-outlined text-[16px]">smart_toy</span>
+<span class="">Solve with Lumina</span>
+</button>
+</div>
+</div>
+<!-- Item 2: Mathematics Due Friday -->
+<div class="p-space-md rounded-lg bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-bold flex-shrink-0">
+                ➗
+              </div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Due Friday • Oct 24</span>
+<h5 class="font-headline-sm text-headline-sm text-on-surface">Fraction Simplification Challenge Set #4</h5>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Teacher: Teacher B. Iyer • Sample Primary School Math Portal</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs flex-wrap sm:flex-nowrap">
+<button class="px-space-sm py-space-xs rounded-full bg-surface-container-lowest text-on-surface hover:bg-surface-container font-label-sm text-label-sm flex items-center gap-1 transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">slideshow</span>
+<span class="">View Slides</span>
+</button>
+<button class="px-space-md py-space-xs rounded-full bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm flex items-center gap-1 transition-colors shadow" type="button">
+<span class="material-symbols-outlined text-[16px]">smart_toy</span>
+<span class="">Solve with Lumina</span>
+</button>
+</div>
+</div>
+<!-- Item 3: Social Studies Reading Note -->
+<div class="p-space-md rounded-lg bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary font-bold flex-shrink-0">
+                🏺
+              </div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Due Monday • Oct 27</span>
+<h5 class="font-headline-sm text-headline-sm text-on-surface">Mohenjo-Daro Great Bath Diagram Reading</h5>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Teacher: Teacher D. Nair • Chapter 9 Reference Deck</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs flex-wrap sm:flex-nowrap">
+<button class="px-space-sm py-space-xs rounded-full bg-surface-container-lowest text-on-surface hover:bg-surface-container font-label-sm text-label-sm flex items-center gap-1 transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">slideshow</span>
+<span class="">View Slides</span>
+</button>
+<button class="px-space-md py-space-xs rounded-full bg-primary text-on-primary hover:bg-primary-container font-label-sm text-label-sm flex items-center gap-1 transition-colors shadow" type="button">
+<span class="material-symbols-outlined text-[16px]">smart_toy</span>
+<span class="">Solve with Lumina</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- BADGE COLLECTION & REWARDS SHOWCASE -->
+<div class="lg:col-span-4 bg-surface-container-lowest p-space-md md:p-space-lg rounded-lg shadow-sm flex flex-col justify-between gap-space-md">
+<div>
+<div class="flex items-center justify-between mb-space-xs">
+<h3 class="font-headline-md text-headline-md text-on-surface">Badge Shelf</h3>
+<span class="font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-full font-bold">14 Unlocked</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Earned through curiosity, quiz scores, and daily practice</p>
+<!-- Badges Grid -->
+<div class="grid grid-cols-3 gap-space-sm">
+<!-- Badge 1 -->
+<div class="flex flex-col items-center text-center p-space-xs rounded-lg bg-surface-container-low group hover:scale-105 transition-transform cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-primary-fixed flex items-center justify-center text-2xl shadow-sm mb-1">
+                🔬
+              </div>
+<span class="font-label-sm text-label-sm text-on-surface font-bold leading-tight">Cell Whiz</span>
+<span class="text-[10px] text-on-surface-variant">Gold Badge</span>
+</div>
+<!-- Badge 2 -->
+<div class="flex flex-col items-center text-center p-space-xs rounded-lg bg-surface-container-low group hover:scale-105 transition-transform cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-secondary-fixed flex items-center justify-center text-2xl shadow-sm mb-1">
+                🔥
+              </div>
+<span class="font-label-sm text-label-sm text-on-surface font-bold leading-tight" id="dyn-streak-badge">5-Day Heat</span>
+<span class="text-[10px] text-on-surface-variant">Streak Tier II</span>
+</div>
+<!-- Badge 3 -->
+<div class="flex flex-col items-center text-center p-space-xs rounded-lg bg-surface-container-low group hover:scale-105 transition-transform cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-tertiary-fixed flex items-center justify-center text-2xl shadow-sm mb-1">
+                🌌
+              </div>
+<span class="font-label-sm text-label-sm text-on-surface font-bold leading-tight">Cosmo Cadet</span>
+<span class="text-[10px] text-on-surface-variant">Space Quest</span>
+</div>
+<!-- Badge 4 -->
+<div class="flex flex-col items-center text-center p-space-xs rounded-lg bg-surface-container-low group hover:scale-105 transition-transform cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-surface-variant flex items-center justify-center text-2xl shadow-sm mb-1">
+                🧩
+              </div>
+<span class="font-label-sm text-label-sm text-on-surface font-bold leading-tight">Logic Crafter</span>
+<span class="text-[10px] text-on-surface-variant">Scratch Level 3</span>
+</div>
+<!-- Badge 5 -->
+<div class="flex flex-col items-center text-center p-space-xs rounded-lg bg-surface-container-low group hover:scale-105 transition-transform cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-primary-fixed-dim/60 flex items-center justify-center text-2xl shadow-sm mb-1">
+                📖
+              </div>
+<span class="font-label-sm text-label-sm text-on-surface font-bold leading-tight">Book Pioneer</span>
+<span class="text-[10px] text-on-surface-variant">50 Chapters</span>
+</div>
+<!-- Locked Badge 6 -->
+<div class="flex flex-col items-center text-center p-space-xs rounded-lg bg-surface-container-high/40 opacity-60">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center text-2xl mb-1">
+                🔒
+              </div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-bold leading-tight">Solar Legend</span>
+<span class="text-[10px] text-outline">After Live Zoom</span>
+</div>
+</div>
+</div>
+<!-- Next Reward Progression -->
+<div class="p-space-sm bg-surface-container-low rounded-lg flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-xl">
+            🏆
+          </div>
+<div class="flex flex-col flex-1">
+<span class="font-label-sm text-label-sm text-on-surface font-bold">Next Trophy: Lumina Star Master</span>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden mt-1">
+<div class="h-full bg-secondary-container rounded-full" style="width: 75%;"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1">50 XP needed • Finish today's science session</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Up-Next Schedule Overview (Strictly Student View-Only: No edit/calendar create controls) -->
+<section class="bg-surface-container-low p-space-md md:p-space-lg rounded-lg flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-xs">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Today's Remaining Sessions</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Student Mode Access • Managed by Sample Primary School Learning Coordinator</p>
+</div>
+<div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm bg-surface-container px-space-sm py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
+<span class="">Parent Auto-Attended Sync</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+<!-- Next 1: The Active Live One -->
+<div class="p-space-md bg-surface-container-lowest rounded-lg shadow-sm flex items-center justify-between border-l-4 border-primary">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[28px]">videocam</span>
+<div>
+<span class="font-label-sm text-label-sm text-primary font-bold">4:30 PM • Today</span>
+<h5 class="font-headline-sm text-headline-sm text-on-surface">Plant Cells &amp; Solar System</h5>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Human Zoom • Teacher A. Rao</p>
+</div>
+</div>
+<span class="bg-primary text-on-primary px-space-sm py-space-xs rounded-full font-label-sm text-label-sm font-bold">Starting Soon</span>
+</div>
+<!-- Next 2: Math Review Tomorrow -->
+<div class="p-space-md bg-surface-container-lowest rounded-lg shadow-sm flex items-center justify-between opacity-80">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[28px]">smart_toy</span>
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-bold">Tomorrow • 5:00 PM</span>
+<h5 class="font-headline-sm text-headline-sm text-on-surface">Fractions Speed Round</h5>
+<p class="font-body-sm text-body-sm text-on-surface-variant">AI Classroom • Tutor Lumina</p>
+</div>
+</div>
+<span class="bg-surface-container text-on-surface-variant px-space-sm py-space-xs rounded-full font-label-sm text-label-sm">Scheduled</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+<script>
+  // Simple Child Switcher Demo Micro-interaction
+  function switchChild(child) {
+    const btnKiran = document.getElementById('btn-child-kiran');
+    const btnMeera = document.getElementById('btn-child-meera');
+    const nameEl = document.getElementById('dyn-student-name');
+    const xpEl = document.getElementById('dyn-xp');
+    const streakBadge = document.getElementById('dyn-streak-badge');
+
+    if (child === 'kiran') {
+      btnKiran.className = 'child-btn flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-primary text-on-primary transition-all shadow-md';
+      btnMeera.className = 'child-btn flex items-center gap-space-xs px-space-md py-space-xs rounded-full text-on-surface-variant hover:text-on-surface transition-all';
+      if(nameEl) nameEl.textContent = 'Kiran';
+      if(xpEl) xpEl.textContent = '450 XP';
+      if(streakBadge) streakBadge.textContent = '5-Day Heat';
+    } else {
+      btnMeera.className = 'child-btn flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-primary text-on-primary transition-all shadow-md';
+      btnKiran.className = 'child-btn flex items-center gap-space-xs px-space-md py-space-xs rounded-full text-on-surface-variant hover:text-on-surface transition-all';
+      if(nameEl) nameEl.textContent = 'Meera';
+      if(xpEl) xpEl.textContent = '380 XP';
+      if(streakBadge) streakBadge.textContent = '4-Day Sparkle';
+    }
+  }
+
+  // Audio Playback simulation
+  function playAudioPrompt() {
+    alert("Audio Playback: 'Hi learner! Ready for your 4:30 PM Science Zoom? I prepared flashcards on Cell Vacuoles and Jupiter's Great Red Spot!'");
+  }
+
+  // Sound chime toggle micro-interaction
+  let chimeActive = true;
+  function toggleChime() {
+    chimeActive = !chimeActive;
+    const icon = document.getElementById('chime-icon');
+    const text = document.getElementById('chime-text');
+    if (chimeActive) {
+      icon.textContent = 'notifications_active';
+      text.textContent = 'Chime On';
+    } else {
+      icon.textContent = 'notifications_off';
+      text.textContent = 'Chime Muted';
+    }
+  }
+
+  // Simulated 15-minute countdown clock
+  let totalSeconds = 14 * 60 + 52;
+  setInterval(function() {
+    if (totalSeconds > 0) {
+      totalSeconds--;
+      const m = Math.floor(totalSeconds / 60);
+      const s = totalSeconds % 60;
+      const el = document.getElementById('countdown-timer');
+      if (el) {
+        el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+      }
+    }
+  }, 1000);
+</script></main><footer class="w-full bg-surface-container-low mt-space-xl py-space-lg"><div class="max-w-[1280px] mx-auto px-gutter flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm"><img alt="AA Pro Logo" class="h-6 w-auto object-contain" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E"><span class="font-label-md text-label-md text-on-surface">AA Pro © 2025</span><span class="font-body-sm text-body-sm text-on-surface-variant">| Empowering Curious Explorers</span></div><div class="flex items-center gap-space-md"><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Parent Safety Portal</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Curriculum Alignment</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Privacy &amp; Security</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Support Desk</a></div></div></footer>
+
+</body></html>

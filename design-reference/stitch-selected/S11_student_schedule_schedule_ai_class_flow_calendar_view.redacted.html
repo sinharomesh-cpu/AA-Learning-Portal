@@ -1,0 +1,491 @@
+<!-- REDACTED DERIVATIVE of Stitch export file "zip8/student_schedule_schedule_ai_class_flow_calendar_view/code.html" (original SHA-256 8fe258a92050329c935d5465c30a79848ac16c260d7744d2ba86fe2706bdb05d). Reference only, not production code. Identifying demo data replaced with synthetic values; meeting links, IDs, passcodes and phone numbers replaced with placeholders; hot-linked images replaced with a neutral placeholder. Brand strings are left as they were in the original. -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><title>AA Pro</title><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"error-container":"#ffdad6","outline":"#707881","tertiary":"#006947","surface-container-highest":"#dae2fd","on-tertiary-fixed":"#002113","on-primary-fixed":"#001d31","on-secondary-fixed":"#2a1700","surface":"#faf8ff","primary-fixed-dim":"#93ccff","background":"#faf8ff","on-primary-fixed-variant":"#004b73","secondary-fixed-dim":"#ffb95f","on-tertiary-container":"#f5fff6","surface-container-lowest":"#ffffff","inverse-surface":"#283044","secondary-fixed":"#ffddb8","on-secondary":"#ffffff","surface-container-high":"#e2e7ff","secondary":"#855300","on-primary":"#ffffff","surface-container-low":"#f2f3ff","surface-container":"#eaedff","on-background":"#131b2e","outline-variant":"#bfc7d2","tertiary-fixed":"#6ffbbe","on-secondary-container":"#684000","on-primary-container":"#fdfcff","inverse-primary":"#93ccff","on-tertiary":"#ffffff","on-surface-variant":"#3f4850","on-secondary-fixed-variant":"#653e00","tertiary-fixed-dim":"#4edea3","primary-fixed":"#cce5ff","surface-tint":"#006398","secondary-container":"#fea619","error":"#ba1a1a","on-surface":"#131b2e","on-error":"#ffffff","surface-dim":"#d2d9f4","primary":"#006194","surface-bright":"#faf8ff","inverse-on-surface":"#eef0ff","primary-container":"#007bb9","surface-variant":"#dae2fd","on-error-container":"#93000a","on-tertiary-fixed-variant":"#005236","tertiary-container":"#00855b"},"borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},"spacing":{"space-sm":"0.75rem","margin-mobile":"1rem","margin":"2.5rem","gutter-mobile":"1rem","gutter":"1.5rem","space-lg":"2rem","space-xs":"0.375rem","space-xl":"3rem","space-md":"1.25rem"},"fontFamily":{"headline-lg-mobile":["Outfit"],"label-lg":["Plus Jakarta Sans"],"headline-xl-mobile":["Outfit"],"body-md":["Plus Jakarta Sans"],"headline-sm":["Outfit"],"body-sm":["Plus Jakarta Sans"],"body-lg":["Plus Jakarta Sans"],"headline-xl":["Outfit"],"headline-md":["Outfit"],"label-md":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"headline-lg":["Outfit"]},"fontSize":{"headline-lg-mobile":["26px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"700"}],"label-lg":["16px",{"lineHeight":"24px","fontWeight":"700"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"800"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"500"}],"headline-sm":["20px",{"lineHeight":"28px","fontWeight":"600"}],"body-sm":["14px",{"lineHeight":"20px","fontWeight":"500"}],"body-lg":["18px",{"lineHeight":"28px","fontWeight":"500"}],"headline-xl":["40px",{"lineHeight":"52px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"700"}],"label-md":["14px",{"lineHeight":"20px","fontWeight":"700"}],"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"700"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface antialiased min-h-screen flex flex-col"><header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between gap-6"><div class="flex items-center gap-8"><a class="flex items-center gap-3 group focus:outline-none" data-path="child-dashboard" href="#"><div class="w-11 h-11 rounded-lg overflow-hidden shrink-0 shadow-[0_4px_12px_-2px_rgba(0,97,148,0.25)] group-hover:scale-105 transition-transform flex items-center justify-center"><img alt="AA Pro Logo" class="w-full h-full object-cover" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E"></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-primary font-bold leading-none">AA Pro</span><span class="font-label-sm text-label-sm tracking-wider uppercase text-on-surface-variant font-semibold mt-0.5">Student Portal</span></div></a><nav class="hidden xl:flex items-center gap-1.5" data-active-classes="bg-primary-container text-on-primary font-bold rounded-lg shadow-[0_4px_10px_rgba(0,97,148,0.15)]"><a class="px-4 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg font-label-md text-label-md transition-all" data-path="child-dashboard" href="#"><div class="w-11 h-11 rounded-lg overflow-hidden shrink-0 shadow-[0_4px_12px_-2px_rgba(0,97,148,0.25)] group-hover:scale-105 transition-transform flex items-center justify-center"><img alt="AA Pro Logo" class="w-full h-full object-cover" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E"></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-primary font-bold leading-none">AA Pro</span><span class="font-label-sm text-label-sm tracking-wider uppercase text-on-surface-variant font-semibold mt-0.5">Student Portal</span></div></a><a aria-current="page" class="px-4 py-2 transition-all bg-primary-container text-on-primary font-bold rounded-lg shadow-[0_4px_10px_rgba(0,97,148,0.15)]" data-path="class-schedule" href="#">Class Schedule</a><a class="px-4 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg font-label-md text-label-md transition-all" data-path="book-a-class" href="#">Book a Class</a><a class="px-4 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg font-label-md text-label-md transition-all" data-path="ai-classroom" href="#">AI Classroom</a><a class="px-4 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg font-label-md text-label-md transition-all" data-path="learning-library" href="#">Learning Library</a></nav></div><div class="flex items-center gap-3 lg:gap-4"><div class="hidden sm:flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full"><span class="material-symbols-outlined text-secondary text-[20px]">local_fire_department</span><span class="font-label-sm text-label-sm text-on-surface font-bold whitespace-nowrap">5 Days Streak</span></div><div class="hidden md:flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full"><span class="material-symbols-outlined text-secondary-container text-[20px]">stars</span><span class="font-label-sm text-label-sm text-on-surface font-bold whitespace-nowrap">450 XP</span></div><button class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface" type="button"><span class="material-symbols-outlined text-[18px]">family_restroom</span><span class="font-label-sm text-label-sm font-semibold">Parent Mode</span></button><button class="relative w-10 h-10 rounded-full hover:bg-surface-container flex items-center justify-center transition-colors text-on-surface-variant hover:text-on-surface" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-surface"></span></button><div class="flex items-center gap-3 pl-2"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden sm:flex flex-col text-left"><span class="font-label-md text-label-md text-on-surface font-bold leading-tight">Kiran</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">Grade 5</span></div></div></div></div></header><main class="w-full pt-20 bg-background flex-1"><div class="flex flex-col w-full">
+<div class="max-w-7xl mx-auto w-full px-6 lg:px-12 py-8 space-y-8">
+<!-- Top Controller & Utility Bar -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-surface-container-lowest p-6 rounded-lg shadow-sm">
+<div class="flex flex-wrap items-center gap-4">
+<!-- Date Navigator -->
+<div class="flex items-center bg-surface-container-low p-1.5 rounded-full">
+<button aria-label="Previous week" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors active:translate-y-0.5" id="prevWeekBtn">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<div class="px-5 text-center">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold whitespace-nowrap">Oct 28 – Nov 3, 2024</span>
+<span class="block font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider">Autumn Term • Week 9</span>
+</div>
+<button aria-label="Next week" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors active:translate-y-0.5" id="nextWeekBtn">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+<button class="px-5 py-2.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-md text-label-md hover:bg-primary-fixed-dim transition-all active:translate-y-0.5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+<span class="">Jump to Today</span>
+</button><button class="px-5 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container shadow-md hover:shadow-lg transition-all active:translate-y-0.5 flex items-center gap-2 font-bold" id="openScheduleModalBtn"><span class="material-symbols-outlined text-[18px]">auto_awesome</span><span class="">+ Schedule AI Class</span></button><div class="flex items-center gap-1.5 bg-surface-container-low px-3 py-1.5 rounded-full text-on-surface-variant"><span class="material-symbols-outlined text-[18px] text-primary">tune</span><span class="font-label-sm text-label-sm font-semibold">Subject:</span><select class="bg-transparent font-label-sm text-label-sm font-bold text-on-surface focus:outline-none cursor-pointer"><option>All Subjects</option><option>Maths</option><option>Science</option><option>SST</option><option>English</option><option>Hindi</option><option>IT &amp; AI</option></select></div>
+</div>
+<!-- Filter Pills -->
+<div class="flex flex-wrap items-center gap-2" id="filter-chip-group">
+<button class="filter-chip px-4 py-2 rounded-full font-label-md text-label-md bg-primary text-on-primary transition-all shadow-sm active:translate-y-0.5 flex items-center gap-1.5" data-filter="all">
+<span class="material-symbols-outlined text-[18px]">grid_view</span>
+<span class="">All Slots (14)</span>
+</button>
+<button class="filter-chip px-4 py-2 rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all active:translate-y-0.5 flex items-center gap-1.5" data-filter="confirmed">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span>
+<span class="">Confirmed (6)</span>
+</button>
+<button class="filter-chip px-4 py-2 rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all active:translate-y-0.5 flex items-center gap-1.5" data-filter="open">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-container"></span>
+<span class="">Parent Open Slots (5)</span>
+</button>
+<button class="filter-chip px-4 py-2 rounded-full font-label-md text-label-md bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all active:translate-y-0.5 flex items-center gap-1.5" data-filter="cancelled">
+<span class="w-2.5 h-2.5 rounded-full bg-error"></span>
+<span class="">Changes (3)</span>
+</button>
+</div>
+</div>
+<!-- Main Schedule Workspace: 12-Col Bento Layout -->
+<div class="bg-surface-container-lowest border-2 border-primary-fixed rounded-lg p-6 lg:p-8 shadow-md transition-all" id="scheduleAiPanel"><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-surface-container pb-5"><div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[26px]">auto_awesome</span></div><div><div class="flex items-center gap-2"><h3 class="font-headline-md text-headline-md font-bold text-on-surface">Schedule AI Learning Session</h3><span class="font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">verified_user</span>Student Permitted Window</span></div><p class="font-body-sm text-body-sm text-on-surface-variant">Students can book AI Companion pods instantly within parent study windows. (Human tutors require parent approval)</p></div></div><div class="flex items-center gap-2"><span class="font-label-sm text-label-sm bg-secondary-fixed text-on-secondary-fixed px-3 py-1 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">savings</span>Parent Budget: 4h Remaining</span></div></div><div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6"><div class="lg:col-span-8 space-y-5"><div><label class="block font-label-md text-label-md font-bold text-on-surface mb-2 flex items-center gap-1.5"><span class="material-symbols-outlined text-primary text-[18px]">category</span>1. Select Approved Subject</label><div class="grid grid-cols-3 sm:grid-cols-6 gap-2" id="aiSubjectPills"><button class="p-2.5 rounded-DEFAULT bg-primary text-on-primary text-center font-label-sm text-label-sm font-bold shadow-sm flex flex-col items-center gap-1" type="button"><span class="">📐</span><span class="">Maths</span></button><button class="p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface text-center font-label-sm text-label-sm font-bold flex flex-col items-center gap-1" type="button"><span class="">🔬</span><span class="">Science</span></button><button class="p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface text-center font-label-sm text-label-sm font-bold flex flex-col items-center gap-1" type="button"><span class="">🌍</span><span class="">SST</span></button><button class="p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface text-center font-label-sm text-label-sm font-bold flex flex-col items-center gap-1" type="button"><span class="">📖</span><span class="">English</span></button><button class="p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface text-center font-label-sm text-label-sm font-bold flex flex-col items-center gap-1" type="button"><span class="">🪔</span><span class="">Hindi</span></button><button class="p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface text-center font-label-sm text-label-sm font-bold flex flex-col items-center gap-1" type="button"><span class="">💻</span><span class="">IT &amp; AI</span></button></div></div><div><label class="block font-label-md text-label-md font-bold text-on-surface mb-2 flex items-center gap-1.5"><span class="material-symbols-outlined text-primary text-[18px]">menu_book</span>2. Choose Chapter &amp; Topic (From Grade 5 Curriculum)</label><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div class="p-3.5 bg-surface-container-low rounded-DEFAULT border border-primary/20"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Approved Textbook</span><div class="font-label-md text-label-md font-bold text-on-surface mt-0.5 flex items-center gap-1.5"><span class="material-symbols-outlined text-primary text-[18px]">book_2</span>NCERT Mathematics In Depth - Ch 6</div><select class="w-full mt-2 bg-surface-container-lowest border border-outline-variant p-2 rounded-DEFAULT font-body-sm text-body-sm text-on-surface focus:outline-none"><option selected="">Chapter 6: Decimals, Fractions &amp; Number Lines</option><option>Chapter 7: Geometry &amp; Angles Discovery</option><option>Chapter 8: Data Handling &amp; Charts</option></select></div><div class="p-3.5 bg-surface-container-low rounded-DEFAULT border border-primary/20"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Active Learning Objective</span><div class="font-label-md text-label-md font-bold text-on-surface mt-0.5 flex items-center gap-1.5"><span class="material-symbols-outlined text-secondary text-[18px]">psychology</span>Interactive Diagnostic &amp; Practice</div><select class="w-full mt-2 bg-surface-container-lowest border border-outline-variant p-2 rounded-DEFAULT font-body-sm text-body-sm text-on-surface focus:outline-none"><option selected="">Converting Mixed Fractions into Decimals (Visual Models)</option><option>Word Problems: Practical Measurement Ratios</option><option>Rapid Quiz &amp; Concept Mastery Check</option></select></div></div></div><div><label class="block font-label-md text-label-md font-bold text-on-surface mb-2 flex items-center gap-1.5"><span class="material-symbols-outlined text-primary text-[18px]">schedule</span>3. Select Parent-Approved Available AI Slot</label><div class="grid grid-cols-2 sm:grid-cols-3 gap-3"><button class="p-3 rounded-DEFAULT bg-primary text-on-primary shadow-sm flex flex-col text-left" type="button"><span class="font-label-md text-label-md font-bold flex items-center justify-between">5:15 PM<span class="material-symbols-outlined text-[16px]">check_circle</span></span><span class="font-label-sm text-label-sm opacity-90">Today • 45 Mins</span><span class="font-label-sm text-label-sm mt-1 text-primary-fixed">✓ Free Study Window</span></button><button class="p-3 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface flex flex-col text-left transition-all" type="button"><span class="font-label-md text-label-md font-bold">6:30 PM</span><span class="font-label-sm text-label-sm text-on-surface-variant">Today • 30 Mins</span><span class="font-label-sm text-label-sm mt-1 text-tertiary font-bold">Approved Window</span></button><button class="p-3 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-on-surface flex flex-col text-left transition-all" type="button"><span class="font-label-md text-label-md font-bold">4:30 PM (Tue)</span><span class="font-label-sm text-label-sm text-on-surface-variant">Tomorrow • 45 Mins</span><span class="font-label-sm text-label-sm mt-1 text-tertiary font-bold">Approved Window</span></button></div></div></div><div class="lg:col-span-4 bg-surface-container-low rounded-DEFAULT p-5 flex flex-col justify-between space-y-4 border border-outline-variant/30"><div class="space-y-3"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Booking Summary</span><span class="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">smart_toy</span>AI Tutor Lumina</span></div><div class="bg-surface-container-lowest p-3.5 rounded-DEFAULT space-y-1.5"><div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><span class="font-label-md text-label-md font-bold text-on-surface">Mathematics: Fractions &amp; Decimals</span></div><div class="text-body-sm font-body-sm text-on-surface-variant pl-4">NCERT Ch 6 • Visual Representation</div><div class="text-body-sm font-body-sm text-primary font-bold pl-4 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">alarm</span>Today at 5:15 PM – 6:00 PM (45m)</div></div><div class="p-3 rounded-DEFAULT bg-secondary-fixed/40 text-on-secondary-fixed-variant text-label-sm font-label-sm flex items-start gap-2"><span class="material-symbols-outlined text-secondary text-[18px] shrink-0">shield_check</span><span class=""><strong>Parent Guardrail Verified:</strong> Within approved daily 2h cap. No human tutor booking allowed without parent PIN.</span></div></div><div class="space-y-2 pt-2"><button class="w-full py-3.5 px-4 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md hover:bg-primary-container transition-all active:translate-y-0.5 flex items-center justify-center gap-2" type="button"><span class="material-symbols-outlined text-[20px]">task_alt</span><span class="">Confirm AI Class</span></button><p class="text-center font-label-sm text-label-sm text-on-surface-variant">Instant reservation • Textbook loaded automatically</p></div></div></div></div><div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+<!-- Center Calendar & Interactive Days Agenda (8 Columns) -->
+<div class="xl:col-span-8 flex flex-col space-y-6">
+<!-- Day Selector Pill Strip (Desktop Quick Anchors) -->
+<div class="grid grid-cols-5 gap-3 bg-surface-container-lowest p-2 rounded-lg shadow-sm">
+<button class="day-tab flex flex-col items-center justify-center p-3 rounded-DEFAULT bg-primary-container text-on-primary shadow-sm transition-all text-center">
+<span class="font-label-sm text-label-sm uppercase tracking-wider opacity-90">Mon</span>
+<span class="font-headline-md text-headline-md font-bold leading-none mt-1">28</span>
+<span class="mt-2 inline-flex items-center gap-1 font-label-sm text-label-sm bg-surface-container-lowest/20 px-2 py-0.5 rounded-full">3 Lessons</span>
+</button>
+<button class="day-tab flex flex-col items-center justify-center p-3 rounded-DEFAULT hover:bg-surface-container-low text-on-surface transition-all text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Tue</span>
+<span class="font-headline-md text-headline-md font-bold leading-none mt-1">29</span>
+<span class="mt-2 inline-flex items-center gap-1 font-label-sm text-label-sm bg-surface-container-high px-2 py-0.5 rounded-full text-on-surface-variant">2 Open</span>
+</button>
+<button class="day-tab flex flex-col items-center justify-center p-3 rounded-DEFAULT hover:bg-surface-container-low text-on-surface transition-all text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Wed</span>
+<span class="font-headline-md text-headline-md font-bold leading-none mt-1">30</span>
+<span class="mt-2 inline-flex items-center gap-1 font-label-sm text-label-sm bg-surface-container-high px-2 py-0.5 rounded-full text-on-surface-variant">2 Lessons</span>
+</button>
+<button class="day-tab flex flex-col items-center justify-center p-3 rounded-DEFAULT hover:bg-surface-container-low text-on-surface transition-all text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Thu</span>
+<span class="font-headline-md text-headline-md font-bold leading-none mt-1">31</span>
+<span class="mt-2 inline-flex items-center gap-1 font-label-sm text-label-sm bg-surface-container-high px-2 py-0.5 rounded-full text-on-surface-variant">Lab Day</span>
+</button>
+<button class="day-tab flex flex-col items-center justify-center p-3 rounded-DEFAULT hover:bg-surface-container-low text-on-surface transition-all text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Fri</span>
+<span class="font-headline-md text-headline-md font-bold leading-none mt-1">01</span>
+<span class="mt-2 inline-flex items-center gap-1 font-label-sm text-label-sm bg-surface-container-high px-2 py-0.5 rounded-full text-on-surface-variant">Quiz Day</span>
+</button>
+</div>
+<!-- Schedule Flow: Monday Highlighted Day with Hour Rail -->
+<div class="bg-surface-container-lowest rounded-lg p-6 lg:p-8 shadow-sm space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">today</span>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold">Monday, October 28</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">3 sessions scheduled • 1 open approved study window</p>
+</div>
+</div>
+<span class="font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+              Parent Timetable Sync Active
+            </span>
+</div>
+<!-- Time Track Grid -->
+<div class="space-y-4">
+<!-- Morning School Time Block (Locked) -->
+<div class="flex items-start gap-4 p-4 rounded-DEFAULT bg-surface-container-low opacity-90 transition-all">
+<div class="w-24 text-right pt-1 shrink-0">
+<span class="font-label-md text-label-md font-bold text-on-surface">8:30 AM</span>
+<span class="block font-label-sm text-label-sm text-on-surface-variant">3h 30m</span>
+</div>
+<div class="flex-1 bg-surface-container p-4 rounded-DEFAULT flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-dim flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">school</span>
+</div>
+<div>
+<h3 class="font-label-lg text-label-lg text-on-surface font-bold">Sample Primary School Regular Hours</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Core Grade 5 Offline Classes &amp; Lunch Break</p>
+</div>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1 bg-surface-dim rounded-full text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+<span class="">School Time</span>
+</div>
+</div>
+</div>
+<!-- 4:00 PM: CONFIRMED LIVE CLASS -->
+<div class="schedule-card flex flex-col md:flex-row md:items-stretch gap-4 p-5 rounded-DEFAULT bg-surface-container-lowest shadow-md hover:shadow-xl transition-all" data-type="confirmed">
+<div class="w-24 text-left md:text-right pt-2 shrink-0">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">4:00 PM</span>
+<span class="block font-label-sm text-label-sm text-on-surface-variant">45 Mins</span>
+<span class="inline-block mt-1 px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm rounded-full font-bold">Live Lab</span>
+</div>
+<!-- Lesson Card Content -->
+<div class="flex-1 bg-surface-container-low rounded-DEFAULT p-5 flex flex-col justify-between gap-4">
+<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+<div class="flex items-start gap-4">
+<img class="w-16 h-16 rounded-DEFAULT object-cover shrink-0 shadow-sm" data-alt="Vibrant 3D planetary rendering depicting Jupiter and Mars in space with child friendly glowing rings, educational science illustration style in deep azure and celestial gold." src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E">
+<div>
+<div class="flex items-center gap-2 mb-1"><span class="font-label-sm text-label-sm bg-tertiary text-on-tertiary px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">videocam</span>Human Teacher (Zoom)</span><span class="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">person</span>Teacher B. Iyer</span><span class="font-label-sm text-label-sm bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-full font-semibold">Science &amp; Astronomy</span></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">The Solar System: Inner vs Outer Planets</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Tutor Teacher B. Iyer • 6 Classmates Enrolled</p>
+</div>
+</div>
+</div>
+<!-- Footer row of the card -->
+<div class="flex flex-wrap items-center justify-between gap-4 pt-3 bg-surface-container-lowest/60 -mx-5 -mb-5 p-4 rounded-b-DEFAULT">
+<div class="flex items-center gap-3">
+<span class="font-label-sm text-label-sm text-tertiary font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">sensors</span>
+                      Room Opens in 25 mins
+                    </span>
+<span class="text-on-surface-variant text-label-sm">•</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Prerequisite: Quiz #3 Ready</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-4 py-2 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-container-highest transition-all active:translate-y-0.5">
+                      View Syllabus
+                    </button>
+<button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container shadow-md hover:shadow-lg transition-all active:translate-y-0.5 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+<span class="">Join Live Classroom</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- 5:00 PM: PARENT PUBLISHED OPEN SLOT -->
+<div class="schedule-card flex flex-col md:flex-row md:items-stretch gap-4 p-5 rounded-DEFAULT bg-surface-container-low shadow-sm hover:shadow-md transition-all" data-type="open">
+<div class="w-24 text-left md:text-right pt-2 shrink-0">
+<span class="font-headline-sm text-headline-sm font-bold text-secondary">5:15 PM</span>
+<span class="block font-label-sm text-label-sm text-on-surface-variant">45 Mins</span>
+<span class="inline-block mt-1 px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm rounded-full font-bold">Free Slot</span>
+</div>
+<div class="flex-1 bg-surface-container-lowest rounded-DEFAULT p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed shrink-0">
+<span class="material-symbols-outlined text-[28px]">lock_open</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-label-sm text-label-sm bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">family_restroom</span>
+                        Parent Approved Time
+                      </span>
+<span class="font-label-sm text-label-sm text-tertiary font-bold">Recommended: Coding or Reading</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Unbooked Exploration Window</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Mom unlocked this 45-minute window for an extra AI companion drill.</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-3">
+<a class="px-5 py-2.5 rounded-full bg-secondary-container text-on-secondary-container font-label-md text-label-md hover:bg-secondary-fixed-dim transition-all shadow-sm active:translate-y-0.5 flex items-center gap-1.5 font-bold" data-path="book-a-class" href="#">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span class="">+ Book This Slot</span>
+</a>
+</div>
+</div>
+</div>
+<!-- 6:00 PM: NEWLY BOOKED AI TUTOR SESSION -->
+<div class="schedule-card flex flex-col md:flex-row md:items-stretch gap-4 p-5 rounded-DEFAULT bg-surface-container-lowest shadow-md hover:shadow-xl transition-all" data-type="confirmed"><div class="w-24 text-left md:text-right pt-2 shrink-0"><span class="font-headline-sm text-headline-sm font-bold text-primary">6:00 PM</span><span class="block font-label-sm text-label-sm text-on-surface-variant">30 Mins</span><span class="inline-block mt-1 px-2.5 py-0.5 bg-primary text-on-primary font-label-sm text-label-sm rounded-full font-bold shadow-sm">✨ AI Mode</span></div><div class="flex-1 bg-surface-container-low rounded-DEFAULT p-5 flex flex-col justify-between gap-4 border-2 border-primary/20"><div class="flex items-start gap-4"><div class="w-16 h-16 rounded-DEFAULT bg-primary-container text-on-primary-container flex items-center justify-center shrink-0 shadow-sm ring-2 ring-primary-fixed"><span class="material-symbols-outlined text-[32px]">auto_awesome</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-label-sm text-label-sm bg-primary text-on-primary px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">smart_toy</span>AI Learning Session</span><span class="font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">verified</span>Parent Approved</span><span class="font-label-sm text-label-sm bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-full font-semibold">Mathematics • Grade 5</span></div><h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Fractions &amp; Decimals Quest with AI Lumina</h3><p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Textbook: NCERT Ch 6 Decimals &amp; Fractions • Adaptive Socratic practice</p></div></div><div class="flex flex-wrap items-center justify-between gap-4 pt-3 bg-surface-container-lowest/60 -mx-5 -mb-5 p-4 rounded-b-DEFAULT border-t border-surface-container"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">menu_book</span><span class="font-label-sm text-label-sm text-primary font-semibold">Integrated NCERT Chapter Viewer Linked</span></div><div class="flex items-center gap-2"><button class="px-4 py-2.5 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-container-highest transition-all active:translate-y-0.5 flex items-center gap-1.5" type="button"><span class="material-symbols-outlined text-[18px]">preview</span>Preview Topic</button><a class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md hover:bg-primary-container shadow-md hover:shadow-lg transition-all active:translate-y-0.5 flex items-center gap-2 font-bold" data-path="ai-classroom" href="#"><span class="material-symbols-outlined text-[20px]">rocket_launch</span><span class="">🚀 Join AI Class</span></a></div></div><div class="text-[12px] text-on-surface-variant font-label-sm flex items-center gap-1 text-right justify-end -mt-2"><span class="material-symbols-outlined text-[14px] text-tertiary">auto_stories</span><span class="">Opens AI Classroom with Integrated Textbook Viewer</span></div></div></div>
+<!-- CANCELLED / RESCHEDULED ITEM -->
+<div class="schedule-card flex flex-col md:flex-row md:items-stretch gap-4 p-5 rounded-DEFAULT bg-error-container/20 transition-all opacity-80 hover:opacity-100" data-type="cancelled">
+<div class="w-24 text-left md:text-right pt-2 shrink-0">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface-variant line-through">6:45 PM</span>
+<span class="block font-label-sm text-label-sm text-on-surface-variant">30 Mins</span>
+<span class="inline-block mt-1 px-2 py-0.5 bg-error text-on-error font-label-sm text-label-sm rounded-full font-bold">Cancelled</span>
+</div>
+<div class="flex-1 bg-surface-container-lowest rounded-DEFAULT p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[24px]">event_busy</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-label-sm text-label-sm bg-error-container text-on-error-container px-2.5 py-0.5 rounded-full font-bold">
+                        Cancelled due to School Cultural Fest
+                      </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-through">Spanish Club: Conversational Animals</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Original Tutor: Teacher D. Nair. Credits returned to wallet (+1 Class Pass).</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-2">
+<a class="px-4 py-2 rounded-full bg-surface-container text-primary hover:bg-primary-fixed font-label-md text-label-md transition-all active:translate-y-0.5 flex items-center gap-1.5 font-bold" data-path="book-a-class" href="#">
+<span class="material-symbols-outlined text-[18px]">schedule</span>
+<span class="">Reschedule Slot</span>
+</a>
+</div>
+</div>
+</div>
+<!-- 7:15 PM: LOCKED FAMILY & BEDTIME ZONE -->
+<div class="flex flex-col md:flex-row md:items-stretch gap-4 p-5 rounded-DEFAULT bg-surface-container-high/60 transition-all">
+<div class="w-24 text-left md:text-right pt-2 shrink-0">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface-variant">7:15 PM</span>
+<span class="block font-label-sm text-label-sm text-on-surface-variant">Until Morning</span>
+<span class="inline-block mt-1 px-2 py-0.5 bg-inverse-surface text-inverse-on-surface font-label-sm text-label-sm rounded-full font-bold">Quiet Hours</span>
+</div>
+<div class="flex-1 bg-surface-container p-5 rounded-DEFAULT flex items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-dim flex items-center justify-center text-on-surface-variant shrink-0">
+<span class="material-symbols-outlined text-[24px]">nights_stay</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-0.5">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">shield</span>
+                        Parent Guardrail Enforced
+                      </span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-bold">Family Dinner &amp; Screen-Free Recharge</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Bookings are automatically locked to ensure Kiran gets adequate sleep &amp; offline book reading time.</p>
+</div>
+</div>
+<div class="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-surface-container-lowest rounded-full text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+<span class="">Locked by Demo Parent</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Weekly Summary Compact Grid -->
+<div class="bg-surface-container-lowest rounded-lg p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Weekly Balance &amp; Milestones</h3>
+<span class="font-label-sm text-label-sm text-primary font-bold">Goal: 6 Hours / Week</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="p-4 bg-surface-container-low rounded-DEFAULT flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Completed</span>
+<span class="font-headline-lg text-headline-lg text-primary font-bold mt-1">4.5 hrs</span>
+<span class="font-body-sm text-body-sm text-tertiary font-bold mt-1">✓ 75% Target Achieved</span>
+</div>
+<div class="p-4 bg-surface-container-low rounded-DEFAULT flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Upcoming</span>
+<span class="font-headline-lg text-headline-lg text-secondary font-bold mt-1">3 Classes</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">Mon &amp; Wed remaining</span>
+</div>
+<div class="p-4 bg-surface-container-low rounded-DEFAULT flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Subject Split</span>
+<span class="font-headline-lg text-headline-lg text-tertiary font-bold mt-1">4 STEM</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">2 Language &amp; Arts</span>
+</div>
+<div class="p-4 bg-surface-container-low rounded-DEFAULT flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Parent Rating</span>
+<span class="font-headline-lg text-headline-lg text-on-surface font-bold mt-1">100%</span>
+<span class="font-body-sm text-body-sm text-tertiary font-bold mt-1">All slots pre-verified</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Rail & Side Panels (4 Columns) -->
+<div class="xl:col-span-4 flex flex-col space-y-6">
+<!-- Countdown Card for Next Imminent Lesson -->
+<div class="bg-gradient-to-br from-primary-container to-primary text-on-primary rounded-lg p-6 shadow-md relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-surface-container-lowest/10 blur-xl pointer-events-none"></div>
+<div class="flex items-center justify-between mb-4">
+<span class="px-3 py-1 bg-surface-container-lowest/20 rounded-full font-label-sm text-label-sm uppercase tracking-wider font-bold">Up Next in</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed px-2.5 py-0.5 rounded-full font-bold">
+<span class="material-symbols-outlined text-[14px]">videocam</span> Ready
+            </span>
+</div>
+<div class="text-center py-4 bg-surface-container-lowest/10 rounded-DEFAULT backdrop-blur-sm mb-5">
+<div class="font-headline-xl text-headline-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+<span class="" id="countdownMinutes">21</span>
+<span class="text-primary-fixed">:</span>
+<span class="" id="countdownSeconds">17</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider font-semibold">Minutes Until Class Starts</span>
+</div>
+<div class="space-y-2 mb-6">
+<h3 class="font-headline-sm text-headline-sm font-bold leading-snug">The Solar System: Inner vs Outer Planets</h3>
+<p class="font-body-sm text-body-sm text-primary-fixed opacity-90">With Teacher B. Iyer • Science Lab #04</p>
+</div>
+<div class="space-y-3">
+<button class="w-full py-3.5 px-4 rounded-full bg-surface-container-lowest text-primary font-label-lg text-label-lg font-bold shadow-md hover:bg-surface-container-low transition-all active:translate-y-0.5 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[20px]">door_open</span>
+<span class="">Test Mic &amp; Join Early</span>
+</button>
+<div class="flex items-center justify-between text-primary-fixed font-label-sm text-label-sm px-1">
+<span class="">Equipment: Camera &amp; Audio OK</span>
+<span class="font-bold">Device Verified ✓</span>
+</div>
+</div>
+</div>
+<!-- Parent Supervision & Policy Status Card -->
+<div class="bg-surface-container-lowest rounded-lg p-6 shadow-sm space-y-5">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-bold">
+<span class="material-symbols-outlined text-[24px]">verified_user</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Parent Authority</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Demo Parent (Parent Mode)</p>
+</div>
+</div>
+<button class="p-2 rounded-full hover:bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+</div>
+<!-- Weekly Hour Limit Progress -->
+<div class="space-y-2">
+<div class="flex justify-between items-baseline font-label-md text-label-md">
+<span class="text-on-surface font-semibold">Weekly Learning Budget</span>
+<span class="font-bold text-primary">6 / 10 Hours Used</span>
+</div>
+<div class="w-full h-3 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 60%;"></div>
+</div>
+<div class="flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="">Cap: Max 2 hours / day</span>
+<span class="text-tertiary font-bold">4 Hours Remaining</span>
+</div>
+</div>
+<!-- Policy Chips -->
+<div class="p-4 rounded-DEFAULT bg-surface-container-low space-y-2.5">
+<div class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Active Parent Rules</div>
+<div class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-tertiary text-[18px]">check</span>
+<span class="">1-on-1 AI Tutor sessions pre-approved</span>
+</div>
+<div class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-tertiary text-[18px]">check</span>
+<span class="">No lessons past 7:00 PM on weekdays</span>
+</div>
+<div class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-secondary text-[18px]">info</span>
+<span class="">Parent PIN required for booking over 10 hrs</span>
+</div>
+</div>
+<button class="w-full py-2.5 px-4 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md font-semibold transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+<span class="">Request Budget Extension</span>
+</button>
+</div>
+<!-- Quick Booking Widget Card -->
+<div class="bg-surface-container-lowest rounded-lg p-6 shadow-sm space-y-5">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Quick Class Booking</h3>
+<span class="material-symbols-outlined text-primary text-[24px]">library_add</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Need help with Grade 5 homework or want an extra AI drill? Reserve an open slot in seconds.</p>
+<!-- Fast Subject Selector -->
+<div class="grid grid-cols-2 gap-2">
+<button class="p-3 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-left transition-all group active:translate-y-0.5">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform text-[22px]">calculate</span>
+<span class="block font-label-md text-label-md font-bold text-on-surface mt-1">Mathematics</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">3 tutors available</span>
+</button>
+<button class="p-3 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-left transition-all group active:translate-y-0.5">
+<span class="material-symbols-outlined text-tertiary group-hover:scale-110 transition-transform text-[22px]">biotech</span>
+<span class="block font-label-md text-label-md font-bold text-on-surface mt-1">Science &amp; Lab</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">5 tutors available</span>
+</button>
+<button class="p-3 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-left transition-all group active:translate-y-0.5">
+<span class="material-symbols-outlined text-secondary-container group-hover:scale-110 transition-transform text-[22px]">code</span>
+<span class="block font-label-md text-label-md font-bold text-on-surface mt-1">AI &amp; Scratch</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Interactive bot</span>
+</button>
+<button class="p-3 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container text-left transition-all group active:translate-y-0.5">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:scale-110 transition-transform text-[22px]">translate</span>
+<span class="block font-label-md text-label-md font-bold text-on-surface mt-1">Languages</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Spanish / French</span>
+</button>
+</div>
+<a class="w-full py-3 px-4 rounded-full bg-primary text-on-primary hover:bg-primary-container font-label-lg text-label-lg font-bold shadow-md hover:shadow-lg transition-all active:translate-y-0.5 flex items-center justify-center gap-2" data-path="book-a-class" href="#">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span class="">Browse Full Booking Catalog</span>
+</a>
+</div>
+<!-- Friendly AI Tip Speech Bubble -->
+<div class="bg-surface-container-lowest rounded-lg p-5 shadow-sm relative">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[24px]">auto_awesome</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md font-bold text-primary">Tutor Lumina's Advice</span>
+<button class="w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container flex items-center justify-center text-on-surface-variant" title="Listen with voice">
+<span class="material-symbols-outlined text-[16px]">volume_up</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">"Hey Kiran! You've got an astronomy quiz tomorrow. Let's spend 15 minutes reviewing planetary gravity during the 5:15 PM slot!"</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Filter & Tab Micro-Interactions Script -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Filter Chip Interactions
+      const filterButtons = document.querySelectorAll('#filter-chip-group button');
+      const cards = document.querySelectorAll('.schedule-card');
+
+      filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          // Reset styles
+          filterButtons.forEach(b => {
+            b.classList.remove('bg-primary', 'text-on-primary');
+            b.classList.add('bg-surface-container-low', 'text-on-surface-variant');
+          });
+
+          // Activate clicked button
+          btn.classList.add('bg-primary', 'text-on-primary');
+          btn.classList.remove('bg-surface-container-low', 'text-on-surface-variant');
+
+          const filterVal = btn.getAttribute('data-filter');
+
+          cards.forEach(card => {
+            const cardType = card.getAttribute('data-type');
+            if (filterVal === 'all' || cardType === filterVal) {
+              card.style.display = 'flex';
+            } else {
+              card.style.display = 'none';
+            }
+          });
+        });
+      });
+
+      // Day Tab Strip Click Logic
+      const dayTabs = document.querySelectorAll('.day-tab');
+      dayTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          dayTabs.forEach(t => {
+            t.classList.remove('bg-primary-container', 'text-on-primary', 'shadow-sm');
+            t.classList.add('hover:bg-surface-container-low', 'text-on-surface');
+          });
+          tab.classList.remove('hover:bg-surface-container-low', 'text-on-surface');
+          tab.classList.add('bg-primary-container', 'text-on-primary', 'shadow-sm');
+        });
+      });
+
+      // Simple Dynamic Countdown Timer
+      let secondsLeft = 24 * 60 + 18;
+      const minEl = document.getElementById('countdownMinutes');
+      const secEl = document.getElementById('countdownSeconds');
+
+      if (minEl && secEl) {
+        setInterval(() => {
+          if (secondsLeft > 0) {
+            secondsLeft--;
+            const mins = Math.floor(secondsLeft / 60);
+            const secs = secondsLeft % 60;
+            minEl.textContent = mins < 10 ? '0' + mins : mins;
+            secEl.textContent = secs < 10 ? '0' + secs : secs;
+          }
+        }, 1000);
+      }
+    });
+  </script>
+</div></main><footer class="w-full bg-surface-container-low mt-auto py-10 shadow-[0_1px_8px_rgba(0,0,0,0.02)]"><div class="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col md:flex-row items-center justify-between gap-6"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-lg overflow-hidden shrink-0 shadow-sm flex items-center justify-center"><img alt="AA Pro Logo" class="w-full h-full object-cover" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%204%203%22%3E%3Crect%20width=%224%22%20height=%223%22%20fill=%22%23dfe3ec%22/%3E%3C/svg%3E"></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm font-bold text-primary leading-tight">AA Pro</span><span class="font-label-sm text-label-sm text-on-surface-variant">Interactive AI Companion for Curious Kids</span></div></div><div class="flex items-center gap-6 font-label-md text-label-md text-on-surface-variant"><a class="hover:text-on-surface transition-colors" data-path="learning-library" href="#">Curriculum</a><a class="hover:text-on-surface transition-colors" data-path="class-schedule" href="#">Timetable</a><a class="hover:text-on-surface transition-colors" data-path="ai-classroom" href="#">AI Sandbox</a><a class="hover:text-on-surface transition-colors" href="#">Parent Help Desk</a></div><div class="font-body-sm text-body-sm text-on-surface-variant text-center md:text-right">© 2025 AA Pro Inc. Safe, private &amp; playful.</div></div></footer>
+
+
+</body></html>
