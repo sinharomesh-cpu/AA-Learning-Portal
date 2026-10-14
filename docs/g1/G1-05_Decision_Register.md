@@ -151,5 +151,5 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | D-38 / D-39 / D-40 / D-41 | **Approved (OC-26 … OC-29)** |
 | Phase 1 | **Authorised (OC-30)** and in progress; each work package is a pull request for your review |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
-| A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks: `privacy-and-brand`, `secret-scan`, `lint`, `typecheck`, `test`, `build`, `e2e`; 0 approvals (OC-32) |
+| A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
 | Open, not decided | D-05, D-07, D-08, D-09, D-10, D-11b, D-15, D-16, D-17, D-22, D-23a, D-24, D-25, D-26, D-28, D-35, D-37, D-01a |
