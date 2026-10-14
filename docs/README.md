@@ -25,3 +25,6 @@
 
 ## Design (`design/`)
 - `design/missing-screens.md`: the design canvas and the per-screen approval record (D-32).
+
+## Phase 1 (`phase1/`)
+- `phase1/P1-02_Phase1_Completion_Report.md`: what Phase 1 delivered, with test results and known limitations.
