@@ -66,6 +66,29 @@ jobs:
           if AA_DEMO_MODE=true npm run build; then
             echo "Production build accepted AA_DEMO_MODE=true" && exit 1
           fi
+      - name: Hosted demo build refuses real-service settings (OC-34)
+        run: |
+          if AA_DEMO_MODE=true AA_HOSTED_DEMO=true DATABASE_URL=placeholder npm run build; then
+            echo "Hosted demo build accepted a real-service setting" && exit 1
+          fi
+
+  hosted-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - run: npx -y npm@${NPM_VERSION} ci --no-audit
+      - run: npx playwright install --with-deps chromium
+      - name: Build exactly as the hosted demo preview (OC-34)
+        run: npm run build
+        env:
+          AA_DEMO_MODE: 'true'
+          AA_HOSTED_DEMO: 'true'
+      - run: npm run test:hosted
 
   e2e:
     runs-on: ubuntu-latest

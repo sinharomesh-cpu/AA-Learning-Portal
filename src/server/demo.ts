@@ -1,9 +1,15 @@
 import 'server-only';
+import { demoEnabled, isHostedDemo } from '@/config/demoGate';
 
 /**
- * Phase 1 demo mode (OC-27 / D-39). True only when explicitly enabled and never in a
- * production build (next.config.ts refuses to build with the flag set).
+ * Demo mode (OC-27 / D-39, hosted preview OC-34). The rule lives in `config/demoGate.ts`,
+ * shared with `next.config.ts`, which refuses to build an unsafe combination.
  */
 export function isDemoMode(): boolean {
-  return process.env.AA_DEMO_MODE === 'true' && process.env.NODE_ENV !== 'production';
+  return demoEnabled(process.env);
+}
+
+/** True on the approved hosted demo preview, where a site-wide "sample data" banner is shown. */
+export function isHostedDemoPreview(): boolean {
+  return isDemoMode() && isHostedDemo(process.env);
 }

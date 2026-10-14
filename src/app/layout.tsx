@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { DemoPreviewBanner } from '@/components/shell/DemoPreviewBanner';
 import { brand } from '@/config/brand';
+import { isHostedDemoPreview } from '@/server/demo';
 import '@/styles/globals.css';
 import { jakarta, outfit } from './fonts';
 
@@ -19,7 +21,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${outfit.variable} ${jakarta.variable}`}>
-      <body>{children}</body>
+      <body>
+        {isHostedDemoPreview() ? <DemoPreviewBanner /> : null}
+        {children}
+      </body>
     </html>
   );
 }

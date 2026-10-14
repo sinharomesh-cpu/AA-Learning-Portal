@@ -19,7 +19,8 @@
     "test:e2e": "playwright test",
     "hygiene": "node scripts/check-repo-hygiene.mjs",
     "tokens": "node scripts/generate-tokens.mjs",
-    "tokens:check": "node scripts/generate-tokens.mjs --check"
+    "tokens:check": "node scripts/generate-tokens.mjs --check",
+    "test:hosted": "playwright test --config playwright.hosted.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/outfit": "5.3.0",

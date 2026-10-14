@@ -1,12 +1,17 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.7 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.8 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.8 changes (owner instruction of 14 Oct 2026, 19:01 IST: "Approve the preview"):**
+- **OC-34:** a hosted demo preview of the prototype is approved, with sample data only. This lifts the OC-28 limit for the demo preview only; production deployment still needs separate approval. The code refuses a hosted demo build unless `AA_HOSTED_DEMO=true` is set, and refuses any demo build that has a real-service setting. Steps are in `docs/deployment/hosted-demo-preview.md`.
+- **A-07 (new owner action):** create the hosting account and import the repository (about 5 minutes). Claude cannot create accounts for the owner.
+- **Open for the owner, not decided by Claude:** the hosting plan. Vercel's free plan is for non-commercial personal use only; the Pro plan is $20/month (checked 14 Oct 2026).
 
 **v1.7 changes (owner instructions of 14 Oct 2026, 17:59 IST):**
 - **OC-31:** the owner made the repository public. Before continuing, Claude scanned all 165 file versions in the Git history, every commit message and every pull-request text for the identifying demo terms: none found.
@@ -79,6 +84,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-31** | **Repository visibility:** `sinharomesh-cpu/AA-Learning-Portal` is **public** (owner's decision). Identifying demo data stays out of Git: CI checks every push; the full history was scanned clean on 14 Oct 2026. Secrets stay in GitHub Actions secrets, which are not exposed by a public repository. | Owner, 14 Oct 2026, 17:59 IST | All future work is public; no private material may be committed |
 | **OC-32** | **Claude makes all commits and merges.** Claude commits, opens pull requests, and merges each PR once every CI check passes (lint, typecheck, test, build, e2e, privacy-and-brand, secret-scan). The owner is informed by milestone reports. Production deployment still needs the owner's explicit approval (OC-09). | Owner, 14 Oct 2026, 17:59 IST | Settles D-36 (no required human approval) |
 | **OC-33** | **Boards P19 and P21 approved:** Parent dashboard (desktop, phone) and Teacher dashboard (desktop, phone), canvas version 61. Their pending notes (D-07, D-08, D-09, D-15, D-16, D-22, D-35) stay undecided. | Owner, 14 Oct 2026 ("Approve all four") | WP-6, WP-7 unblocked |
+| **OC-34** | **Hosted demo preview approved** with sample data only (`AA_DEMO_MODE` + `AA_HOSTED_DEMO`, no real-service settings, site-wide demo banner, no search indexing). Lifts OC-28 for this preview only. Production deployment still needs separate approval. | Owner, 14 Oct 2026 ("Approve the preview") | Preview, after A-07 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -141,6 +147,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **A-04.** Share the design canvas with anyone else who should review it. It is private to you until shared from its Share menu.
 - **A-05.** Before the first push, add a repository secret named `IDENTIFYING_TERMS` (GitHub → repository → Settings → Secrets and variables → Actions → New repository secret). It holds the identifying demo terms that CI must never find in the repository. This keeps those terms out of Git entirely. The value is given to you in the chat, not in any document. Without the secret, the CI privacy check fails on purpose rather than passing silently.
 - **A-06 (optional).** The project root holds stale duplicate copies of several docs (for example a v1.0 G1-04 and older G1-05 copies) next to the current `claude/` versions. The authoritative copies are under `claude/`. You may delete the root duplicates. I will not delete them.
+- **A-07.** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
 
 ## Summary: status after the owner's approval of 14 Oct 2026 (13:39 IST)
 

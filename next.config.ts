@@ -1,10 +1,12 @@
 import type { NextConfig } from 'next';
+import { demoGateError, isHostedDemo } from './src/config/demoGate';
 
-// Demo mode (OC-27 / D-39) must never reach a production build.
-// End-to-end tests therefore run against `next dev`, never against a demo-enabled production build.
-if (process.env.NODE_ENV === 'production' && process.env.AA_DEMO_MODE === 'true') {
-  throw new Error('AA_DEMO_MODE=true is not allowed in a production build.');
-}
+// Demo mode (OC-27 / D-39) never reaches a real production build. The only exception is the
+// owner-approved hosted demo preview (OC-34), which needs AA_HOSTED_DEMO=true as well and
+// must have no real-service settings. See src/config/demoGate.ts.
+const gateError = demoGateError(process.env);
+if (gateError) throw new Error(gateError);
+const hostedDemo = isHostedDemo(process.env);
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -12,6 +14,8 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // Camera and microphone stay off until the AI classroom phase enables the microphone deliberately.
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+  // The demo preview must not appear in search engines.
+  ...(hostedDemo ? [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] : []),
 ];
 
 const nextConfig: NextConfig = {
