@@ -81,9 +81,9 @@ export const SAFETY = [
     body: 'Children sign in with a username from their parent. Only a parent can unlock or reset their sign-in.',
   },
   {
-    id: 'no-recording',
-    title: 'AI lessons aren’t recorded',
-    body: 'AA Pro doesn’t keep recordings of your child’s voice from AI lessons.',
+    id: 'books',
+    title: 'Your books stay in AA Pro',
+    body: 'Teachers can read the books you share for the subjects they teach, but they can’t download them.',
   },
 ] as const;
 
@@ -91,6 +91,10 @@ export const FAQ = [
   {
     q: 'Does my child need an email address?',
     a: 'No. You create your child’s account with a username and password. Children never need an email or phone number.',
+  },
+  {
+    q: 'How do teachers get my child’s books?',
+    a: 'Upload a book once for your child. Each teacher you’ve ticked for that subject can read it in AA Pro, any time while they teach your child. No more sending files over WhatsApp or email.',
   },
   {
     q: 'Can my child book a teacher on their own?',

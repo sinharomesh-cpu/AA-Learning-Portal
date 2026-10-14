@@ -25,6 +25,7 @@ export default defineConfig({
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { NEXT_TELEMETRY_DISABLED: '1', AA_DEMO_MODE: 'true' },
+    // AA_DEMO_CLOCK pins the demo's "now" to 12:00 India time so results don't depend on the hour.
+    env: { NEXT_TELEMETRY_DISABLED: '1', AA_DEMO_MODE: 'true', AA_DEMO_CLOCK: '12:00' },
   },
 });

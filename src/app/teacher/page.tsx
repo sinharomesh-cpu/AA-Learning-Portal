@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { clockNow } from '@/lib/clock';
 import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -29,7 +30,7 @@ export default async function TeacherHomePage() {
   const access = await requireRole('teacher');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   // The teacher id comes from the session only: own lessons and linked students (FR-002.2).
-  const now = new Date();
+  const now = clockNow();
   const data = getTeacherDashboard(access.viewer.id, now);
   if (!data) return <AccessDenied viewerRole="teacher" />;
   const tz = data.timeZone;

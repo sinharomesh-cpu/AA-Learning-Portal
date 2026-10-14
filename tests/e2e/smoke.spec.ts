@@ -23,6 +23,9 @@ test('home shows the public landing page to a signed-out visitor (OC-39, board 6
   await expect(page.getByText('Draft — owner to edit. Nothing below is final.')).toBeVisible();
   await expect(page.getByText('[contact email — owner to provide]')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in' }).first()).toHaveAttribute('href', '/sign-in');
+  // OC-41/OC-43: the core book-sharing feature is explained.
+  await expect(page.getByRole('heading', { level: 3, name: 'Your books stay in AA Pro' })).toBeVisible();
+  await expect(page.getByText('How do teachers get my child’s books?')).toBeVisible();
 
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   const serious = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');

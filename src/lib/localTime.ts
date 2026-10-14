@@ -1,8 +1,10 @@
+import { clockNow } from './clock';
+
 /**
  * Builds a UTC instant for a wall-clock time on the viewer's current local day.
  * Used only by synthetic fixtures so demo lessons always appear "today".
  */
-export function todayAt(hour: number, minute: number, timeZone: string, now: Date = new Date()): string {
+export function todayAt(hour: number, minute: number, timeZone: string, now: Date = clockNow()): string {
   return localDayAt(0, hour, minute, timeZone, now);
 }
 
@@ -15,7 +17,7 @@ export function localDayAt(
   hour: number,
   minute: number,
   timeZone: string,
-  now: Date = new Date(),
+  now: Date = clockNow(),
 ): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -44,7 +46,7 @@ export function zoneOffsetMinutes(at: Date, timeZone: string): number {
 }
 
 /** "Good morning" / "Good afternoon" / "Good evening" for the viewer's local time. */
-export function greeting(timeZone: string, now: Date = new Date()): string {
+export function greeting(timeZone: string, now: Date = clockNow()): string {
   const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hourCycle: 'h23' }).format(now));
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
@@ -55,7 +57,7 @@ export function greeting(timeZone: string, now: Date = new Date()): string {
  * "Today", "Tomorrow" or a short weekday ("Fri") for instants within the coming week,
  * otherwise a short date, all in the viewer's zone (FR-019).
  */
-export function relativeDayLabel(isoUtc: string, timeZone: string, now: Date = new Date()): string {
+export function relativeDayLabel(isoUtc: string, timeZone: string, now: Date = clockNow()): string {
   const key = (d: Date) =>
     new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
   const target = key(new Date(isoUtc));

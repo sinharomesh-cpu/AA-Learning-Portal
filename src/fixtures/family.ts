@@ -1,4 +1,5 @@
 import { localDayAt, relativeDayLabel } from '@/lib/localTime';
+import { clockNow } from '@/lib/clock';
 import { formatClockTime } from '@/lib/time';
 import { findPersona } from './personas';
 import type { Lesson } from './schedule';
@@ -43,7 +44,7 @@ export interface FamilyResource {
 }
 
 /** Lessons from the start of the parent's current local day onward. */
-export function parentLessons(parentId: string, now: Date = new Date()): ParentLesson[] {
+export function parentLessons(parentId: string, now: Date = clockNow()): ParentLesson[] {
   const parent = findPersona(parentId);
   if (!parent || parent.role !== 'parent') return [];
   const tz = parent.timeZone;
@@ -58,7 +59,7 @@ export function parentLessons(parentId: string, now: Date = new Date()): ParentL
     }));
 }
 
-export function childrenOf(parentId: string, now: Date = new Date()): ChildSummary[] {
+export function childrenOf(parentId: string, now: Date = clockNow()): ChildSummary[] {
   const parent = findPersona(parentId);
   if (!parent || parent.role !== 'parent') return [];
   const lessons = parentLessons(parentId, now);
@@ -85,7 +86,7 @@ export function parentOwnsChild(parentId: string, childId: string): boolean {
 }
 
 /** True only when the lesson belongs to one of this parent's children. */
-export function parentOwnsLesson(parentId: string, lessonId: string, now: Date = new Date()): boolean {
+export function parentOwnsLesson(parentId: string, lessonId: string, now: Date = clockNow()): boolean {
   return lessonsForParent(parentId, now).some((l) => l.id === lessonId);
 }
 

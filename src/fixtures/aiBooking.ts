@@ -1,4 +1,5 @@
 import { localDayAt } from '@/lib/localTime';
+import { clockNow } from '@/lib/clock';
 import { formatClockTime, formatDayLabel } from '@/lib/time';
 import { findPersona } from './personas';
 import { lessonsForStudent } from './schedule';
@@ -112,7 +113,7 @@ function partOfDay(hour: number): DayPart {
 }
 
 /** Start times for the next BOOKING_DAYS days, in the student's own time zone (FR-019). */
-export function bookingDays(studentId: string, now: Date = new Date()): BookingDay[] {
+export function bookingDays(studentId: string, now: Date = clockNow()): BookingDay[] {
   const persona = findPersona(studentId);
   if (!persona || persona.role !== 'student') return [];
   const tz = persona.timeZone;
@@ -172,7 +173,7 @@ export type DemoBookingResult =
 export function checkDemoBooking(
   studentId: string,
   req: DemoBookingRequest,
-  now: Date = new Date(),
+  now: Date = clockNow(),
 ): DemoBookingResult {
   const persona = findPersona(studentId);
   if (!persona || persona.role !== 'student') return { ok: false, reason: 'not-open' };
@@ -206,7 +207,7 @@ export function checkDemoBooking(
 }
 
 /** Up to three open alternatives after a given time, for the "time just taken" outcome (M-17). */
-export function nextOpenTimes(studentId: string, afterIso: string, length: AiLessonLength, now = new Date()) {
+export function nextOpenTimes(studentId: string, afterIso: string, length: AiLessonLength, now = clockNow()) {
   const after = Date.parse(afterIso);
   return bookingDays(studentId, now)
     .flatMap((d) => d.slots)

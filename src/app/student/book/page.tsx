@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { clockNow } from '@/lib/clock';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { AI_LESSON_LENGTHS, bookingDays, chaptersFor } from '@/fixtures/aiBooking';
 import { findPersona } from '@/fixtures/personas';
@@ -24,7 +25,7 @@ export default async function StudentBookPage({
   const subjectIds: SubjectId[] = persona?.subjects ?? [];
   const requested = (await searchParams).subject;
   const initialSubject = subjectIds.find((s) => s === requested);
-  const now = new Date();
+  const now = clockNow();
   const tz = access.viewer.timeZone;
 
   return (

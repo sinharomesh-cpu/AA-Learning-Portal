@@ -1,4 +1,5 @@
 import { localDayAt, relativeDayLabel } from '@/lib/localTime';
+import { clockNow } from '@/lib/clock';
 import { formatClockTime } from '@/lib/time';
 import { findPersona } from './personas';
 import type { Lesson } from './schedule';
@@ -72,7 +73,7 @@ export function teacherLinkedTo(teacherId: string, studentId: string): boolean {
   return (LINKED_STUDENTS[teacherId] ?? []).some((s) => s.id === studentId);
 }
 
-export function getTeacherDashboard(teacherId: string, now: Date = new Date()): TeacherDashboard | null {
+export function getTeacherDashboard(teacherId: string, now: Date = clockNow()): TeacherDashboard | null {
   const teacher = findPersona(teacherId);
   if (!teacher || teacher.role !== 'teacher') return null;
   const tz = teacher.timeZone;
