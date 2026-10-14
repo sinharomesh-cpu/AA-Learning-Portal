@@ -1,6 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Button, LinkButton } from '@/components/Button';
+import {
+  BookedOutcome,
+  BookingErrorOutcome,
+  NotOpenOutcome,
+  TimeTakenOutcome,
+} from '@/components/booking/BookingOutcome';
 import { Card } from '@/components/Card';
 import { JoinButton } from '@/components/JoinButton';
 import { PendingNote } from '@/components/PendingNote';
@@ -141,6 +147,37 @@ export default function DesignSystemPage() {
             <strong>Saved.</strong> Your changes are in place.
           </SuccessMessage>
           <OfflineBanner />
+        </div>
+      </Card>
+
+      <Card aria-labelledby="ds-outcomes">
+        <h2 id="ds-outcomes" className="mb-2 text-headline-md">
+          AI booking outcomes (M-17)
+        </h2>
+        <p className="mb-4 text-body-md text-on-surface-variant">
+          All four outcome states. In the demo flow only &quot;booked&quot; and &quot;not open&quot; can occur; the
+          other two need real concurrent bookings (Phase 3).
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <BookedOutcome
+            headingLevel={2}
+            subjectName="Maths"
+            chapter="Chapter 6 — Maths practice book (sample)"
+            dayLabel="Today"
+            timeLabel="5:15 pm"
+            length={30}
+          />
+          <TimeTakenOutcome
+            headingLevel={2}
+            timeLabel="5:15 pm"
+            alternatives={[
+              { label: '5:30 pm', href: '/design-system#ds-outcomes' },
+              { label: '6:00 pm', href: '/design-system#ds-outcomes-2' },
+              { label: '6:15 pm', href: '/design-system#ds-outcomes-3' },
+            ]}
+          />
+          <BookingErrorOutcome headingLevel={2} />
+          <NotOpenOutcome headingLevel={2} />
         </div>
       </Card>
 
