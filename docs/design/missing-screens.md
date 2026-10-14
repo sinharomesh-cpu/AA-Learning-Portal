@@ -6,11 +6,11 @@
 - **What it does not decide:** rules shown on a board as "Pending D-xx" remain open decisions in the register.
 - **New boards** added later (for example the S19 and S21 adaptations, OC-26) need their own approval and are added below when approved.
 
-## Status (canvas version 60)
+## Status (canvas version 62)
 
 | Count | State |
 |---|---|
-| 51 | Boards approved |
+| 55 | Boards approved |
 | 1 | Board deferred (M-31, OC-19) |
 
 | Board # | Board | Approved on | Owner's wording |
@@ -67,3 +67,7 @@
 | 50 | M-19 Student meeting card — phone · PROPOSED | 14 Oct 2026 | "All approved you can begin with phase 1" |
 | 51 | M-23 Availability — phone · PROPOSED | 14 Oct 2026 | "All approved you can begin with phase 1" |
 | 52 | M-27 Accounts — phone (admin is desktop-first) · PROPOSED | 14 Oct 2026 | "All approved you can begin with phase 1" |
+| 53 | P19 Parent dashboard (desktop) — AA Pro adaptation | 14 Oct 2026 | "Approve all four" |
+| 54 | P19 Parent dashboard (phone) | 14 Oct 2026 | "Approve all four" |
+| 55 | P21 Teacher dashboard (desktop) — AA Pro adaptation | 14 Oct 2026 | "Approve all four" |
+| 56 | P21 Teacher dashboard (phone) | 14 Oct 2026 | "Approve all four" |

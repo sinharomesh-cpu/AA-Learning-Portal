@@ -1,12 +1,18 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.6 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.7 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.7 changes (owner instructions of 14 Oct 2026, 17:59 IST):**
+- **OC-31:** the owner made the repository public. Before continuing, Claude scanned all 165 file versions in the Git history, every commit message and every pull-request text for the identifying demo terms: none found.
+- **OC-32:** the owner, who is not technical, authorises Claude to make all commits, open and merge pull requests, and manage branches. This settles **D-36**: merges need passing CI checks, not a human approval.
+- **OC-33:** the four new boards are approved: P19 Parent dashboard (desktop, phone) and P21 Teacher dashboard (desktop, phone). WP-6 and WP-7 are unblocked.
+- **A-03 status:** branch protection cannot be set from Claude's session; the session's GitHub access blocks settings changes. The owner can apply it in the browser (see A-03). Until then, every change still goes through a pull request with all CI checks.
 
 **v1.6 changes (owner instruction of 14 Oct 2026, 13:39 IST: "All approved you can begin with phase 1"):**
 - Recorded as owner approvals: **D-32** (all canvas boards except the deferred M-31) → OC-24; **D-34** bootstrap package → OC-25 (executed: commit `0a42216` on `main`, CI green); **D-38 option A** → OC-26; **D-39** → OC-27; **D-40** → OC-28; **D-41** → OC-29. **Phase 1 authorised** → OC-30.
@@ -70,6 +76,9 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-28** | **D-40** Phase 1 runs locally and in CI only. No hosted preview without separate approval. | Owner, 14 Oct 2026 | Phase 1 |
 | **OC-29** | **D-41** Phase 1 technology baseline as in G1-10 §5 (exact versions pinned at start, ≥ 14 days old, compatibility-checked). | Owner, 14 Oct 2026 | WP-0 |
 | **OC-30** | **Phase 1 authorised** (design system and role-separated UI shell with synthetic data, per G1-10). Each work package is a pull request for owner review. | Owner, 14 Oct 2026 | Phase 1 |
+| **OC-31** | **Repository visibility:** `sinharomesh-cpu/AA-Learning-Portal` is **public** (owner's decision). Identifying demo data stays out of Git: CI checks every push; the full history was scanned clean on 14 Oct 2026. Secrets stay in GitHub Actions secrets, which are not exposed by a public repository. | Owner, 14 Oct 2026, 17:59 IST | All future work is public; no private material may be committed |
+| **OC-32** | **Claude makes all commits and merges.** Claude commits, opens pull requests, and merges each PR once every CI check passes (lint, typecheck, test, build, e2e, privacy-and-brand, secret-scan). The owner is informed by milestone reports. Production deployment still needs the owner's explicit approval (OC-09). | Owner, 14 Oct 2026, 17:59 IST | Settles D-36 (no required human approval) |
+| **OC-33** | **Boards P19 and P21 approved:** Parent dashboard (desktop, phone) and Teacher dashboard (desktop, phone), canvas version 61. Their pending notes (D-07, D-08, D-09, D-15, D-16, D-22, D-35) stay undecided. | Owner, 14 Oct 2026 ("Approve all four") | WP-6, WP-7 unblocked |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -95,7 +104,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ~~D-32~~ | **Closed → OC-24.** All boards approved except M-31 (deferred). | | | | | |
 | ~~D-33~~ | **Closed → OC-20 (Option B).** Original question: D-30 says to commit the selected Stitch HTML/screenshots, but **12 of the 13 selected HTML files and most screenshots contain the same demo child names** (and some a real school name) that kept the ZIPs out of Git. How should references go into Git? | **(B)** Commit **redacted copies** of the selected HTML (names → synthetic names, school → "Sample Primary School", brand strings untouched), clearly labelled as derived. Do **not** commit the screenshots. Record checksums of the untouched originals, which stay outside Git. | (A) Commit originals as-is in the private repository, accepting the names. (C) Commit nothing from Stitch; only checksums plus the G1-01 inventory. | Privacy versus visual-reference convenience. Visual baselines for testing come from the approved AA Pro designs instead. | **Yes** | Bootstrap commit |
 | ~~D-34~~ | **Closed → OC-25.** Bootstrap commit `0a42216` pushed; CI green. | | | | | |
-| **D-36** | GitHub does not let the author of a pull request approve it. With a single maintainer, a "1 required approval" rule would block every merge. | Require a pull request and passing CI checks with **0 required approvals** while you are the only maintainer. You review and merge each PR yourself. Raise this to 1 approval when a second reviewer account exists. Never allow bypass of status checks. | Add a second GitHub collaborator as required reviewer now; or allow admin bypass (not recommended) | Branch protection (A-03) | **Yes** | Branch protection, after the first commit |
+| ~~D-36~~ | **Closed → OC-32.** Claude merges pull requests after all CI checks pass; no human approval is required. | | | | | |
 | ~~D-38~~ | **Closed → OC-26 (option A).** S19/S21 adaptation boards to be added for approval. | | | | | |
 | ~~D-39~~ | **Closed → OC-27.** | | | | | |
 | ~~D-40~~ | **Closed → OC-28.** | | | | | |
@@ -137,10 +146,10 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 
 | ID | State |
 |---|---|
-| D-32 Designs | **Approved (OC-24)**, except M-31 (deferred). New S19/S21 boards (OC-26) will need their own approval. |
+| D-32 Designs | **Approved (OC-24)**, except M-31 (deferred). New boards P19/P21 approved (OC-33). |
 | D-34 Bootstrap | **Done (OC-25):** commit `0a42216` on `main`; CI green |
 | D-38 / D-39 / D-40 / D-41 | **Approved (OC-26 … OC-29)** |
 | Phase 1 | **Authorised (OC-30)** and in progress; each work package is a pull request for your review |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
-| A-03 Branch protection | Ready to apply now that CI has run (check names: `privacy-and-brand`, `secret-scan`); approval rule depends on D-36 |
-| Open, not decided | D-05, D-07, D-08, D-09, D-10, D-11b, D-15, D-16, D-17, D-22, D-23a, D-24, D-25, D-26, D-28, D-35, D-36, D-37, D-01a |
+| A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
+| Open, not decided | D-05, D-07, D-08, D-09, D-10, D-11b, D-15, D-16, D-17, D-22, D-23a, D-24, D-25, D-26, D-28, D-35, D-37, D-01a |
