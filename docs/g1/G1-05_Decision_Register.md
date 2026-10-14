@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.10 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.11 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.11 changes (owner, 14 Oct 2026, 20:25–20:35 IST):**
+- **OC-41 (change request CR-03, core feature):** teachers see the parent's uploaded materials for the subjects the parent ticked. The owner describes this as the platform's core purpose: replacing WhatsApp and email sharing of books with teachers. Rules in the OC-41 row.
+- **D-16** is partly settled by OC-41: how teachers see *parent uploads*. Still open: how teachers share *their own* resources.
 
 **v1.10 changes (owner instruction of 14 Oct 2026, 20:15 IST: "Yes, I approved you can go ahead wit Phase 2"):**
 - **OC-40:** Phase 2 plan P2-00 v1.2 approved; Phase 2 authorised. Work starts with WP2-1 (database foundation) and boards 57–63.
@@ -103,6 +107,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-38** | **Teachers can register themselves.** A teacher creates an account (name, email, password), confirms the email, completes the onboarding profile (M-20) and waits for Super Admin approval (M-21, M-29) before reaching the teacher portal. Once approved, they see a child only after a parent links them (OC-36) or confirms a booking (Phase 3). The missing "Create an account" screen becomes board 62. | Owner, 14 Oct 2026, 20:04 IST | Phase 2 (WP2-3, WP2-6) |
 | **OC-39** | **Public landing page (CR-02).** Sections: home intro, How it works (parents, students, teachers), Safety and privacy, About us, FAQ, Contact us, plus Sign in and Create an account. Claude drafts the About us text, marked as a draft with no invented company facts; the owner edits it before launch. The owner provides the contact email. | Owner, 14 Oct 2026, 20:08 IST | Phase 2 (board 63, WP2-10) |
 | **OC-40** | **Phase 2 authorised:** plan P2-00 v1.2 approved (WP2-1 … WP2-10, boards 57–63). Test data only; no hosted database, email provider or production deployment without separate approval. | Owner, 14 Oct 2026, 20:15 IST | Phase 2 |
+| **OC-41** | **Teachers see parent uploads by subject (CR-03).** (1) For each teacher and each child, the parent ticks the subjects that teacher teaches (one, several or all). (2) The teacher can open **every** material the parent uploaded for that child in those subjects, arranged by subject card, then book or chapter; there is no per-file switch. (3) A teacher sees nothing for other subjects, other children or other families. (4) The teacher can open the materials **any time while the student is assigned** to them; access ends at once when the parent removes the teacher or a subject. (5) **View only inside AA Pro: teachers can see books and chapters but cannot download them.** | Owner, 14 Oct 2026 ("parent have the checklist options … only math's will visible to teacher"; 20:31 IST: "Teacher can view the books and chapters but not able to download", "Teacher can open and see the material anytime if they have student assign") | Phase 2: link subjects (migration 0002). Phase 4: uploads and the teacher's material view (board 64) |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -145,7 +150,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ~~D-09~~ | **Closed → OC-36.** | | | | | |
 | ~~D-11b~~ | **Closed → OC-37.** | | | | | |
 | **D-15** | Group human sessions | 1:1 only in v1 | Small groups with consent rules | Data model; privacy | **Yes** | Phase 3 |
-| **D-16** | Teacher resource sharing and visibility | Teachers share only with assigned students, no parent gate, visible to the parent. Teachers see parent uploads only if shared. | Parent-gated sharing; teacher sees all of the child's files | Resource permissions | **Yes** | Phase 4 |
+| **D-16** | *(Partly settled by OC-41: teachers see parent uploads for ticked subjects.)* Remaining: how teachers share their own resources, and visibility | Teachers share only with assigned students, no parent gate, visible to the parent. Teachers see parent uploads only if shared. | Parent-gated sharing; teacher sees all of the child's files | Resource permissions | **Yes** | Phase 4 |
 | **D-17** | Library "needs approval" state | Drop it. Resources are assigned (visible) or not, plus a "not available" state for failed or processing files. | Keep an approval workflow | Library states | **Yes** | Phase 4 |
 | **D-22** | Student AI-class reminders | Parent by email (WhatsApp later); student sees an on-screen banner from T−15; children are not messaged | Student email/WhatsApp | Child data collection | **Yes** | Phase 7 |
 | ~~D-37~~ | **Closed → OC-35.** | | | | | |

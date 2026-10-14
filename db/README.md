@@ -15,7 +15,7 @@ PostgreSQL 16. Phase 2 uses **test data only** until D-28 (data residency) is de
 | `accounts` | Parents, students, teachers and Super Admins. Children have a username and never an email (OC-35). |
 | `student_profiles`, `teacher_profiles` | Grade and subjects; teacher subjects, grades, origin (self-registered or parent-added) and approval state (OC-36, OC-38). |
 | `guardian_links` | Parent ↔ child. Every parent permission goes through an active link. |
-| `teacher_student_links` | Teacher ↔ child, created only by that child's parent (OC-36). |
+| `teacher_student_links` | Teacher ↔ child, created only by that child's parent (OC-36), with the subjects the parent ticked (OC-41, migration 0002). |
 | `one_time_tokens` | Email confirmation, password reset and set-password links; hashes only. |
 | `sessions` | Server-side sessions; hashed ids; revocable at once. |
 | `sign_in_throttle` | Lockout counters keyed on HMACs, whether or not the account exists (G1-08 §3.2). |
