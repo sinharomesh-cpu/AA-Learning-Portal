@@ -1,6 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { brand } from '@/config/brand';
+import '@/styles/globals.css';
+import { jakarta, outfit } from './fonts';
 
 export const metadata: Metadata = {
   title: { default: brand.productName, template: `%s · ${brand.productName}` },
@@ -8,9 +10,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#006194',
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${outfit.variable} ${jakarta.variable}`}>
       <body>{children}</body>
     </html>
   );

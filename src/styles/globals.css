@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Base styles. Corrections from the approved Tokens board (board 2, OC-24) are logged in
+ * docs/design/deviation-log.md: DV-01 focus ring, DV-02 control borders use `outline`.
+ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-headline);
+    color: var(--color-on-surface);
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+
+  a:hover {
+    color: var(--color-primary-hover);
+  }
+
+  /* DV-01: visible 3 px focus ring, 2 px offset, on every focusable element. */
+  :focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
