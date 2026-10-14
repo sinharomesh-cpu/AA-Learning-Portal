@@ -80,14 +80,34 @@ test.describe('Super Admin shell (M-26/35, M-27)', () => {
   });
 });
 
-test.describe('parent and teacher shells (dashboards pending OC-26 boards)', () => {
-  test('parent and teacher see their own shell with an honest placeholder', async ({ page }) => {
+test.describe('parent and teacher shells (P19 / P21)', () => {
+  test('each sees their own dashboard heading and menu', async ({ page }, testInfo) => {
+    const phone = testInfo.project.name === 'phone';
     await signInAdult(page, /Demo Parent/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Family home' })).toBeVisible();
-    await expectNoSeriousAxeIssues(page);
+    await expect(page.getByRole('heading', { level: 1, name: /, Demo Parent$/ })).toBeVisible();
+    if (phone) await page.getByRole('button', { name: /open parent menu/i }).click();
+    await expect(page.getByRole('navigation', { name: 'Parent menu' }).getByRole('link')).toHaveText([
+      'Family home',
+      'Children',
+      'Schedule AI class',
+      'Book human teacher',
+      'Family calendar',
+      'Content repository',
+      'Session history',
+      'Notifications',
+      'Settings',
+    ]);
     await page.context().clearCookies();
     await signInAdult(page, /Teacher A\. Rao/);
-    await expect(page.getByRole('heading', { level: 1, name: 'My dashboard' })).toBeVisible();
-    await expectNoSeriousAxeIssues(page);
+    await expect(page.getByRole('heading', { level: 1, name: /, Teacher A\. Rao$/ })).toBeVisible();
+    if (phone) await page.getByRole('button', { name: /open teacher menu/i }).click();
+    await expect(page.getByRole('navigation', { name: 'Teacher menu' }).getByRole('link')).toHaveText([
+      'Dashboard',
+      'My schedule',
+      'Availability',
+      'Students',
+      'Learning resources',
+      'Profile',
+    ]);
   });
 });

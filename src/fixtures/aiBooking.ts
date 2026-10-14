@@ -1,7 +1,7 @@
 import { localDayAt } from '@/lib/localTime';
 import { formatClockTime, formatDayLabel } from '@/lib/time';
 import { findPersona } from './personas';
-import { getStudentDashboard } from './student';
+import { lessonsForStudent } from './schedule';
 import type { SubjectId } from './subjects';
 import { SUBJECTS } from './subjects';
 
@@ -84,8 +84,12 @@ function quietPeriods(timeZone: string, now: Date): Period[] {
 }
 
 function lessonPeriods(studentId: string, now: Date): Period[] {
-  const dashboard = getStudentDashboard(studentId, now);
-  return (dashboard?.today ?? []).map((s) => ({ startIso: s.startIso, endIso: s.endIso, kind: 'lesson' as const }));
+  // Every lesson of this child on any day, including a teacher-proposed one (D-08 pending).
+  return lessonsForStudent(studentId, now).map((l) => ({
+    startIso: l.startIso,
+    endIso: l.endIso,
+    kind: 'lesson' as const,
+  }));
 }
 
 function overlaps(aStart: number, aEnd: number, b: Period): boolean {

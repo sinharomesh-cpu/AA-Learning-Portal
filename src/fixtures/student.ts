@@ -1,7 +1,7 @@
-import { addMinutes } from '@/lib/time';
-import { todayAt } from '@/lib/localTime';
+import { isSameLocalDay } from '@/lib/time';
 import type { SubjectId } from './subjects';
 import { findPersona } from './personas';
+import { lessonsForStudent } from './schedule';
 
 /** Synthetic student dashboard data. Book and resource titles are generic samples. */
 export interface DashboardSession {
@@ -33,16 +33,6 @@ const BOOKS: Record<SubjectId, string> = {
   it: 'IT activity sheet (sample)',
 };
 
-function session(
-  kind: 'ai' | 'human',
-  subject: string,
-  startIso: string,
-  minutes: number,
-  extra = {},
-): DashboardSession {
-  return { kind, subject, startIso, endIso: addMinutes(startIso, minutes), durationMinutes: minutes, ...extra };
-}
-
 /**
  * Returns the dashboard for exactly one student. The id always comes from the signed-in
  * session, never from the URL, so one child can never load another child's data.
@@ -51,14 +41,18 @@ export function getStudentDashboard(studentId: string, now: Date = new Date()): 
   const persona = findPersona(studentId);
   if (!persona || persona.role !== 'student') return null;
   const tz = persona.timeZone;
-  const today: DashboardSession[] =
-    persona.id === 'demo-student-kiran'
-      ? [
-          // Human meetings are at most 40 minutes (OC-06); AI lessons are 15 or 30 (OC-22).
-          session('human', 'Science', todayAt(16, 30, tz, now), 40, { teacherName: 'Teacher A. Rao' }),
-          session('ai', 'Maths', todayAt(17, 15, tz, now), 30, { topic: 'fractions' }),
-        ]
-      : [session('ai', 'English', todayAt(16, 0, tz, now), 15, { topic: 'reading' })];
+  // Today's lessons come from the shared family schedule (fixtures/schedule.ts).
+  const today: DashboardSession[] = lessonsForStudent(persona.id, now)
+    .filter((l) => isSameLocalDay(l.startIso, now.toISOString(), tz))
+    .map((l) => ({
+      kind: l.kind,
+      subject: l.subject,
+      startIso: l.startIso,
+      endIso: l.endIso,
+      durationMinutes: l.durationMinutes,
+      teacherName: l.teacherName,
+      topic: l.topic,
+    }));
   return {
     studentId: persona.id,
     firstName: persona.displayName,
