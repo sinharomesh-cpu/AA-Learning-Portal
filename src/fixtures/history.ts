@@ -1,4 +1,5 @@
 import { localDayAt } from '@/lib/localTime';
+import { clockNow } from '@/lib/clock';
 import { formatDayLabel } from '@/lib/time';
 import { findPersona } from './personas';
 import type { SubjectId } from './subjects';
@@ -73,7 +74,7 @@ const SEEDS: Record<string, Seed[]> = {
 };
 
 /** Returns the history of exactly one student, newest first. The id comes from the session only. */
-export function getStudentHistory(studentId: string, now: Date = new Date()): HistoryEntry[] | null {
+export function getStudentHistory(studentId: string, now: Date = clockNow()): HistoryEntry[] | null {
   const persona = findPersona(studentId);
   if (!persona || persona.role !== 'student') return null;
   const tz = persona.timeZone;

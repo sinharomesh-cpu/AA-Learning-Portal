@@ -1,4 +1,5 @@
 import { localDayAt } from '@/lib/localTime';
+import { clockNow } from '@/lib/clock';
 import { addMinutes } from '@/lib/time';
 import { findPersona } from './personas';
 import type { SubjectId } from './subjects';
@@ -111,7 +112,7 @@ const SEEDS: Seed[] = [
 ];
 
 /** All synthetic lessons, earliest first, relative to `now` so the demo always looks current. */
-export function allLessons(now: Date = new Date()): Lesson[] {
+export function allLessons(now: Date = clockNow()): Lesson[] {
   return SEEDS.map((s) => {
     const startIso = localDayAt(s.day, s.hour, s.minute, FAMILY_TZ, now);
     return {
@@ -133,12 +134,12 @@ export function allLessons(now: Date = new Date()): Lesson[] {
 }
 
 /** One student's lessons only (the id always comes from the session). */
-export function lessonsForStudent(studentId: string, now: Date = new Date()): Lesson[] {
+export function lessonsForStudent(studentId: string, now: Date = clockNow()): Lesson[] {
   return allLessons(now).filter((l) => l.studentId === studentId);
 }
 
 /** Lessons of the parent's own linked children only (FR-002.2). */
-export function lessonsForParent(parentId: string, now: Date = new Date()): Lesson[] {
+export function lessonsForParent(parentId: string, now: Date = clockNow()): Lesson[] {
   const parent = findPersona(parentId);
   if (!parent || parent.role !== 'parent') return [];
   const children = new Set(parent.childIds ?? []);
@@ -146,7 +147,7 @@ export function lessonsForParent(parentId: string, now: Date = new Date()): Less
 }
 
 /** Human lessons where this teacher is the teacher (no other teacher's calendar). */
-export function lessonsForTeacher(teacherId: string, now: Date = new Date()): Lesson[] {
+export function lessonsForTeacher(teacherId: string, now: Date = clockNow()): Lesson[] {
   const teacher = findPersona(teacherId);
   if (!teacher || teacher.role !== 'teacher') return [];
   return allLessons(now).filter((l) => l.kind === 'human' && l.teacherId === teacherId);

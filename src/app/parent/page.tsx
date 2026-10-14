@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { clockNow } from '@/lib/clock';
 import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -40,7 +41,7 @@ export default async function ParentHomePage() {
   // The parent id comes from the session only; every list holds this parent's own children (FR-002.2).
   const parentId = access.viewer.id;
   const tz = access.viewer.timeZone;
-  const now = new Date();
+  const now = clockNow();
   const kids = childrenOf(parentId, now);
   const week = parentLessons(parentId, now);
   const resources = familyResources(parentId);

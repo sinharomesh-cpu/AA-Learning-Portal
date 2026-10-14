@@ -1,4 +1,5 @@
 import { isSameLocalDay } from '@/lib/time';
+import { clockNow } from '@/lib/clock';
 import type { SubjectId } from './subjects';
 import { findPersona } from './personas';
 import { lessonsForStudent } from './schedule';
@@ -37,7 +38,7 @@ const BOOKS: Record<SubjectId, string> = {
  * Returns the dashboard for exactly one student. The id always comes from the signed-in
  * session, never from the URL, so one child can never load another child's data.
  */
-export function getStudentDashboard(studentId: string, now: Date = new Date()): StudentDashboard | null {
+export function getStudentDashboard(studentId: string, now: Date = clockNow()): StudentDashboard | null {
   const persona = findPersona(studentId);
   if (!persona || persona.role !== 'student') return null;
   const tz = persona.timeZone;

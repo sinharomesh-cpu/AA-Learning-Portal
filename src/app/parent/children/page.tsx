@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { clockNow } from '@/lib/clock';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { LessonKindChip } from '@/components/lessons/LessonStatus';
@@ -16,7 +17,7 @@ const AVATAR = ['bg-primary-fixed text-on-primary-fixed-variant', 'bg-secondary-
 export default async function ChildrenPage() {
   const access = await requireRole('parent');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
-  const now = new Date();
+  const now = clockNow();
   const kids = childrenOf(access.viewer.id, now);
 
   return (
