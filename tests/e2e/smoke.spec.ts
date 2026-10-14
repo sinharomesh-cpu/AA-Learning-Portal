@@ -1,11 +1,13 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-test('home page loads with the AA Pro brand and no serious accessibility issues', async ({ page }) => {
+test('home redirects a signed-out visitor to sign-in, branded AA Pro, with no serious accessibility issues', async ({
+  page,
+}) => {
   const response = await page.goto('/');
   expect(response?.status()).toBe(200);
-  await expect(page).toHaveTitle(/AA Pro/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('AA Pro');
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page).toHaveTitle('Sign in · AA Pro');
 
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   const serious = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');

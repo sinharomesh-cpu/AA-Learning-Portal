@@ -1,0 +1,17 @@
+import type { ReactNode } from 'react';
+import { StudentShell } from '@/components/shell/StudentShell';
+import { getViewer } from '@/server/session';
+
+/**
+ * Shows the student shell only to a signed-in student. This is presentation only: each
+ * page performs its own server-side role check before loading data (see server/authz.ts).
+ */
+export default async function StudentLayout({ children }: { children: ReactNode }) {
+  const viewer = await getViewer();
+  if (viewer?.role !== 'student') return <>{children}</>;
+  return (
+    <StudentShell displayName={viewer.displayName} initial={viewer.initial}>
+      {children}
+    </StudentShell>
+  );
+}
