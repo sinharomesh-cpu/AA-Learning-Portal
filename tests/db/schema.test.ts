@@ -113,8 +113,8 @@ describe('relationships', () => {
       sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status)
           VALUES (${teacher}, ${child}, ${otherParent}, 'parent_added', 'pending')`,
     ).rejects.toThrow(/not a guardian of this child/);
-    await sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status)
-              VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'pending')`;
+    await sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
+              VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'pending', ${['maths']})`;
   });
 
   it('there is at most one live link per teacher and child', async () => {
@@ -122,13 +122,26 @@ describe('relationships', () => {
     const teacher = await createAdult(sql, 'teacher');
     const child = await createChild(sql, parent);
     const insert = () =>
-      sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status)
-          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'active')`;
+      sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
+          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'active', ${['maths']})`;
     await insert();
     await expect(insert()).rejects.toThrow(/teacher_student_links_live/);
     await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
               WHERE teacher_id = ${teacher} AND student_id = ${child}`;
     await insert(); // a removed link may be re-created later by the parent
+  });
+
+  it('a teacher link names at least one subject, all among the child’s subjects (OC-41)', async () => {
+    const parent = await createAdult(sql, 'parent');
+    const teacher = await createAdult(sql, 'teacher');
+    const child = await createChild(sql, parent); // studies maths only
+    const link = (subjects: string[]) =>
+      sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
+          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'active', ${subjects})`;
+    await expect(link([])).rejects.toThrow(/teacher_student_links_subjects_present/);
+    await expect(link(['science'])).rejects.toThrow(/among the child's subjects/);
+    await expect(link(['art'])).rejects.toThrow(/among the child's subjects|teacher_student_links_subjects_check/);
+    await link(['maths']);
   });
 
   it('a revoked guardian link records when it ended', async () => {
