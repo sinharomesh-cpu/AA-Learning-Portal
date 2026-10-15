@@ -152,8 +152,8 @@ async function checkCode(
     secret: decryptSecret(row.secret_enc),
     token,
     epoch: Math.floor(now.getTime() / 1000),
-    // One 30-second step either side, for small clock differences on the phone.
-    epochTolerance: 30,
+    // Up to two 30-second steps either side, for phones whose clock is a little off.
+    epochTolerance: 60,
     ...(row.last_time_step !== null ? { afterTimeStep: Number(row.last_time_step) } : {}),
   }).catch(() => ({ valid: false as const }));
   return result.valid && 'timeStep' in result ? { ok: true, timeStep: result.timeStep } : { ok: false };
