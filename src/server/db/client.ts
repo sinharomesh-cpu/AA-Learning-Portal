@@ -19,6 +19,8 @@ export function db(): Sql {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set.');
   client = postgres(url, {
+    // Pooled connections (PgBouncer, e.g. Neon's "-pooler" host) don't support prepared statements.
+    prepare: !/-pooler\./.test(url),
     max: Number(process.env.DATABASE_POOL_MAX ?? 5),
     idle_timeout: 20,
     connect_timeout: 10,
