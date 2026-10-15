@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.16 · 14 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.17 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.17 changes (owner, 15 Oct 2026, 06:39 IST: "D42- As you suggest … D-43-Yes, i like, Design Approved, Please proceed"):**
+- **OC-53 (D-42)**, **OC-54 (D-43)** and **OC-55**: boards 57–62 and 64–66 approved. All Phase 2 boards (57–66) are now approved.
 
 **v1.16 changes (14 Oct 2026, late evening; Claude, while the owner was away):**
 - Boards 57–62 and 64–66 are drawn on the design canvas, page "Phase 2 new screens (proposed)", and are waiting for owner approval.
@@ -136,6 +139,9 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-50** | **D-11b revised (CR-05), replaces OC-37:** (1) The **owner is the only Super Admin**. (2) The Super Admin can **create Admin accounts** and choose, per Admin, **which functions they may manage** (for example accounts, teacher approvals, audit log). (3) Lock-out protection: at Super Admin setup, **10 one-time recovery codes** are issued for the owner to print and keep safe. (4) OC-21 limits apply to every Admin as well: no sign-in-as-user, no access to children's learning content; Admins also sign in with MFA. | Owner, 14 Oct 2026 (22:04; follow-up "Owner + recovery codes") | Phase 2 WP2-5; board 66 |
 | **OC-51** | **D-16 closed:** resources a teacher shares with a linked student are visible to the **teacher, the student and the student's parent**. | Owner, 14 Oct 2026, 22:22 IST | Phase 4 |
 | **OC-52** | **Back to home** on the adult and child sign-in pages; the wordmark links home too. | Owner, 14 Oct 2026, 22:22 IST | Built (PR "Back to home") |
+| **OC-53** | **D-42:** when a parent removes a teacher, booked lessons **more than 30 minutes away are cancelled** and parent and teacher are told; lessons starting within 30 minutes stay. | Owner, 15 Oct 2026, 06:39 IST ("As you suggest") | Phase 3 |
+| **OC-54** | **D-43:** set-password link single-use, expires after **72 hours**; email-confirmation link expires after **24 hours**; a parent-added teacher completes their profile after approval with **no second approval**, and the queue offers only Approve or Reject for them; the teacher directory shows only **name, subjects, grades, time zone and bio**, and a teacher can **hide from search**. | Owner, 15 Oct 2026, 06:39 IST ("Yes, i like") | Phase 2, Phase 3 |
+| **OC-55** | **Boards 57–62 and 64–66 approved** (My teachers, Add a teacher, Set your password, approval queue update, account emails, Create an account, teacher's book view, Find a teacher, Admins and permissions). | Owner, 15 Oct 2026, 06:39 IST ("Design Approved, Please proceed") | Phase 2 build |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -189,8 +195,8 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **D-28** | Data residency, hosting region and retention | Decide before any deployment with real data | — | Provider/region, legal | **Yes** | Pre-production |
 | ~~D-35~~ | **Closed → OC-44.** | | | | | |
 | **D-01a** | Final AI tutor display name | Keep "AA Pro AI Tutor" / "AI Tutor" | A persona label under AA Pro | Copy only (central config) | **Yes**, non-blocking | None |
-| **D-42** | When a parent removes a teacher, what happens to lessons already booked with that teacher? | Lessons more than 30 minutes away are cancelled and both sides are told; lessons inside 30 minutes stay (OC-46 cut-off) | Keep all booked lessons; cancel all | Board 57; Phase 3 | **Yes** | Phase 3 |
-| **D-43** | Confirm details proposed on boards 59–62 and 65: set-password link expires after 72 hours and works once; email-confirmation link expires after 24 hours; a parent-added teacher completes their profile after approval without a second approval, and the queue offers only Approve or Reject for them; the teacher directory shows only name, subjects, grades, time zone and bio, and a teacher can hide from search | As drawn | Change any value | Boards 59–62, 65 | **Yes** | Phase 2 (WP2-3, WP2-6) |
+| ~~D-42~~ | **Closed → OC-53.** | | | | | |
+| ~~D-43~~ | **Closed → OC-54.** | | | | | |
 
 ## Part D — Actions for you (not decisions)
 
@@ -213,4 +219,4 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | Phase 2 | **Authorised (OC-40)**; in progress |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
 | A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
-| Open, not decided | D-05, D-10, D-17, D-24, D-25, D-26, D-28, D-01a, D-42, D-43 |
+| Open, not decided | D-05, D-10, D-17, D-24, D-25, D-26, D-28, D-01a |
