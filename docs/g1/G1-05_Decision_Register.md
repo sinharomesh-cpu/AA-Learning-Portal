@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.21 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.22 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.22 changes (owner, 15 Oct 2026, 20:46 IST — sign-in page gap; choice "Add parent/teacher choice, for guidance only"):**
+- **OC-59:** the adult sign-in page (M-01) shows "I am signing in as… A parent / A teacher", like Create an account. It only guides the person and changes the hint text; the account's own role decides which portal opens, so either choice signs in. Deviation DV-35.
 
 **v1.21 changes (owner, 15 Oct 2026, 19:10 IST: "For D-44 yes, you are right"):**
 - **OC-58:** D-44 closed. The curriculum list stays as proposed.
@@ -159,6 +162,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-56** | **No Git-history rewrite for now:** the 7 common-password entries that matched protected terms remain in the public history of one WP2-2 commit; they were removed from the current files. Revisit with A-08. | Owner, 15 Oct 2026, 07:25 IST ("That is fine due to public") | A-08 |
 | **OC-57** | **Hosted test environment approved:** separate Vercel project `aa-pro-test` with a Neon Postgres test database (free plan), test data only; whole site behind an access password; "Test environment" banner; no search indexing; test mailbox instead of real emails; migrations run during the build. Sample-data preview unchanged. Real data stays blocked until D-28. | Owner, 15 Oct 2026, 08:19 IST | A-09 |
 | **OC-58** | **Curriculum list (D-44):** the child profile offers CBSE, ICSE, State board, IB, Cambridge (IGCSE), Other, or "Not set". | Owner, 15 Oct 2026, 19:10 IST | WP2-4 |
+| **OC-59** | **Sign-in role choice (M-01):** "I am signing in as… A parent / A teacher" radio buttons, for guidance only. The account's own role decides the portal; a wrong pick still signs in. Chosen over a required choice, which would cause failed sign-ins and hint at an email's role. | Owner, 15 Oct 2026, 20:46 IST | DV-35 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

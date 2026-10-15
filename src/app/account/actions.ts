@@ -67,7 +67,8 @@ const SignInSchema = z.object({ email: z.string().trim().min(1).max(254), passwo
 export async function signInWithPasswordAction(_prev: FormState, fd: FormData): Promise<FormState> {
   requireRealAuth();
   const parsed = SignInSchema.safeParse({ email: str(fd, 'email'), password: str(fd, 'password') });
-  const values = { email: str(fd, 'email') };
+  // "I am signing in as…" (OC-59) only guides the person; the account's own role decides the portal.
+  const values = { email: str(fd, 'email'), signInAs: str(fd, 'signInAs') === 'teacher' ? 'teacher' : 'parent' };
   if (!parsed.success) return { error: 'Enter your email and password.', values };
   const result = await signInWithEmail(db(), { ...parsed.data, ip: await clientIp() });
   if (!result.ok) {
