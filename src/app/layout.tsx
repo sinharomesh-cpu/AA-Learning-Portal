@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { DemoPreviewBanner } from '@/components/shell/DemoPreviewBanner';
+import { TestEnvironmentBanner } from '@/components/shell/TestEnvironmentBanner';
+import { isTestEnvironment } from '@/config/testEnv';
 import { brand } from '@/config/brand';
 import { isHostedDemoPreview } from '@/server/demo';
 import '@/styles/globals.css';
@@ -23,6 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${outfit.variable} ${jakarta.variable}`}>
       <body>
         {isHostedDemoPreview() ? <DemoPreviewBanner /> : null}
+        {isTestEnvironment(process.env) ? <TestEnvironmentBanner /> : null}
         {children}
       </body>
     </html>

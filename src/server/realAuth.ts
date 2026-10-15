@@ -1,4 +1,5 @@
 import 'server-only';
+import { isTestEnvironment, testEnvGateError } from '@/config/testEnv';
 
 /**
  * Real accounts are on when a database and the server secret are configured and demo mode is
@@ -9,7 +10,12 @@ export function realAuthEnabled(): boolean {
   return Boolean(process.env.DATABASE_URL && process.env.AUTH_SECRET) && process.env.AA_DEMO_MODE !== 'true';
 }
 
-/** Local mailbox page for development and tests only; never in a production build. */
+/**
+ * Test mailbox page: development and tests, or the password-protected hosted test
+ * environment (OC-57). Never on a real production site.
+ */
 export function devMailboxEnabled(): boolean {
-  return process.env.AA_DEV_MAILBOX === 'true' && process.env.NODE_ENV !== 'production';
+  if (process.env.AA_DEV_MAILBOX !== 'true') return false;
+  if (process.env.NODE_ENV !== 'production') return true;
+  return isTestEnvironment(process.env) && testEnvGateError(process.env) === null;
 }
