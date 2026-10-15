@@ -7,6 +7,10 @@ import postgres from 'postgres';
  * touch the database need no DATABASE_URL.
  */
 export type Sql = postgres.Sql<Record<string, unknown>>;
+/** A transaction handle (inside `sql.begin`). */
+export type Tx = postgres.TransactionSql<Record<string, unknown>>;
+/** Either a pool or a transaction: for functions that do not open their own transaction. */
+export type Db = Sql | Tx;
 
 let client: Sql | null = null;
 

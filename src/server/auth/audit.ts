@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Sql } from '@/server/db/client';
+import type { Db } from '@/server/db/client';
 
 /**
  * Audit log (OC-21, G1-08 §3.5). Append-only in the database. Details are small, flat and
@@ -32,7 +32,7 @@ export function sanitiseDetails(details: AuditEvent['details'] = {}): Record<str
   return out;
 }
 
-export async function writeAudit(sql: Sql, event: AuditEvent, now: Date = new Date()): Promise<void> {
+export async function writeAudit(sql: Db, event: AuditEvent, now: Date = new Date()): Promise<void> {
   if (!/^[A-Z][A-Z0-9_]{2,63}$/.test(event.type)) throw new Error(`Bad audit event type ${event.type}`);
   const details = sanitiseDetails(event.details);
   await sql`

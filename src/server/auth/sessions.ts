@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Sql } from '@/server/db/client';
+import type { Db, Sql } from '@/server/db/client';
 import { hashToken, newToken } from './tokens';
 
 /**
@@ -124,7 +124,7 @@ export async function revokeSession(sql: Sql, token: string, now: Date = new Dat
 }
 
 /** Signs an account out everywhere, e.g. after a password reset (G1-08 §3.4 step 6). */
-export async function revokeAllSessions(sql: Sql, accountId: string, now: Date = new Date()): Promise<number> {
+export async function revokeAllSessions(sql: Db, accountId: string, now: Date = new Date()): Promise<number> {
   const result =
     await sql`UPDATE sessions SET revoked_at = ${now} WHERE account_id = ${accountId} AND revoked_at IS NULL`;
   return result.count;
