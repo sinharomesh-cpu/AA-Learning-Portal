@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.20 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.21 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.21 changes (owner, 15 Oct 2026, 19:10 IST: "For D-44 yes, you are right"):**
+- **OC-58:** D-44 closed. The curriculum list stays as proposed.
 
 **v1.20 changes (15 Oct 2026, evening — WP2-4 child accounts):**
 - **A-09 done:** the owner set up the test environment `aa-pro-test` (Neon, Singapore, test data only) and confirmed it works (09:23 IST).
@@ -155,6 +158,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-55** | **Boards 57–62 and 64–66 approved** (My teachers, Add a teacher, Set your password, approval queue update, account emails, Create an account, teacher's book view, Find a teacher, Admins and permissions). | Owner, 15 Oct 2026, 06:39 IST ("Design Approved, Please proceed") | Phase 2 build |
 | **OC-56** | **No Git-history rewrite for now:** the 7 common-password entries that matched protected terms remain in the public history of one WP2-2 commit; they were removed from the current files. Revisit with A-08. | Owner, 15 Oct 2026, 07:25 IST ("That is fine due to public") | A-08 |
 | **OC-57** | **Hosted test environment approved:** separate Vercel project `aa-pro-test` with a Neon Postgres test database (free plan), test data only; whole site behind an access password; "Test environment" banner; no search indexing; test mailbox instead of real emails; migrations run during the build. Sample-data preview unchanged. Real data stays blocked until D-28. | Owner, 15 Oct 2026, 08:19 IST | A-09 |
+| **OC-58** | **Curriculum list (D-44):** the child profile offers CBSE, ICSE, State board, IB, Cambridge (IGCSE), Other, or "Not set". | Owner, 15 Oct 2026, 19:10 IST | WP2-4 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -210,7 +214,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **D-01a** | Final AI tutor display name | Keep "AA Pro AI Tutor" / "AI Tutor" | A persona label under AA Pro | Copy only (central config) | **Yes**, non-blocking | None |
 | ~~D-42~~ | **Closed → OC-53.** | | | | | |
 | ~~D-43~~ | **Closed → OC-54.** | | | | | |
-| **D-44** | Curriculum list in the child profile (M-08: "configured by AA Pro") | CBSE, ICSE, State board, IB, Cambridge (IGCSE), Other, or "Not set" | A different list | Copy and filtering only; changed in one place (`src/server/children.ts`) | **Yes**, non-blocking | None |
+| ~~D-44~~ | **Closed → OC-58.** | | | | | |
 
 ## Part D — Actions for you (not decisions)
 

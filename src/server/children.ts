@@ -34,7 +34,7 @@ export const STEP_UP_MINUTES = 5;
 export const AVATARS = ['star', 'sun', 'leaf', 'moon'] as const;
 export type Avatar = (typeof AVATARS)[number];
 
-/** Curricula offered in the profile form. Shown as "configured by AA Pro" (M-08); owner to confirm. */
+/** Curricula offered in the profile form, shown as "configured by AA Pro" (M-08). Owner-confirmed (OC-58). */
 export const CURRICULA = ['CBSE', 'ICSE', 'State board', 'IB', 'Cambridge (IGCSE)', 'Other'] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
