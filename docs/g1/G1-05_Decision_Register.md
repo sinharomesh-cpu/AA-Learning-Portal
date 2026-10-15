@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.23 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.24 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.24 changes (owner, 15 Oct 2026, 23:01 IST: "D-05- 30 Min per day max time a student/parent can book AI tutor"):**
+- **OC-60:** daily AI tutor limit of **30 minutes per child per day**. D-05 is partly decided; its other options (blocked periods, one-off blocked dates, minimum lead time) stay open as **D-05b**.
+- **A-10 done:** the owner set up the Super Admin on the test site with an authenticator app and recovery codes (15 Oct, 22:36 IST).
 
 **v1.23 changes (WP2-5a Super Admin set-up and security codes):**
 - New owner action **A-10**: set `AA_SUPERADMIN_EMAIL` on the test site and run the one-off set-up (`docs/deployment/test-environment.md`).
@@ -167,6 +171,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-57** | **Hosted test environment approved:** separate Vercel project `aa-pro-test` with a Neon Postgres test database (free plan), test data only; whole site behind an access password; "Test environment" banner; no search indexing; test mailbox instead of real emails; migrations run during the build. Sample-data preview unchanged. Real data stays blocked until D-28. | Owner, 15 Oct 2026, 08:19 IST | A-09 |
 | **OC-58** | **Curriculum list (D-44):** the child profile offers CBSE, ICSE, State board, IB, Cambridge (IGCSE), Other, or "Not set". | Owner, 15 Oct 2026, 19:10 IST | WP2-4 |
 | **OC-59** | **Sign-in role choice (M-01):** "I am signing in as… A parent / A teacher" radio buttons, for guidance only. The account's own role decides the portal; a wrong pick still signs in. Chosen over a required choice, which would cause failed sign-ins and hint at an email's role. | Owner, 15 Oct 2026, 20:46 IST | DV-35 |
+| **OC-60** | **AI tutor daily limit (D-05):** at most **30 minutes of AI lessons per child per day**, however they are booked (by the student or by the parent). Claude's reading, for the owner to correct: the day is the child's own calendar day in the child's time zone; cancelled lessons do not count; with OC-22 (15- or 30-minute lessons) this allows one 30-minute or two 15-minute AI lessons a day; it is a platform limit, checked on the server at booking time. Human-teacher lessons are not affected. | Owner, 15 Oct 2026, 23:01 IST | Phase 3 booking (S13, M-09) |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -203,7 +208,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 
 | ID | Question | Recommended option | Alternatives | Impact | Approval? | Blocks |
 |---|---|---|---|---|---|---|
-| **D-05** | Which parent restrictions exist for AI booking? | Recurring blocked periods; one-off blocked dates; maximum AI minutes per day; minimum lead time | Weekly cap; per-subject limits; parent-PIN override | Slot engine; M-09 | **Yes** | Phase 3 |
+| **D-05b** | Which other parent restrictions exist for AI booking? (The daily limit is decided: OC-60.) | Recurring blocked periods; one-off blocked dates; minimum lead time | Weekly cap; per-subject limits; parent-PIN override | Slot engine; M-09 | **Yes** | Phase 3 |
 | ~~D-07~~ | **Closed → OC-46.** | | | | | |
 | ~~D-08~~ | **Closed → OC-45.** | | | | | |
 | ~~D-09~~ | **Closed → OC-36.** | | | | | |
@@ -233,7 +238,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **A-05.** Before the first push, add a repository secret named `IDENTIFYING_TERMS` (GitHub → repository → Settings → Secrets and variables → Actions → New repository secret). It holds the identifying demo terms that CI must never find in the repository. This keeps those terms out of Git entirely. The value is given to you in the chat, not in any document. Without the secret, the CI privacy check fails on purpose rather than passing silently.
 - **A-06 (optional).** The project root holds stale duplicate copies of several docs (for example a v1.0 G1-04 and older G1-05 copies) next to the current `claude/` versions. The authoritative copies are under `claude/`. You may delete the root duplicates. I will not delete them.
 - **A-07 (done 14 Oct 2026).** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
-- **A-10 (owner, when told).** Set `AA_SUPERADMIN_EMAIL` on `aa-pro-test`, redeploy, then use `/setup` to create the Super Admin with a password, authenticator app and recovery codes.
+- **A-10 (done 15 Oct).** Set `AA_SUPERADMIN_EMAIL` on `aa-pro-test`, redeploy, then use `/setup` to create the Super Admin with a password, authenticator app and recovery codes.
 - **A-09 (done 15 Oct).** Create the test environment: new Vercel project `aa-pro-test`, Neon database, settings and redeploy, as in `docs/deployment/test-environment.md`. Claude supplies the two secret values in the chat, never in Git.
 - **A-08 (waiting: owner's GitHub Pro).** The owner will subscribe to GitHub Pro and make `AA-Learning-Portal` private. **Claude reminds the owner when they say GitHub Pro is active**, then:
   1. guides the owner through Settings → General → Danger Zone → Change visibility → Private (only the owner can do this; Claude's session cannot change repository settings);
@@ -254,4 +259,4 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | Phase 2 | **Authorised (OC-40)**; in progress |
 | A-01 Project instructions | Still v1 in the project settings (re-read 14 Oct 2026); paste of v2.1 recommended |
 | A-03 Branch protection | **Owner action.** The repository is public, so this is free, but Claude's session cannot change repository settings. Required checks (all seven CI jobs): privacy-and-brand, lint, typecheck, test, build, e2e and the secret scan; 0 approvals (OC-32) |
-| Open, not decided | D-05, D-10, D-17, D-24, D-25, D-26, D-28, D-01a |
+| Open, not decided | D-05b, D-10, D-17, D-24, D-25, D-26, D-28, D-01a |
