@@ -14,6 +14,13 @@ Code: `src/server/auth/`. Tests: `src/server/auth/password.test.ts`, `tests/db/a
 | Stored identifiers | Throttle keys are HMAC-SHA-256 with `AUTH_SECRET`; no username, email or IP is stored in readable form | G1-08 §3.2 |
 | Audit | Append-only; details refuse keys that look like passwords, tokens, codes or secrets | OC-21, G1-08 §3.5 |
 
+**Client address.** Throttling uses the first `X-Forwarded-For` entry. Vercel sets this header from the real
+client address; any other host must sit behind a proxy that does the same, or the per-address limits can be
+bypassed.
+
+**Request limits (WP2-3).** Sign-up, password-reset and new-confirmation requests are limited to 10 per hour
+per address, and each account gets at most one reset or confirmation email per 15 minutes.
+
 Not in this package: sign-in pages, registration, recovery and MFA (WP2-3 to WP2-5).
 
 **Known limit:** the leaked-password list is a fixed offline list. A larger, always-current list

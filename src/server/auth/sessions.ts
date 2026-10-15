@@ -33,6 +33,8 @@ export interface SessionAccount {
 export interface ActiveSession {
   accountId: string;
   role: string;
+  /** 'active', or 'pending_approval' for a teacher who may see only their status page (OC-38). */
+  status: 'active' | 'pending_approval';
   displayName: string;
   timeZone: string;
   createdAt: Date;
@@ -79,6 +81,7 @@ export async function loadSession(
     Array<{
       account_id: string;
       role: string;
+      status: 'active' | 'pending_approval';
       display_name: string;
       time_zone: string;
       created_at: Date;
@@ -88,7 +91,7 @@ export async function loadSession(
       mfa_verified_at: Date | null;
     }>
   >`
-    SELECT s.account_id, a.role, a.display_name, a.time_zone, s.created_at, s.last_seen_at,
+    SELECT s.account_id, a.role, a.status, a.display_name, a.time_zone, s.created_at, s.last_seen_at,
            s.absolute_expires_at, s.reauthenticated_at, s.mfa_verified_at
     FROM sessions s JOIN accounts a ON a.id = s.account_id
     WHERE s.id_hash = ${idHash}
@@ -96,7 +99,7 @@ export async function loadSession(
       AND s.idle_expires_at > ${now}
       AND s.absolute_expires_at > ${now}
       AND s.credential_version = a.credential_version
-      AND a.status = 'active'`;
+      AND (a.status = 'active' OR (a.status = 'pending_approval' AND a.role = 'teacher'))`;
   const row = rows[0];
   if (!row) return null;
 
@@ -110,6 +113,7 @@ export async function loadSession(
   return {
     accountId: row.account_id,
     role: row.role,
+    status: row.status,
     displayName: row.display_name,
     timeZone: row.time_zone,
     createdAt: row.created_at,

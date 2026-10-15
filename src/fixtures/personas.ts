@@ -16,6 +16,8 @@ export interface Persona {
   grade?: number;
   subjects?: SubjectId[];
   childIds?: string[];
+  /** Real accounts only: 'pending_approval' for a teacher waiting for approval (OC-38). */
+  status?: 'active' | 'pending_approval';
 }
 
 export const PERSONAS: readonly Persona[] = [
