@@ -20,6 +20,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The common-password list is read from disk by the server (OC-35); make sure every server
+  // route's trace includes it on hosted deployments.
+  outputFileTracingIncludes: {
+    '/**': ['./src/server/auth/data/common-passwords.txt'],
+  },
   // The development indicator badge overlaps the phone bottom navigation.
   devIndicators: false,
   reactStrictMode: true,
