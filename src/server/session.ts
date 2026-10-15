@@ -39,6 +39,7 @@ export const getViewer = cache(async (): Promise<Persona | null> => {
     initial: [...session.displayName][0]?.toUpperCase() ?? '?',
     timeZone: session.timeZone,
     status: session.status,
+    mfaPending: session.role === 'superadmin' && !session.mfaVerifiedAt,
   };
   if (session.role === 'parent') {
     const rows = await db()<Array<{ student_id: string }>>`

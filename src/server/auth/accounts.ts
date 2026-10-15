@@ -240,7 +240,7 @@ export type SignInResult =
   | { ok: true; account: { id: string; role: string; status: string; credential_version: number } }
   | {
       ok: false;
-      reason: 'invalid' | 'locked' | 'ip_limited' | 'not_confirmed' | 'inactive' | 'mfa_required';
+      reason: 'invalid' | 'locked' | 'ip_limited' | 'not_confirmed' | 'inactive';
       retryAfterSeconds?: number;
     };
 
@@ -284,10 +284,8 @@ export async function signInWithEmail(
     );
     return { ok: false, reason: 'inactive' };
   }
-  if (account.role === 'superadmin' || account.role === 'admin') {
-    // Admins always need their second factor (OC-50). The MFA step arrives in WP2-5.
-    return { ok: false, reason: 'mfa_required' };
-  }
+  // Super Admin (and later Admins) continue to the second-factor step (M-26) before any admin
+  // page opens: their session starts without `mfa_verified_at` (OC-50, server/authz.ts).
   await writeAudit(
     sql,
     { type: 'SIGN_IN', outcome: 'success', subjectId: account.id, actorId: account.id, details: { method: 'email' } },
@@ -364,7 +362,8 @@ export async function setPasswordWithToken(
     const accountId = await consumeToken(tx, input.token, input.purpose, now);
     if (!accountId) return null;
     const [row] = await tx<Array<{ email: string; display_name: string }>>`
-      UPDATE accounts SET password_hash = ${passwordHash}, credential_version = credential_version + 1
+      UPDATE accounts SET password_hash = ${passwordHash}, credential_version = credential_version + 1,
+             email_verified_at = COALESCE(email_verified_at, ${now})
       WHERE id = ${accountId} RETURNING email, display_name`;
     await revokeAllSessions(tx, accountId, now);
     // Other unused reset links for this account stop working too.

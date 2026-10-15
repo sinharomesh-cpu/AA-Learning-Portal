@@ -81,8 +81,6 @@ export async function signInWithPasswordAction(_prev: FormState, fd: FormData): 
         return { error: 'Please confirm your email first. We can send you a new link.', values, needsConfirm: true };
       case 'inactive':
         return { error: 'This account is not active. Please contact AA Pro support.', values };
-      case 'mfa_required':
-        return { error: 'Admin sign-in with a security code opens soon.', values };
       default:
         return { error: "That email and password don't match an account. Check them and try again.", values };
     }

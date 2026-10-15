@@ -6,7 +6,7 @@ import { getViewer } from '@/server/session';
 /** Presentation only; each page performs its own server-side role check (server/authz.ts). */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const viewer = await getViewer();
-  if (viewer?.role !== 'superadmin') return <>{children}</>;
+  if (viewer?.role !== 'superadmin' || viewer.mfaPending) return <>{children}</>;
   return (
     <AdultShell role="superadmin" menu={ADMIN_MENU} displayName={viewer.displayName} initial={viewer.initial}>
       {children}

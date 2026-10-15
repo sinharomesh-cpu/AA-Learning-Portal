@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.22 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.23 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.23 changes (WP2-5a Super Admin set-up and security codes):**
+- New owner action **A-10**: set `AA_SUPERADMIN_EMAIL` on the test site and run the one-off set-up (`docs/deployment/test-environment.md`).
+- New libraries, as planned in P2-00 §2: `otplib` 13.5.0 (security codes); plus `qrcode` 1.5.4 for the set-up QR code (not in the plan; needed so the phone app can scan the key). Both MIT-licensed.
 
 **v1.22 changes (owner, 15 Oct 2026, 20:46 IST — sign-in page gap; choice "Add parent/teacher choice, for guidance only"):**
 - **OC-59:** the adult sign-in page (M-01) shows "I am signing in as… A parent / A teacher", like Create an account. It only guides the person and changes the hint text; the account's own role decides which portal opens, so either choice signs in. Deviation DV-35.
@@ -229,7 +233,8 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **A-05.** Before the first push, add a repository secret named `IDENTIFYING_TERMS` (GitHub → repository → Settings → Secrets and variables → Actions → New repository secret). It holds the identifying demo terms that CI must never find in the repository. This keeps those terms out of Git entirely. The value is given to you in the chat, not in any document. Without the secret, the CI privacy check fails on purpose rather than passing silently.
 - **A-06 (optional).** The project root holds stale duplicate copies of several docs (for example a v1.0 G1-04 and older G1-05 copies) next to the current `claude/` versions. The authoritative copies are under `claude/`. You may delete the root duplicates. I will not delete them.
 - **A-07 (done 14 Oct 2026).** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
-- **A-09 (owner, now).** Create the test environment: new Vercel project `aa-pro-test`, Neon database, settings and redeploy, as in `docs/deployment/test-environment.md`. Claude supplies the two secret values in the chat, never in Git.
+- **A-10 (owner, when told).** Set `AA_SUPERADMIN_EMAIL` on `aa-pro-test`, redeploy, then use `/setup` to create the Super Admin with a password, authenticator app and recovery codes.
+- **A-09 (done 15 Oct).** Create the test environment: new Vercel project `aa-pro-test`, Neon database, settings and redeploy, as in `docs/deployment/test-environment.md`. Claude supplies the two secret values in the chat, never in Git.
 - **A-08 (waiting: owner's GitHub Pro).** The owner will subscribe to GitHub Pro and make `AA-Learning-Portal` private. **Claude reminds the owner when they say GitHub Pro is active**, then:
   1. guides the owner through Settings → General → Danger Zone → Change visibility → Private (only the owner can do this; Claude's session cannot change repository settings);
   2. checks that the Vercel project still deploys from the private repository (Vercel's GitHub app keeps access to selected repositories);

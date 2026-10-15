@@ -18,6 +18,8 @@ export interface Persona {
   childIds?: string[];
   /** Real accounts only: 'pending_approval' for a teacher waiting for approval (OC-38). */
   status?: 'active' | 'pending_approval';
+  /** Real accounts only: a Super Admin who has not passed the security-code step yet (M-26, OC-50). */
+  mfaPending?: boolean;
 }
 
 export const PERSONAS: readonly Persona[] = [

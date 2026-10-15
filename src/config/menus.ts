@@ -6,6 +6,7 @@ export const ADMIN_MENU: MenuItem[] = [
   { href: '/admin/accounts', label: 'Accounts' },
   { href: '/admin/approvals', label: 'Teacher approvals' },
   { href: '/admin/audit-log', label: 'Audit log' },
+  { href: '/admin/security', label: 'Security' },
 ];
 
 /** Parent menu from the approved P19 board (OC-33). */

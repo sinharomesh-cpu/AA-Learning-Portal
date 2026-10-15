@@ -17,5 +17,7 @@ export async function requireRole(role: Role): Promise<Access> {
   if (!viewer) redirect('/sign-in');
   // A teacher waiting for approval sees only their status page (OC-38, M-21).
   if (viewer.role === 'teacher' && viewer.status === 'pending_approval') redirect('/teacher/status');
+  // A Super Admin opens nothing until the security-code step is passed (M-26, OC-50).
+  if (viewer.mfaPending) redirect('/admin/verify');
   return viewer.role === role ? { allowed: true, viewer } : { allowed: false, viewer };
 }

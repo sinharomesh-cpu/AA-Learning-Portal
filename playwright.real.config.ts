@@ -35,6 +35,8 @@ export default defineConfig({
       DATABASE_URL: process.env.DATABASE_URL ?? '',
       AUTH_SECRET: process.env.AUTH_SECRET ?? '',
       AA_DEV_MAILBOX: 'true',
+      // Synthetic owner address for the one-off Super Admin set-up test (OC-50).
+      AA_SUPERADMIN_EMAIL: 'owner@example.com',
     },
   },
 });
