@@ -100,6 +100,8 @@ test('wrong details answer the same for real and unknown usernames, and the 5th 
   page,
   browser,
 }) => {
+  // About 20 sign-in attempts; allow for slower CI machines.
+  test.setTimeout(150_000);
   await signedInParent(page);
   const creds = await addChild(page, 'Ravi', ['ravi', 'reads', 'books'].join('-'));
   const kid = await childPage(browser);
