@@ -72,3 +72,12 @@
 | 55 | P21 Teacher dashboard (desktop) — AA Pro adaptation | 14 Oct 2026 | "Approve all four" |
 | 56 | P21 Teacher dashboard (phone) | 14 Oct 2026 | "Approve all four" |
 | 63 | Public landing page (desktop and phone) — OC-39 | 14 Oct 2026 | "I approve the new design" (20:38 IST; at that time only board 63 was drawn) |
+| 57 | My teachers (desktop and phone) | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 58 | Add a teacher with subject checklist (desktop and phone) | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 59 | Set your password | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 60 | Teacher approvals update (M-29) | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 61 | Account emails | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 62 | Create an account (desktop and phone) | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 64 | Teacher · student's books by subject | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 65 | Find a teacher | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| 66 | Admins and permissions | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
