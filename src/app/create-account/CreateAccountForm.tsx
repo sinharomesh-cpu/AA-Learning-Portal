@@ -6,14 +6,7 @@ import { signUpAction, type FormState } from '@/app/account/actions';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
-
-const TIME_ZONES = [
-  ['Asia/Kolkata', 'India (IST)'],
-  ['Asia/Singapore', 'Singapore (GMT+8)'],
-  ['Asia/Dubai', 'Dubai (GMT+4)'],
-  ['Europe/London', 'London (UK time)'],
-  ['America/New_York', 'New York (US Eastern)'],
-] as const;
+import { TIME_ZONES } from '@/config/timeZones';
 
 /** Board 62: create a parent or teacher account (OC-38). Children never sign up themselves. */
 export function CreateAccountForm() {

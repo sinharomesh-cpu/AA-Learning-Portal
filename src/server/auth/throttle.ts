@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Sql } from '@/server/db/client';
+import type { Db, Sql } from '@/server/db/client';
 import { keyedHash } from './tokens';
 
 /**
@@ -117,7 +117,19 @@ export async function recordSuccess(sql: Sql, keys: ThrottleKeys): Promise<void>
   await sql`DELETE FROM sign_in_throttle WHERE kind = ${keys.kind} AND key_hash = ${accountKey(keys)}`;
 }
 
+/** When the identifier is locked, the time the lock ends; otherwise null (M-08 sign-in status). */
+export async function lockedUntil(
+  sql: Db,
+  kind: IdentifierKind,
+  identifier: string,
+  now: Date = new Date(),
+): Promise<Date | null> {
+  const [row] = await sql<Array<{ locked_until: Date | null }>>`
+    SELECT locked_until FROM sign_in_throttle WHERE kind = ${kind} AND key_hash = ${accountKey({ kind, identifier })}`;
+  return row?.locked_until && row.locked_until > now ? row.locked_until : null;
+}
+
 /** Early unlock by the parent (G1-08 §3.3): clears the child's username lock and counter. */
-export async function clearAccountLock(sql: Sql, kind: IdentifierKind, identifier: string): Promise<void> {
+export async function clearAccountLock(sql: Db, kind: IdentifierKind, identifier: string): Promise<void> {
   await sql`DELETE FROM sign_in_throttle WHERE kind = ${kind} AND key_hash = ${accountKey({ kind, identifier })}`;
 }

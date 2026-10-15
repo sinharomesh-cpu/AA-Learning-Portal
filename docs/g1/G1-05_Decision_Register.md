@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.19 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.20 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.20 changes (15 Oct 2026, evening — WP2-4 child accounts):**
+- **A-09 done:** the owner set up the test environment `aa-pro-test` (Neon, Singapore, test data only) and confirmed it works (09:23 IST).
+- **New open decision D-44** (non-blocking): the curriculum list offered in the child profile.
 
 **v1.19 changes (owner, 15 Oct 2026, 08:19 IST: "Yes, please proceed with small test database for testing"):**
 - **OC-57:** a hosted **test environment** with its own small test database (test data only), as a separate, password-protected Vercel project. The sample-data preview stays as it is. Steps: `docs/deployment/test-environment.md`; owner action **A-09**.
@@ -206,6 +210,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **D-01a** | Final AI tutor display name | Keep "AA Pro AI Tutor" / "AI Tutor" | A persona label under AA Pro | Copy only (central config) | **Yes**, non-blocking | None |
 | ~~D-42~~ | **Closed → OC-53.** | | | | | |
 | ~~D-43~~ | **Closed → OC-54.** | | | | | |
+| **D-44** | Curriculum list in the child profile (M-08: "configured by AA Pro") | CBSE, ICSE, State board, IB, Cambridge (IGCSE), Other, or "Not set" | A different list | Copy and filtering only; changed in one place (`src/server/children.ts`) | **Yes**, non-blocking | None |
 
 ## Part D — Actions for you (not decisions)
 
