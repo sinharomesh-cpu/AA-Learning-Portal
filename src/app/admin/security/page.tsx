@@ -3,7 +3,7 @@ import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
-import { requireRole } from '@/server/authz';
+import { requireAdmin } from '@/server/authz';
 import { recoveryCodesLeft } from '@/server/auth/mfa';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 /** Super Admin security settings: recovery codes and authenticator (OC-50, board 66). */
 export default async function AdminSecurityPage({ searchParams }: { searchParams: Promise<{ recovered?: string }> }) {
-  const access = await requireRole('superadmin');
+  const access = await requireAdmin();
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   if (isDemoMode()) {
     return (

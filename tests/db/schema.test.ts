@@ -67,7 +67,7 @@ describe('profiles', () => {
     );
   });
 
-  it('a teacher decision must be made by a Super Admin', async () => {
+  it('a teacher decision must be made by the Super Admin or an Admin', async () => {
     const teacher = await createAdult(sql, 'teacher', 'pending_approval');
     const parent = await createAdult(sql, 'parent');
     await sql`INSERT INTO teacher_profiles (account_id, origin, approval_status, submitted_at)
@@ -75,7 +75,7 @@ describe('profiles', () => {
     await expect(
       sql`UPDATE teacher_profiles SET approval_status = 'approved', decided_by = ${parent}, decided_at = now()
           WHERE account_id = ${teacher}`,
-    ).rejects.toThrow(/is not a superadmin/);
+    ).rejects.toThrow(/is not an admin/);
     await expect(
       sql`UPDATE teacher_profiles SET approval_status = 'approved' WHERE account_id = ${teacher}`,
     ).rejects.toThrow(/teacher_profiles_decision/);

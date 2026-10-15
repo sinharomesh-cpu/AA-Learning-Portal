@@ -5,7 +5,7 @@ import { Wordmark } from '@/components/Wordmark';
 import { mfaState, pendingEnrolment, startEnrolment } from '@/server/auth/mfa';
 import { db } from '@/server/db/client';
 import { getRealSession } from '@/server/session';
-import { EnrolForm, VerifyForm } from '../security/SecurityForms';
+import { EnrolForm, VerifyForm } from '../admin/security/SecurityForms';
 
 export const metadata: Metadata = { title: 'Confirm it’s you', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function AdminVerifyPage() {
   const real = await getRealSession();
-  if (!real || real.session.role !== 'superadmin') redirect('/sign-in');
+  if (!real || (real.session.role !== 'superadmin' && real.session.role !== 'admin')) redirect('/sign-in');
   if (real.session.mfaVerifiedAt) redirect('/admin');
   const sql = db();
   const { enrolled } = await mfaState(sql, real.session.accountId);
@@ -37,7 +37,7 @@ export default async function AdminVerifyPage() {
         <p className="text-sm leading-5 text-on-surface-variant">
           {enrolled
             ? 'Enter the 6-digit code from your authenticator.'
-            : 'The Super Admin signs in with a password and a code from a phone app. This takes about two minutes.'}
+            : 'AA Pro admins sign in with a password and a code from a phone app. This takes about two minutes.'}
         </p>
         {enrolment ? (
           <EnrolForm qrSvg={enrolment.qrSvg} secret={enrolment.secret} uri={enrolment.uri} />

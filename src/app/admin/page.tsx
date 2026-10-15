@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
+import { auditLabel } from '@/lib/auditLabels';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
 import { PendingNote } from '@/components/PendingNote';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { adminCounts, RECENT_ADMIN_ACTIONS } from '@/fixtures/admin';
-import { requireRole } from '@/server/authz';
+import { requireAdmin } from '@/server/authz';
 import { db } from '@/server/db/client';
+import { recentActionsBy } from '@/server/admin';
+
 import { isDemoMode } from '@/server/demo';
 
 /** Real counts for M-35: numbers only, never names (OC-21). */
@@ -24,10 +27,24 @@ export const metadata: Metadata = { title: 'Admin home' };
 
 /** M-35 Super Admin home (board 37): counts only, no child names or learning content (OC-21). */
 export default async function AdminHomePage() {
-  const access = await requireRole('superadmin');
+  const access = await requireAdmin();
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   const demo = isDemoMode();
   const counts = demo ? adminCounts() : await realCounts();
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: access.viewer.timeZone,
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const recent = demo
+    ? RECENT_ADMIN_ACTIONS
+    : (await recentActionsBy(db(), access.viewer.id)).map((r) => ({
+        action: auditLabel(r.type),
+        subject: r.record === '—' ? '' : r.record,
+        when: fmt.format(r.at),
+      }));
   const tiles = [
     { label: 'Active parent accounts', value: counts.activeParents },
     { label: 'Active teacher accounts', value: counts.activeTeachers },
@@ -52,16 +69,16 @@ export default async function AdminHomePage() {
           </li>
         ))}
       </ul>
-      {demo ? (
+      {demo || recent.length ? (
         <Card aria-labelledby="recent" className="flex flex-col gap-2">
           <h2 id="recent" className="text-headline-sm">
             Your recent actions
           </h2>
           <ul className="m-0 list-none p-0">
-            {RECENT_ADMIN_ACTIONS.map((a, i) => (
+            {recent.map((a, i) => (
               <li
-                key={a.when}
-                className={`flex flex-wrap justify-between gap-2 py-3 ${i < RECENT_ADMIN_ACTIONS.length - 1 ? 'border-b border-surface-container' : ''}`}
+                key={`${a.when}-${i}`}
+                className={`flex flex-wrap justify-between gap-2 py-3 ${i < recent.length - 1 ? 'border-b border-surface-container' : ''}`}
               >
                 <span>
                   {a.action} <strong>{a.subject}</strong>
@@ -70,9 +87,11 @@ export default async function AdminHomePage() {
               </li>
             ))}
           </ul>
-          <Link href="/admin/audit-log" className="font-bold">
-            Open audit log
-          </Link>
+          {access.viewer.role === 'superadmin' || access.viewer.permissions?.includes('audit_log') ? (
+            <Link href="/admin/audit-log" className="font-bold">
+              Open audit log
+            </Link>
+          ) : null}
         </Card>
       ) : null}
       <p className="text-body-sm text-on-surface-variant">

@@ -7,6 +7,7 @@ import { requireRole } from './authz';
 const HOME: Record<Exclude<Role, 'student'>, { href: string; label: string }> = {
   parent: { href: '/parent', label: 'Go to family home' },
   teacher: { href: '/teacher', label: 'Go to my dashboard' },
+  admin: { href: '/admin', label: 'Go to admin home' },
   superadmin: { href: '/admin', label: 'Go to admin home' },
 };
 

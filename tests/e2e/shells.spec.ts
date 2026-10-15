@@ -58,7 +58,14 @@ test.describe('Super Admin shell (M-26/35, M-27)', () => {
     await expect(page.getByText('Active parent accounts')).toBeVisible();
     if (testInfo.project.name === 'phone') await page.getByRole('button', { name: /open super admin menu/i }).click();
     const menu = page.getByRole('navigation', { name: 'Super Admin menu' });
-    await expect(menu.getByRole('link')).toHaveText(['Home', 'Accounts', 'Teacher approvals', 'Audit log', 'Security']);
+    await expect(menu.getByRole('link')).toHaveText([
+      'Home',
+      'Accounts',
+      'Teacher approvals',
+      'Admins',
+      'Audit log',
+      'Security',
+    ]);
     const text = (await page.locator('body').innerText()).toLowerCase();
     expect(text).not.toContain('integration');
     expect(text).not.toMatch(/sign in as|impersonat/);

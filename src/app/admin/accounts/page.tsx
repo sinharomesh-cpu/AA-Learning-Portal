@@ -4,9 +4,9 @@ import { Card } from '@/components/Card';
 import { StatusChip, type ChipKind } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { ACCOUNTS, type AccountStatus } from '@/fixtures/admin';
-import { requireRole } from '@/server/authz';
-import { NotReadyYet } from '@/components/states/NotReadyYet';
+import { requireAdmin } from '@/server/authz';
 import { isDemoMode } from '@/server/demo';
+import { RealAccounts } from './RealAccounts';
 
 export const metadata: Metadata = { title: 'Accounts' };
 
@@ -18,16 +18,21 @@ const STATUS_KIND: Record<AccountStatus, ChipKind> = {
 };
 
 /** M-27 accounts list (boards 38, 52): Parent and Teacher accounts only, read-only in Phase 1. */
-export default async function AdminAccountsPage() {
-  const access = await requireRole('superadmin');
+export default async function AdminAccountsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const access = await requireAdmin('accounts');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   if (!isDemoMode()) {
+    const p = await searchParams;
+    const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
     return (
-      <NotReadyYet
-        title="Accounts"
-        body="The real accounts list arrives in the next update, together with Admins and teacher approvals."
-        homeHref="/admin"
-        homeLabel="Back to home"
+      <RealAccounts
+        actorId={access.viewer.id}
+        timeZone={access.viewer.timeZone}
+        filter={{ q: one(p.q), role: one(p.role), status: one(p.status) }}
       />
     );
   }

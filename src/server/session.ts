@@ -5,6 +5,7 @@ import { findPersona, type Persona } from '@/fixtures/personas';
 import type { SubjectId } from '@/fixtures/subjects';
 import { isRole } from '@/lib/roles';
 import { type ActiveSession, loadSession, SESSION_COOKIE } from './auth/sessions';
+import { adminPermissions } from './admin';
 import { db } from './db/client';
 import { isDemoMode } from './demo';
 import { realAuthEnabled } from './realAuth';
@@ -39,8 +40,9 @@ export const getViewer = cache(async (): Promise<Persona | null> => {
     initial: [...session.displayName][0]?.toUpperCase() ?? '?',
     timeZone: session.timeZone,
     status: session.status,
-    mfaPending: session.role === 'superadmin' && !session.mfaVerifiedAt,
+    mfaPending: (session.role === 'superadmin' || session.role === 'admin') && !session.mfaVerifiedAt,
   };
+  if (session.role === 'admin') viewer.permissions = await adminPermissions(db(), session.accountId);
   if (session.role === 'parent') {
     const rows = await db()<Array<{ student_id: string }>>`
       SELECT student_id FROM guardian_links WHERE parent_id = ${session.accountId} AND status = 'active'`;

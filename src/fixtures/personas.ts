@@ -20,6 +20,8 @@ export interface Persona {
   status?: 'active' | 'pending_approval';
   /** Real accounts only: a Super Admin who has not passed the security-code step yet (M-26, OC-50). */
   mfaPending?: boolean;
+  /** Real Admins only: what the Super Admin let them manage (OC-50, board 66). */
+  permissions?: Array<'accounts' | 'teacher_approvals' | 'audit_log'>;
 }
 
 export const PERSONAS: readonly Persona[] = [
