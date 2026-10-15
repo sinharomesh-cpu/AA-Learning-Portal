@@ -5,6 +5,8 @@ import { StatusChip, type ChipKind } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { ACCOUNTS, type AccountStatus } from '@/fixtures/admin';
 import { requireRole } from '@/server/authz';
+import { NotReadyYet } from '@/components/states/NotReadyYet';
+import { isDemoMode } from '@/server/demo';
 
 export const metadata: Metadata = { title: 'Accounts' };
 
@@ -19,6 +21,16 @@ const STATUS_KIND: Record<AccountStatus, ChipKind> = {
 export default async function AdminAccountsPage() {
   const access = await requireRole('superadmin');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
+  if (!isDemoMode()) {
+    return (
+      <NotReadyYet
+        title="Accounts"
+        body="The real accounts list arrives in the next update, together with Admins and teacher approvals."
+        homeHref="/admin"
+        homeLabel="Back to home"
+      />
+    );
+  }
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">

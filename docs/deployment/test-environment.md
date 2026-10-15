@@ -29,6 +29,7 @@ Safety rules, enforced in code (`src/config/testEnv.ts`, `src/proxy.ts`, `next.c
 | `AA_TEST_ACCESS_PASSWORD` | given to the owner in the chat (not stored in Git) |
 | `AUTH_SECRET` | given to the owner in the chat (not stored in Git) |
 | `AA_DEV_MAILBOX` | `true` |
+| `AA_SUPERADMIN_EMAIL` | the owner's own email address (A-10); turns on the one-off `/setup` page until the Super Admin has a password |
 | `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | added automatically when the Neon database is connected |
 
 Do **not** add `AA_DEMO_MODE` or `AA_HOSTED_DEMO` to this project.
@@ -56,3 +57,15 @@ production site will use its own database and secrets.
 ## Switching it off
 
 Vercel → `aa-pro-test` → Settings → Delete Project; and Storage → the Neon database → Delete.
+
+## Owner steps (A-10): Super Admin on the test site
+
+1. Vercel → `aa-pro-test` → **Settings → Environment Variables** → add `AA_SUPERADMIN_EMAIL` = your own email
+   address (Production and Preview) → **Save** → **Deployments → ⋯ → Redeploy**.
+2. Open `/setup` on the test site, type your name and that email → **Send set-up link**.
+3. Open `/dev/mailbox`, open the "owner_set_password" email's link and choose a password (12+ characters).
+4. Sign in. Install Google Authenticator or Microsoft Authenticator, scan the QR code, type the 6-digit code.
+5. Print or write down the ten recovery codes, then **I've saved them**.
+
+After step 3 the `/setup` page no longer exists. There is only ever one Super Admin.
+

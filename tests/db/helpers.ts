@@ -15,6 +15,11 @@ export const uniq = () => randomBytes(4).toString('hex');
 const digits = () => String(Math.floor(1000 + Math.random() * 9000));
 
 export async function createAdult(sql: Sql, role: 'parent' | 'teacher' | 'superadmin', status = 'active') {
+  // There is only ever one Super Admin (migration 0005); tests share it.
+  if (role === 'superadmin') {
+    const [existing] = await sql<{ id: string }[]>`SELECT id FROM accounts WHERE role = 'superadmin'`;
+    if (existing) return existing.id;
+  }
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO accounts (role, status, email, display_name)
     VALUES (${role}, ${status}, ${`${role}-${uniq()}@example.com`}, ${`Test ${role}`})

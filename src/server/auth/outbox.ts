@@ -18,7 +18,8 @@ export type EmailTemplate =
   | 'parent_teacher_not_approved'
   | 'teacher_linked_to_child'
   | 'child_locked'
-  | 'child_password_reset';
+  | 'child_password_reset'
+  | 'owner_set_password';
 
 export interface QueuedEmail {
   to: string;
