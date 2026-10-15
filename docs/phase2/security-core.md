@@ -5,7 +5,7 @@ Code: `src/server/auth/`. Tests: `src/server/auth/password.test.ts`, `tests/db/a
 | Area | Rule | Source |
 |---|---|---|
 | Hashing | Argon2id, 19 MiB, 2 iterations, parallelism 1; salted; verified in constant work even for unknown accounts | OC-35, G1-08 §3.1 |
-| Password policy | Adults ≥ 12, children ≥ 8, all ≤ 64 characters (counted as characters); passphrases allowed; no composition rules; common and leaked passwords refused using an offline list of 17,950 entries | OC-35 (D-37) |
+| Password policy | Adults ≥ 12, children ≥ 8, all ≤ 64 characters (counted as characters); passphrases allowed; no composition rules; common and leaked passwords refused using an offline list of 17,943 entries | OC-35 (D-37) |
 | Sessions | Random 32-byte token in an HttpOnly cookie; only its SHA-256 is stored; revocable; invalid after a password change or when the account is not active | G1-08 §3.2 |
 | Session lifetimes | Children: 60 min idle, 12 h maximum (OC-35). Parents and teachers: 120 min idle, 12 h maximum. Super Admin and Admins: 30 min idle, 8 h maximum. | Children approved; adult and admin values are Claude's technical defaults, changeable |
 | Step-up | Re-entering the password counts for 5 minutes | G1-08 §3.4 |
