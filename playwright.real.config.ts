@@ -12,7 +12,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 2,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // In CI, failures are also posted as check annotations so they can be read without the full log.
+  reporter: process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
   timeout: 60_000,
   use: {
     baseURL: `http://127.0.0.1:${port}`,
