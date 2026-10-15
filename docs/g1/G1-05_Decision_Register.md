@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.17 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.18 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.18 changes (owner, 15 Oct 2026, 07:25 IST):**
+- **OC-56:** the 7 password-list entries left in the public Git history (see WP2-2) stay as they are for now; no history rewrite while the repository is public.
+- **A-08 (new, waiting for the owner):** the owner will take GitHub Pro and make the repository **private**. **When the owner says GitHub Pro is active, Claude reminds the owner and carries out the private-repository change list in A-08.**
 
 **v1.17 changes (owner, 15 Oct 2026, 06:39 IST: "D42- As you suggest … D-43-Yes, i like, Design Approved, Please proceed"):**
 - **OC-53 (D-42)**, **OC-54 (D-43)** and **OC-55**: boards 57–62 and 64–66 approved. All Phase 2 boards (57–66) are now approved.
@@ -142,6 +146,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-53** | **D-42:** when a parent removes a teacher, booked lessons **more than 30 minutes away are cancelled** and parent and teacher are told; lessons starting within 30 minutes stay. | Owner, 15 Oct 2026, 06:39 IST ("As you suggest") | Phase 3 |
 | **OC-54** | **D-43:** set-password link single-use, expires after **72 hours**; email-confirmation link expires after **24 hours**; a parent-added teacher completes their profile after approval with **no second approval**, and the queue offers only Approve or Reject for them; the teacher directory shows only **name, subjects, grades, time zone and bio**, and a teacher can **hide from search**. | Owner, 15 Oct 2026, 06:39 IST ("Yes, i like") | Phase 2, Phase 3 |
 | **OC-55** | **Boards 57–62 and 64–66 approved** (My teachers, Add a teacher, Set your password, approval queue update, account emails, Create an account, teacher's book view, Find a teacher, Admins and permissions). | Owner, 15 Oct 2026, 06:39 IST ("Design Approved, Please proceed") | Phase 2 build |
+| **OC-56** | **No Git-history rewrite for now:** the 7 common-password entries that matched protected terms remain in the public history of one WP2-2 commit; they were removed from the current files. Revisit with A-08. | Owner, 15 Oct 2026, 07:25 IST ("That is fine due to public") | A-08 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -207,6 +212,13 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **A-05.** Before the first push, add a repository secret named `IDENTIFYING_TERMS` (GitHub → repository → Settings → Secrets and variables → Actions → New repository secret). It holds the identifying demo terms that CI must never find in the repository. This keeps those terms out of Git entirely. The value is given to you in the chat, not in any document. Without the secret, the CI privacy check fails on purpose rather than passing silently.
 - **A-06 (optional).** The project root holds stale duplicate copies of several docs (for example a v1.0 G1-04 and older G1-05 copies) next to the current `claude/` versions. The authoritative copies are under `claude/`. You may delete the root duplicates. I will not delete them.
 - **A-07 (done 14 Oct 2026).** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
+- **A-08 (waiting: owner's GitHub Pro).** The owner will subscribe to GitHub Pro and make `AA-Learning-Portal` private. **Claude reminds the owner when they say GitHub Pro is active**, then:
+  1. guides the owner through Settings → General → Danger Zone → Change visibility → Private (only the owner can do this; Claude's session cannot change repository settings);
+  2. checks that the Vercel project still deploys from the private repository (Vercel's GitHub app keeps access to selected repositories);
+  3. re-checks that all CI checks still run, including the `IDENTIFYING_TERMS` secret;
+  4. offers to remove the 7 protected-term password-list entries from the Git history (OC-56), with a backup first and the owner's go-ahead;
+  5. applies branch protection on `main` (A-03), which private repositories need GitHub Pro for;
+  6. records the change in this register.
 
 ## Summary: status on 14 Oct 2026 (about 19:40 IST)
 
