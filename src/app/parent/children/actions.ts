@@ -145,6 +145,8 @@ export async function updateChildAction(_prev: ChildFormState, fd: FormData): Pr
 
 // ------------------------------------------------------------------ M-08 sign-in and security
 
+const WRONG_CONFIRMATION = 'That is not your password. Please try again.';
+
 /** Step 1 · Confirm it's you (G1-08 §3.4 step 3). Five wrong tries sign the parent out. */
 export async function confirmParentAction(_prev: ChildFormState, fd: FormData): Promise<ChildFormState> {
   const { session, token } = await parentSession();
@@ -174,7 +176,7 @@ export async function confirmParentAction(_prev: ChildFormState, fd: FormData): 
   }
   return {
     needsReauth: true,
-    fieldErrors: { password: 'That is not your password. Please try again.' },
+    fieldErrors: { password: WRONG_CONFIRMATION },
     at: Date.now(),
   };
 }
