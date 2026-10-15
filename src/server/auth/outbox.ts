@@ -19,7 +19,13 @@ export type EmailTemplate =
   | 'teacher_linked_to_child'
   | 'child_locked'
   | 'child_password_reset'
-  | 'owner_set_password';
+  | 'owner_set_password'
+  | 'admin_invite'
+  | 'account_created_set_password'
+  | 'account_email_changed'
+  | 'teacher_approved'
+  | 'teacher_not_approved'
+  | 'teacher_changes_requested';
 
 export interface QueuedEmail {
   to: string;

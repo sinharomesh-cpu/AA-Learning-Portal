@@ -31,9 +31,9 @@ const str = (fd: FormData, key: string) => {
   return typeof v === 'string' ? v : '';
 };
 
-async function superadminSession() {
+async function adminSession() {
   const real = await getRealSession();
-  if (!real || real.session.role !== 'superadmin') redirect('/sign-in');
+  if (!real || (real.session.role !== 'superadmin' && real.session.role !== 'admin')) redirect('/sign-in');
   return real;
 }
 
@@ -45,7 +45,7 @@ async function signedOut(): Promise<never> {
 const WRONG_CODE = "That code didn't work. Check the 6-digit code in your app and try again.";
 
 export async function confirmEnrolmentAction(_prev: SecurityState, fd: FormData): Promise<SecurityState> {
-  const { session, token } = await superadminSession();
+  const { session, token } = await adminSession();
   const r = await confirmEnrolment(db(), { accountId: session.accountId, sessionToken: token, code: str(fd, 'code') });
   if (r.ok) return { recoveryCodes: r.recoveryCodes };
   if (r.reason === 'signed_out') return signedOut();
@@ -53,7 +53,7 @@ export async function confirmEnrolmentAction(_prev: SecurityState, fd: FormData)
 }
 
 export async function verifyCodeAction(_prev: SecurityState, fd: FormData): Promise<SecurityState> {
-  const { session, token } = await superadminSession();
+  const { session, token } = await adminSession();
   const r = await verifyMfaCode(db(), { accountId: session.accountId, sessionToken: token, code: str(fd, 'code') });
   if (r.ok) redirect('/admin');
   if (r.reason === 'signed_out') return signedOut();
@@ -61,7 +61,7 @@ export async function verifyCodeAction(_prev: SecurityState, fd: FormData): Prom
 }
 
 export async function recoveryCodeAction(_prev: SecurityState, fd: FormData): Promise<SecurityState> {
-  const { session, token } = await superadminSession();
+  const { session, token } = await adminSession();
   const r = await redeemRecoveryCode(db(), {
     accountId: session.accountId,
     sessionToken: token,
@@ -73,7 +73,7 @@ export async function recoveryCodeAction(_prev: SecurityState, fd: FormData): Pr
 }
 
 export async function newRecoveryCodesAction(): Promise<SecurityState> {
-  const { session } = await superadminSession();
+  const { session } = await adminSession();
   if (!mfaRecent(session.mfaVerifiedAt)) {
     return { error: 'For your security, sign out and sign in again with your security code first.' };
   }
@@ -83,12 +83,12 @@ export async function newRecoveryCodesAction(): Promise<SecurityState> {
 }
 
 export async function resetAuthenticatorAction(): Promise<SecurityState> {
-  const { session } = await superadminSession();
+  const { session } = await adminSession();
   if (!mfaRecent(session.mfaVerifiedAt)) {
     return { error: 'For your security, sign out and sign in again with your security code first.' };
   }
   await resetAuthenticator(db(), session.accountId);
-  redirect('/admin/verify');
+  redirect('/security-check');
 }
 
 export async function ownerSetupAction(_prev: SecurityState, fd: FormData): Promise<SecurityState> {

@@ -1,7 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { generate } from 'otplib';
-import { linkFromMailbox } from './helpers';
+import {
+  confirmFromMailbox,
+  createAccount,
+  freshEmail,
+  linkFromMailbox,
+  PHRASE as ADULT_PHRASE,
+  signIn,
+} from './helpers';
 
 /** WP2-5a: owner set-up, security-code sign-in and recovery codes (OC-50, M-26, board 66). */
 
@@ -27,7 +34,7 @@ async function passwordStep(page: Page) {
   await page.getByLabel('Email').fill(OWNER);
   await page.getByLabel('Password').fill(PHRASE);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/admin\/verify$/);
+  await expect(page).toHaveURL(/\/security-check$/);
 }
 
 let secret = '';
@@ -55,7 +62,7 @@ test('the owner sets up the Super Admin with a password and an authenticator app
   await passwordStep(page);
   // No admin page opens before the security code is set up.
   await page.goto('/admin');
-  await expect(page).toHaveURL(/\/admin\/verify$/);
+  await expect(page).toHaveURL(/\/security-check$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Set up your security code' })).toBeVisible();
   await expect(page.getByRole('img', { name: 'QR code for your authenticator app' })).toBeVisible();
   await noSeriousA11yIssues(page);
@@ -99,4 +106,105 @@ test('a recovery code works once instead of the phone', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/security\?recovered=9/);
   await expect(page.getByText(/You signed in with a recovery code. You have 9 left/)).toBeVisible();
   await noSeriousA11yIssues(page);
+});
+
+// Later sign-ins use the remaining recovery codes, so no security code is ever reused.
+let nextRecovery = 1;
+async function ownerSignedIn(page: Page) {
+  await passwordStep(page);
+  await page.getByRole('button', { name: 'Lost your phone? Use a recovery code' }).click();
+  await page.getByLabel('Recovery code').fill(recovery[nextRecovery++]!);
+  await page.getByRole('button', { name: 'Use recovery code' }).click();
+  await expect(page).toHaveURL(/\/admin\/security/);
+}
+
+const ADMIN = 'helper.admin@example.com';
+const ADMIN_PHRASE = ['admins', 'read', 'the', 'log'].join(' ');
+
+test('the Super Admin adds an Admin who can only read the audit log', async ({ page, browser }) => {
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.4' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/admins');
+  await noSeriousA11yIssues(page);
+  await page.getByLabel('Name').fill('Helper Admin');
+  await page.getByLabel('Email').fill(ADMIN);
+  await page.getByRole('checkbox', { name: /Audit log/ }).check();
+  await page.getByRole('button', { name: 'Send invitation' }).click();
+  await expect(page.getByText(/Invitation sent to/)).toBeVisible();
+  await expect(page.getByText('Helper Admin')).toBeVisible();
+
+  const other = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.5' } });
+  const a = await other.newPage();
+  await a.goto(await linkFromMailbox(a, ADMIN, 'admin_invite'));
+  await a.getByLabel('New password').fill(ADMIN_PHRASE);
+  await a.getByLabel('Type it again').fill(ADMIN_PHRASE);
+  await a.getByRole('button', { name: 'Save password and continue' }).click();
+  await expect(a).toHaveURL(/\/sign-in/);
+  await a.getByLabel('Email').fill(ADMIN);
+  await a.getByLabel('Password').fill(ADMIN_PHRASE);
+  await a.getByRole('button', { name: 'Sign in' }).click();
+  await expect(a).toHaveURL(/\/security-check$/);
+  const adminSecret = (await a.getByTestId('mfa-secret').innerText()).replace(/\s/g, '');
+  await a.getByLabel('Security code').fill(await codeIn(adminSecret));
+  await a.getByRole('button', { name: 'Turn on security codes' }).click();
+  await a.getByRole('link', { name: "I've saved them" }).click();
+  await expect(a).toHaveURL(/\/admin$/);
+  const menu = a.getByRole('navigation', { name: 'Admin menu', exact: true });
+  await expect(menu.getByRole('link')).toHaveText(['Home', 'Audit log', 'Security']);
+  await a.goto('/admin/accounts');
+  await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
+  await a.goto('/admin/admins');
+  await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
+  await a.goto('/admin/audit-log');
+  await expect(a.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
+  await expect(a.getByTestId('audit-row').filter({ hasText: 'Admin added' }).first()).toBeVisible();
+  await noSeriousA11yIssues(a);
+  await other.close();
+});
+
+test('the Super Admin approves a teacher and manages accounts', async ({ page, browser }) => {
+  // A teacher registers themselves (board 62).
+  const teacherContext = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.6' } });
+  const t = await teacherContext.newPage();
+  const teacherEmail = freshEmail('teach');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.7' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  await noSeriousA11yIssues(page);
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked the profile');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+
+  await t.goto('/teacher');
+  await expect(t).toHaveURL(/\/teacher$/);
+  await teacherContext.close();
+
+  // Accounts: find the teacher, deactivate with a reason, then reactivate.
+  await page.goto(`/admin/accounts?q=${encodeURIComponent(teacherEmail)}`);
+  await noSeriousA11yIssues(page);
+  await page.getByRole('link', { name: 'Edit Test Teacher' }).first().click();
+  await page.getByRole('button', { name: 'Deactivate account' }).click();
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(page.getByText('Write the reason (required).')).toBeVisible();
+  await page.getByLabel('Reason (required)').fill('Test of deactivation');
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(page.getByText(/Account deactivated/)).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Reactivate account' }).click();
+  await expect(page.getByText('Account reactivated.')).toBeVisible();
+
+  // Create a parent account; the person gets a set-password email.
+  const parentEmail = freshEmail('made');
+  await page.goto('/admin/accounts/new');
+  await page.getByLabel('Name').fill('Made Parent');
+  await page.getByLabel('Email').fill(parentEmail);
+  await page.getByRole('button', { name: 'Create and send email' }).click();
+  await expect(page.getByText(/Account created/)).toBeVisible();
+  expect(await linkFromMailbox(page, parentEmail, 'account_created_set_password')).toMatch(/purpose=set_password/);
 });

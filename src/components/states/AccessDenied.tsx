@@ -16,6 +16,11 @@ const COPY: Record<Role, { title: string; body: string; action: string }> = {
   },
   // Board 9 also says "Attempts are recorded in the audit log." That claim is not shown
   // until the audit log exists (Phase 8; OC-04, deviation DV-06).
+  admin: {
+    title: 'Not available to you',
+    body: "Your Admin account doesn't include this area, and children's records are never shown to admins.",
+    action: 'Go to admin home',
+  },
   superadmin: {
     title: 'Not available to admins',
     body: "Learning content and child records aren't shown in the Super Admin portal.",

@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.24 · 15 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.25 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.25 changes (WP2-5b Admins and admin tools, built while the owner was away, 16 Oct 2026):**
+- Built from approved boards 66, M-27, M-28, M-29/60 and M-30 under OC-21, OC-50 and the owner's "you are working" (15 Oct, 23:36 IST). No business rule was decided; deviations DV-38 to DV-41.
+- Claude's readings, for the owner to correct: a deactivated parent's children can still sign in (not decided; D-09 territory); a rejected teacher keeps a sign-in that shows only "not approved"; Admins see the audit log only with the "Audit log" permission; the Super Admin is the only one who manages Admins.
 
 **v1.24 changes (owner, 15 Oct 2026, 23:01 IST: "D-05- 30 Min per day max time a student/parent can book AI tutor"):**
 - **OC-60:** daily AI tutor limit of **30 minutes per child per day**. D-05 is partly decided; its other options (blocked periods, one-off blocked dates, minimum lead time) stay open as **D-05b**.

@@ -1,13 +1,30 @@
 import type { MenuItem } from '@/components/shell/AdultShell';
 
-/** Super Admin v1 menu (OC-21). Integration Health is deferred and absent (OC-19). */
+/** Super Admin menu (OC-21, board 66). Integration Health is deferred and absent (OC-19). */
 export const ADMIN_MENU: MenuItem[] = [
   { href: '/admin', label: 'Home', exact: true },
   { href: '/admin/accounts', label: 'Accounts' },
   { href: '/admin/approvals', label: 'Teacher approvals' },
+  { href: '/admin/admins', label: 'Admins' },
   { href: '/admin/audit-log', label: 'Audit log' },
   { href: '/admin/security', label: 'Security' },
 ];
+
+const PERMISSION_PAGE: Record<string, string> = {
+  '/admin/accounts': 'accounts',
+  '/admin/approvals': 'teacher_approvals',
+  '/admin/audit-log': 'audit_log',
+};
+
+/** The menu for one admin: the Super Admin sees everything; an Admin only their ticked areas. */
+export function adminMenuFor(role: 'superadmin' | 'admin', permissions: readonly string[] = []): MenuItem[] {
+  if (role === 'superadmin') return ADMIN_MENU;
+  return ADMIN_MENU.filter((item) => {
+    if (item.href === '/admin/admins') return false;
+    const needed = PERMISSION_PAGE[item.href];
+    return !needed || permissions.includes(needed);
+  });
+}
 
 /** Parent menu from the approved P19 board (OC-33). */
 export const PARENT_MENU: MenuItem[] = [
