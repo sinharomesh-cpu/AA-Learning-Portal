@@ -27,11 +27,14 @@ export interface ChildSummary {
   name: string;
   initial: string;
   grade: number;
-  school: string;
+  /** Synthetic data only; real child profiles do not collect a school (M-08). */
+  school?: string;
   curriculum: string;
   timeZone: string;
   subjects: string[];
   lessons: ParentLesson[];
+  /** Real accounts only: a paused child cannot sign in (M-08). */
+  paused?: boolean;
 }
 
 export interface FamilyResource {

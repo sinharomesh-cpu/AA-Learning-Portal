@@ -139,6 +139,28 @@ export async function markReauthenticated(sql: Sql, token: string, now: Date = n
   await sql`UPDATE sessions SET reauthenticated_at = ${now} WHERE id_hash = ${hashToken(token)} AND revoked_at IS NULL`;
 }
 
+/** Wrong password entries allowed at a step-up prompt before the session is signed out (§3.4 step 3). */
+export const REAUTH_MAX_FAILURES = 5;
+
+/**
+ * Counts a wrong password at a step-up prompt. Returns true when this was the last allowed
+ * try, in which case the session has been revoked.
+ */
+export async function recordReauthFailure(sql: Sql, token: string, now: Date = new Date()): Promise<boolean> {
+  const [row] = await sql<Array<{ reauth_failures: number }>>`
+    UPDATE sessions SET reauth_failures = reauth_failures + 1,
+                        revoked_at = CASE WHEN reauth_failures + 1 >= ${REAUTH_MAX_FAILURES} THEN ${now} ELSE revoked_at END
+    WHERE id_hash = ${hashToken(token)} AND revoked_at IS NULL
+    RETURNING reauth_failures`;
+  return !row || row.reauth_failures >= REAUTH_MAX_FAILURES;
+}
+
+/** Records a correct step-up password and resets the counter. */
+export async function recordReauthSuccess(sql: Sql, token: string, now: Date = new Date()): Promise<void> {
+  await sql`UPDATE sessions SET reauthenticated_at = ${now}, reauth_failures = 0
+            WHERE id_hash = ${hashToken(token)} AND revoked_at IS NULL`;
+}
+
 /** True when the session confirmed the password within the last `withinMinutes` (default 5). */
 export function recentlyReauthenticated(session: ActiveSession, now: Date = new Date(), withinMinutes = 5): boolean {
   return now.getTime() - session.reauthenticatedAt.getTime() <= minutes(withinMinutes);

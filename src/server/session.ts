@@ -4,7 +4,7 @@ import { cache } from 'react';
 import { findPersona, type Persona } from '@/fixtures/personas';
 import type { SubjectId } from '@/fixtures/subjects';
 import { isRole } from '@/lib/roles';
-import { loadSession, SESSION_COOKIE } from './auth/sessions';
+import { type ActiveSession, loadSession, SESSION_COOKIE } from './auth/sessions';
 import { db } from './db/client';
 import { isDemoMode } from './demo';
 import { realAuthEnabled } from './realAuth';
@@ -17,11 +17,20 @@ import { realAuthEnabled } from './realAuth';
 export const DEMO_SESSION_COOKIE = 'aa_demo_session';
 export const DEMO_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
+/** The real server-side session for this request, with its cookie token (Phase 2). */
+export const getRealSession = cache(async (): Promise<{ token: string; session: ActiveSession } | null> => {
+  if (isDemoMode() || !realAuthEnabled()) return null;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = await loadSession(db(), token);
+  return session ? { token, session } : null;
+});
+
 export const getViewer = cache(async (): Promise<Persona | null> => {
   const store = await cookies();
   if (isDemoMode()) return findPersona(store.get(DEMO_SESSION_COOKIE)?.value) ?? null;
   if (!realAuthEnabled()) return null;
-  const session = await loadSession(db(), store.get(SESSION_COOKIE)?.value);
+  const session = (await getRealSession())?.session;
   if (!session || !isRole(session.role)) return null;
   const viewer: Persona = {
     id: session.accountId,

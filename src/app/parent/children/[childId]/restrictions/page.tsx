@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
-import { parentOwnsChild } from '@/fixtures/family';
-import { findPersona } from '@/fixtures/personas';
 import { requireRole } from '@/server/authz';
+import { ownChildName } from '@/server/family';
 
 export const metadata: Metadata = { title: 'Restrictions' };
 
@@ -12,8 +11,9 @@ export default async function RestrictionsPage({ params }: { params: Promise<{ c
   const access = await requireRole('parent');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   const { childId } = await params;
-  if (!parentOwnsChild(access.viewer.id, childId)) return <AccessDenied viewerRole="parent" />;
-  const name = findPersona(childId)?.displayName ?? '';
+  // A child not linked to this parent looks exactly like a page that does not exist.
+  const name = await ownChildName(access.viewer, childId);
+  if (name === null) return <AccessDenied viewerRole="parent" />;
   return (
     <NotReadyYet
       title={`${name}'s availability and restrictions`}

@@ -5,9 +5,10 @@ import { Card } from '@/components/Card';
 import { LessonKindChip } from '@/components/lessons/LessonStatus';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
-import { childrenOf } from '@/fixtures/family';
 import { cx } from '@/lib/cx';
 import { requireRole } from '@/server/authz';
+import { familyChildren } from '@/server/family';
+import { StatusChip } from '@/components/StatusChip';
 
 export const metadata: Metadata = { title: 'Children' };
 
@@ -18,7 +19,7 @@ export default async function ChildrenPage() {
   const access = await requireRole('parent');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   const now = clockNow();
-  const kids = childrenOf(access.viewer.id, now);
+  const kids = await familyChildren(access.viewer, now);
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,6 +55,11 @@ export default async function ChildrenPage() {
                         Grade {k.grade}
                         <span className="md:hidden"> · {k.timeZone}</span>
                       </span>
+                      {k.paused ? (
+                        <StatusChip kind="neutral" className="ml-2">
+                          Paused
+                        </StatusChip>
+                      ) : null}
                     </div>
                   </div>
                   <dl className="m-0 hidden grid-cols-2 gap-x-4 gap-y-2.5 text-sm md:grid">

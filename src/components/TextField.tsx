@@ -5,13 +5,15 @@ interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id
   label: ReactNode;
   hint?: ReactNode;
   error?: ReactNode;
+  /** Marks the field as wrong without its own message (the form shows one message for all). */
+  invalid?: boolean;
   /** `child` = 56 px tall with 18 px text, for child-facing forms. */
   size?: 'md' | 'child';
   className?: string;
 }
 
 /** Labelled input with hint and error wiring (aria-describedby, aria-invalid). */
-export function TextField({ label, hint, error, size = 'md', className, ...inputProps }: TextFieldProps) {
+export function TextField({ label, hint, error, invalid, size = 'md', className, ...inputProps }: TextFieldProps) {
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
@@ -24,11 +26,11 @@ export function TextField({ label, hint, error, size = 'md', className, ...input
       <input
         id={id}
         aria-describedby={describedBy}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error || invalid ? true : undefined}
         className={cx(
           'box-border w-full rounded-[16px] border-2 bg-white px-4 font-body font-medium text-on-surface',
           size === 'child' ? 'min-h-14 text-[18px]' : 'min-h-[52px] text-base',
-          error ? 'border-error' : 'border-outline',
+          error || invalid ? 'border-error' : 'border-outline',
         )}
         {...inputProps}
       />

@@ -24,6 +24,10 @@ const NOTICES: Record<string, { tone: 'success' | 'info'; text: string }> = {
   reset: { tone: 'success', text: 'Your password is changed. Sign in with your new password.' },
   changed: { tone: 'success', text: 'Your password is changed. You were signed out everywhere; sign in again.' },
   all: { tone: 'info', text: 'You were signed out on all devices.' },
+  reauth: {
+    tone: 'info',
+    text: 'You were signed out because your password was entered wrongly 5 times. Please sign in again.',
+  },
 };
 
 export default async function SignInPage({

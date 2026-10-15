@@ -7,10 +7,12 @@ import { Wordmark } from '@/components/Wordmark';
 import { personasWithRole } from '@/fixtures/personas';
 import { ROLE_HOME } from '@/lib/roles';
 import { isDemoMode } from '@/server/demo';
+import { realAuthEnabled } from '@/server/realAuth';
 import { getViewer } from '@/server/session';
 import { signInChild } from '../actions';
 import { DemoNotice } from '../DemoNotice';
 import { DemoSignInForm } from '../DemoSignInForm';
+import { ChildSignInForm } from './ChildSignInForm';
 
 export const metadata: Metadata = { title: 'Child sign in' };
 
@@ -47,6 +49,8 @@ export default async function ChildSignInPage() {
                 variant="child"
               />
             </>
+          ) : realAuthEnabled() ? (
+            <ChildSignInForm />
           ) : (
             <p className="text-body-lg">Sign-in is not available yet.</p>
           )}

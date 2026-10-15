@@ -15,6 +15,25 @@ import { getStudentDashboard } from '@/fixtures/student';
 import { greeting } from '@/lib/localTime';
 import { formatClockTime } from '@/lib/time';
 import { requireRole } from '@/server/authz';
+import { isDemoMode } from '@/server/demo';
+import type { Persona } from '@/fixtures/personas';
+import type { StudentDashboard } from '@/fixtures/student';
+
+/**
+ * A real child's dashboard (WP2-4). Lessons arrive with scheduling (Phase 3) and books with
+ * uploads (Phase 4), so for now it shows the child's own subjects and empty lists.
+ */
+function realStudentDashboard(viewer: Persona): StudentDashboard {
+  return {
+    studentId: viewer.id,
+    firstName: viewer.displayName,
+    timeZone: viewer.timeZone,
+    subjects: (viewer.subjects ?? []).map((id) => ({ id, detail: 'No book assigned yet' })),
+    today: [],
+    newResources: [],
+    lessonsFinishedThisWeek: 0,
+  };
+}
 
 export const metadata: Metadata = { title: 'Home' };
 
@@ -23,7 +42,7 @@ export default async function StudentHomePage() {
   const access = await requireRole('student');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   // The student id comes from the session only (cross-child isolation, FR-002.2).
-  const data = getStudentDashboard(access.viewer.id);
+  const data = isDemoMode() ? getStudentDashboard(access.viewer.id) : realStudentDashboard(access.viewer);
   if (!data) return <AccessDenied viewerRole="student" />;
 
   const tz = data.timeZone;
@@ -107,23 +126,29 @@ export default async function StudentHomePage() {
                 Open library
               </Link>
             </div>
-            <ul className="m-0 list-none p-0">
-              {data.newResources.map((r, i) => (
-                <li
-                  key={r.title}
-                  className={`flex flex-wrap items-center justify-between gap-3 py-3.5 ${i < data.newResources.length - 1 ? 'border-b border-surface-container' : ''}`}
-                >
-                  <span>
-                    <strong>{r.title}</strong>
-                    <br />
-                    <span className="text-[15px] text-on-surface-variant">{r.source}</span>
-                  </span>
-                  <LinkButton href="/student/library" variant="secondary" aria-label={`Read ${r.title}`}>
-                    Read
-                  </LinkButton>
-                </li>
-              ))}
-            </ul>
+            {data.newResources.length ? (
+              <ul className="m-0 list-none p-0">
+                {data.newResources.map((r, i) => (
+                  <li
+                    key={r.title}
+                    className={`flex flex-wrap items-center justify-between gap-3 py-3.5 ${i < data.newResources.length - 1 ? 'border-b border-surface-container' : ''}`}
+                  >
+                    <span>
+                      <strong>{r.title}</strong>
+                      <br />
+                      <span className="text-[15px] text-on-surface-variant">{r.source}</span>
+                    </span>
+                    <LinkButton href="/student/library" variant="secondary" aria-label={`Read ${r.title}`}>
+                      Read
+                    </LinkButton>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-3.5 text-on-surface-variant">
+                Nothing new yet. Books and worksheets from your parent and teachers will appear here.
+              </p>
+            )}
           </Card>
         </div>
 

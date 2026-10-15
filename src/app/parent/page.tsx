@@ -9,11 +9,12 @@ import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
 import type { ParentLesson } from '@/fixtures/family';
-import { childrenOf, familyResources, notificationSummary, parentLessons } from '@/fixtures/family';
+import { familyResources, notificationSummary, parentLessons } from '@/fixtures/family';
 import { cx } from '@/lib/cx';
 import { greeting } from '@/lib/localTime';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
+import { familyChildren } from '@/server/family';
 
 export const metadata: Metadata = { title: 'Family home' };
 
@@ -42,7 +43,7 @@ export default async function ParentHomePage() {
   const parentId = access.viewer.id;
   const tz = access.viewer.timeZone;
   const now = clockNow();
-  const kids = childrenOf(parentId, now);
+  const kids = await familyChildren(access.viewer, now);
   const week = parentLessons(parentId, now);
   const resources = familyResources(parentId);
   const notify = notificationSummary(parentId);
@@ -97,7 +98,8 @@ export default async function ParentHomePage() {
                           {k.name}
                         </h3>
                         <span className="text-sm text-on-surface-variant">
-                          Grade {k.grade} · {k.school}
+                          Grade {k.grade}
+                          {k.school ? ` · ${k.school}` : ''}
                         </span>
                       </div>
                     </div>

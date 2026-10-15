@@ -15,6 +15,7 @@ import {
 } from '@/server/auth/accounts';
 import { passwordProblemMessage } from '@/server/auth/password';
 import { createSession, loadSession, revokeAllSessions, revokeSession, SESSION_COOKIE } from '@/server/auth/sessions';
+import { signInChild } from '@/server/children';
 import { db } from '@/server/db/client';
 import { realAuthEnabled } from '@/server/realAuth';
 import { clientIp, siteBaseUrl } from '@/server/requestInfo';
@@ -99,6 +100,36 @@ export async function resendConfirmationAction(_prev: FormState, fd: FormData): 
   });
   if (!result.ok) return { error: 'Too many requests from this network. Please try again later.' };
   return { notice: 'If that email is waiting for confirmation, we have sent a new link.' };
+}
+
+// ------------------------------------------------------------------ child sign in (M-02)
+
+const ChildSignInSchema = z.object({
+  username: z.string().trim().min(1).max(64),
+  password: z.string().min(1).max(256),
+});
+
+/** Child sign-in (M-02, G1-08 §3.2). The messages never reveal whether a username exists. */
+export async function childSignInAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  requireRealAuth();
+  const values = { username: str(fd, 'username') };
+  const parsed = ChildSignInSchema.safeParse({ username: str(fd, 'username'), password: str(fd, 'password') });
+  if (!parsed.success) return { error: 'Type your username and your password.', values };
+  const result = await signInChild(db(), { ...parsed.data, ip: await clientIp() });
+  if (!result.ok) {
+    switch (result.reason) {
+      case 'locked':
+        return { error: "Let's take a break. You can try again in 15 minutes, or ask your parent for help.", values };
+      case 'ip_limited':
+        return { error: 'Lots of tries from this place. Please wait a few minutes and try again.', values };
+      case 'paused':
+        return { error: 'Your account is paused. Please ask your parent.', values };
+      default:
+        return { error: "Oops, that didn't match. Check your username and password and try again.", values };
+    }
+  }
+  await startSession(result.account);
+  redirect(ROLE_HOME.student);
 }
 
 // ------------------------------------------------------------------ create an account (board 62)
