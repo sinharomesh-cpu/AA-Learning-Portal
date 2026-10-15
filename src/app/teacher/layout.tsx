@@ -8,7 +8,13 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
   const viewer = await getViewer();
   if (viewer?.role !== 'teacher') return <>{children}</>;
   return (
-    <AdultShell role="teacher" menu={TEACHER_MENU} displayName={viewer.displayName} initial={viewer.initial}>
+    <AdultShell
+      role="teacher"
+      // A teacher waiting for approval has no menu: only their status page is open (OC-38).
+      menu={viewer.status === 'pending_approval' ? [] : TEACHER_MENU}
+      displayName={viewer.displayName}
+      initial={viewer.initial}
+    >
       {children}
     </AdultShell>
   );

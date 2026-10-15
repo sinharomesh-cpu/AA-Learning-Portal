@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { findPersona } from '@/fixtures/personas';
 import { ROLE_HOME } from '@/lib/roles';
+import { endRealSession } from '@/app/account/actions';
 import { isDemoMode } from '@/server/demo';
 import { DEMO_SESSION_COOKIE, DEMO_SESSION_MAX_AGE_SECONDS } from '@/server/session';
 
@@ -41,5 +42,6 @@ export async function signInChild(_prev: SignInState, formData: FormData): Promi
 export async function signOut(): Promise<void> {
   const store = await cookies();
   store.delete(DEMO_SESSION_COOKIE);
+  await endRealSession();
   redirect('/sign-in');
 }
