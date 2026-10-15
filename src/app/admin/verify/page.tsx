@@ -39,7 +39,11 @@ export default async function AdminVerifyPage() {
             ? 'Enter the 6-digit code from your authenticator.'
             : 'The Super Admin signs in with a password and a code from a phone app. This takes about two minutes.'}
         </p>
-        {enrolment ? <EnrolForm qrSvg={enrolment.qrSvg} secret={enrolment.secret} /> : <VerifyForm />}
+        {enrolment ? (
+          <EnrolForm qrSvg={enrolment.qrSvg} secret={enrolment.secret} uri={enrolment.uri} />
+        ) : (
+          <VerifyForm />
+        )}
       </Card>
     </main>
   );
