@@ -1,12 +1,18 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.30 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.31 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.31 changes (owner requirement, 16 Oct 2026, 17:06 IST — two-way teacher discovery; planning only):**
+- Recorded as change request **CR-06** (teacher discovery, listings, enquiries, informational prices, adoption figures). **Not approved for building**: P2-R3 gap analysis and boards D1–D7 are submitted for review.
+- Conflicts raised (P2-R3 §2): K-1 extends OC-54's directory fields; K-2 enquiry-first vs OC-36(6) immediate linking; K-3 in-person teaching vs Zoom-only lessons; K-4 contact details vs payments arranged outside AA Pro; K-5 hourly prices vs the 40-minute session limit; K-6 review of new profile claims; K-7 booking not built; K-8 overlap with OC-61 invitations. Decisions Q-1 to Q-10 listed for the owner.
+- Housekeeping: OC-54's "a parent-added teacher completes their profile after approval with no second approval" is superseded by OC-75.
+- OC-03 stays in force: no payment features.
 
 **v1.30 changes (owner, 16 Oct 2026, 15:14 IST — teacher subject rule; answers to Claude's three questions):**
 - **OC-75** records the rule. It **amends OC-36(3)–(4)**: a parent-added teacher now gets a set-password link in the first email, completes and sends the profile, and is approved like any other teacher (owner chose "Teacher completes profile first").
