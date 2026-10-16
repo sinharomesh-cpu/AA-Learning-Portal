@@ -1,6 +1,6 @@
 # AA Pro — P2-R3 Two-way teacher discovery, matching and payment planning: gap analysis and plan
 
-**Version:** 1.0 · 16 Oct 2026 · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
+**Version:** 1.1 · 16 Oct 2026 (adds §11 public listings) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
 **Source:** owner requirement "Consolidated Requirement: Two-Way Teacher Discovery, Student Matching and Future Payment Planning" (16 Oct 2026, 17:06 IST), checked against the repository at `main` after PR #39, the decision register v1.30 and the approved design boards.
 
 ## 1. What exists today
@@ -145,3 +145,66 @@ AA Pro will keep counting the figures in US-D8. When growth and demand justify i
 ## 10. Test plan (for each PR)
 
 Parent search and filters; listing create, edit, publish, pause, withdraw and expiry; refusal of unapproved subjects and grades (application and database); pending, rejected and deactivated teachers cannot publish or see children; enquiries sent, withdrawn, accepted, declined and expired; acceptance creates no lesson and no access; prices shown with "paid directly to the teacher" and no payment step; cross-family and cross-teacher access refused by direct request; existing booking, calendar, sign-in and regression suites still pass.
+
+## 11. Addition (v1.1): public teacher listings on the homepage
+
+**Source:** owner requirement "Public Teacher Listings on the Homepage" (16 Oct 2026, 17:24 IST). Planning and design only; nothing is built.
+
+### 11.1 Requirements as understood
+
+- The public homepage gets a section **"Teachers looking for students"**, and a public page `/teachers` lists every **published** listing, with search and filters (subject, grade, curriculum, mode, usual days and times, asking price).
+- A public listing page shows only approved, public information: public name, approved subjects and grades, curriculum, mode, usual free times, asking prices, experience "as stated", short bio, and **Connect with teacher**.
+- **Connect with teacher** needs a parent sign-in. A visitor can sign in or create a parent account; the chosen teacher is kept through sign-up, email confirmation and sign-in, and the parent returns to the enquiry form.
+- The enquiry follows the P2-R3 workflow (pending, accepted, declined, withdrawn, expired). It never creates a lesson, a teacher–child link, access to child data or a payment.
+- Only approved teachers publish, within their approved subjects and grades. A parent account can never publish. Draft, paused, expired and withdrawn listings, and listings of pending, rejected or deactivated teachers, never appear.
+- No payments, commissions or payouts (OC-03).
+
+### 11.2 User journeys
+
+| # | Journey | Steps |
+|---|---|---|
+| J-1 | Visitor browses | Homepage → "Teachers looking for students" → filters → listing page. No account needed |
+| J-2 | Visitor connects, new parent | Listing → Connect → "Create a parent account" (role fixed to parent, teacher named on the page) → confirmation email → link opens sign-in → after sign-in, straight to the enquiry form for that teacher |
+| J-3 | Visitor connects, existing parent | Listing → Connect → Sign in → enquiry form for that teacher |
+| J-4 | Signed-in parent | Listing → Connect → enquiry form (no extra step) |
+| J-5 | Signed-in teacher, student or admin | Listing → Connect → "Only parent accounts can connect with teachers" (nothing sent) |
+| J-6 | Listing no longer available | Listing paused, withdrawn, expired or teacher no longer approved → "This teacher isn't taking enquiries now"; the saved choice is cleared |
+
+### 11.3 Access matrix
+
+| Action | Visitor | Parent | Student | Teacher (pending / rejected / deactivated) | Approved teacher | Admin / Super Admin |
+|---|---|---|---|---|---|---|
+| See public listings and filters | Yes | Yes | Not shown in the child app | Yes (public pages) | Yes | Yes (public pages) |
+| Open a public listing | Yes | Yes | No | Yes | Yes | Yes |
+| Connect / send an enquiry | Sign in first | Yes (own children or a grade only, see P-4) | No | No | No | No |
+| Create, edit, publish, pause, withdraw a listing | No | No | No | No | Own listing only, approved subjects and grades | No (may hide a listing for safety, audited — proposed) |
+| See enquiries | — | Own | — | — | Addressed to them | Totals only (D7) |
+| See child data or teacher contact details | Never | Own children | Self | Never | Linked children only (OC-75) | Never (OC-21) |
+
+### 11.4 Conflicts and decisions
+
+| # | Topic | Conflict | Recommendation |
+|---|---|---|---|
+| P-1 | Public visibility | OC-54 shows teacher details to **signed-in parents** only; this makes listings visible to anyone on the internet | Publishing a listing **is** the teacher's consent to public display. The listing editor (D5) says plainly "Anyone on the internet can see this listing"; teacher terms (OC-71 draft) updated. Teachers without a listing stay private |
+| P-2 | Test site password | The test site is behind a shared password (A-10, OC-66); real public browsing only works on a production site, which is not authorised | Build and test on the test site behind its password; public access waits for the owner's production decision |
+| P-3 | Search engines and copying | Public pages can be indexed and copied by bots | Ask search engines not to index listings until you decide (`noindex`); rate-limit public search; no teacher photos |
+| P-4 | Enquiries need a child? | P2-R3 Q-2 uses a child profile; a new parent arriving from a listing would first have to give guardian consent and create a child account | Let the enquiry carry only **the child's grade, curriculum and subjects** (no child account needed). Parents with children may pick one to fill these in. The child is chosen later, when linking |
+| P-5 | Keeping the choice through sign-up | Email confirmation may be opened on another device | Remember the chosen listing **on the new account** (for 7 days) as well as in the browser; only a same-site return address is accepted (no open redirects) |
+| P-6 | Public name | Today the name shown to families is free text | Guidance and a check: "Teacher" style name with initial and surname (e.g. "Teacher K. Menon"); approver sees it at approval |
+| P-7 | Board 63 (approved homepage) | Adds a menu item, a hero button and a new section | Approve boards D8–D11 as an update to board 63; the rest of the homepage is unchanged |
+| P-8 | Admin control | Not in the requirement | Proposed: Super Admin can hide a listing that breaks the rules (audited), without editing it |
+
+### 11.5 Server rules (to build after approval)
+
+- One public read function returns only published, unexpired listings of approved, active teachers, with only public fields; listings are addressed by a random public id, never the account id.
+- Every filter value is validated; results are paged; public search and connect are rate-limited per address and per account.
+- Teacher approval changes, deactivation, subject changes (OC-73) and listing status changes take effect on the next request; there is no cache of private data.
+- The enquiry endpoint checks: signed-in parent, listing still public, subjects within the teacher's approved subjects, limits from Q-3.
+
+### 11.6 Acceptance tests (owner's list, mapped)
+
+1–3 public browsing and exclusions → database tests on the public read function plus real-browser tests signed out; 4–6 connect and return through sign-up, email confirmation and sign-in → real-browser tests; 7 privacy → tests that public pages and responses contain no child data, email, phone or account ids; 8–9 publishing and server rules → database and direct-request tests; 10 desktop and phone → browser tests at both sizes with accessibility scans; 11 no payment or production change → reviewed in every pull request.
+
+### 11.7 Boards
+
+D8 homepage section (desktop), D9 public teacher list and listing page (desktop), D10 phone, D11 Connect: sign-in or register and the return to the enquiry. All marked PROPOSED.

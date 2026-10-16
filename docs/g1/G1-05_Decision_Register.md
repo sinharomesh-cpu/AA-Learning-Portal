@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.31 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.32 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.32 changes (owner requirement, 16 Oct 2026, 17:24 IST — public teacher listings on the homepage; planning only):**
+- Added to change request **CR-06**: public "Teachers looking for students" on the homepage, public listing pages, "Connect with teacher" behind parent sign-in with return to the enquiry. **Not approved for building**: P2-R3 v1.1 §11 and boards D8–D11 submitted for review.
+- Conflicts raised (P2-R3 §11.4): P-1 public visibility beyond OC-54 (publishing = consent, with notice); P-2 the test site's password blocks real public access (production not authorised); P-3 search-engine indexing; P-4 enquiries without a child account; P-5 keeping the choice through email confirmation; P-6 public name guidance; P-7 update to approved board 63; P-8 admin hiding a listing.
 
 **v1.31 changes (owner requirement, 16 Oct 2026, 17:06 IST — two-way teacher discovery; planning only):**
 - Recorded as change request **CR-06** (teacher discovery, listings, enquiries, informational prices, adoption figures). **Not approved for building**: P2-R3 gap analysis and boards D1–D7 are submitted for review.
