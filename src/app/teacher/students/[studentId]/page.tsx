@@ -1,25 +1,73 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { Card } from '@/components/Card';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { findPersona } from '@/fixtures/personas';
+import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { teacherLinkedTo } from '@/fixtures/teacher';
 import { requireRole } from '@/server/authz';
+import { db } from '@/server/db/client';
+import { isDemoMode } from '@/server/demo';
+import { getLinkedStudent } from '@/server/teacherLinks';
 
 export const metadata: Metadata = { title: 'Student' };
+export const dynamic = 'force-dynamic';
 
-/** M-25 arrives with real accounts (Phase 2). Only linked students are reachable (FR-002.2). */
+/** M-25 assigned student detail. Only a linked student opens; anyone else gets "You can't open this". */
 export default async function TeacherStudentPage({ params }: { params: Promise<{ studentId: string }> }) {
   const access = await requireRole('teacher');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   const { studentId } = await params;
-  if (!teacherLinkedTo(access.viewer.id, studentId)) return <AccessDenied viewerRole="teacher" />;
-  const name = findPersona(studentId)?.displayName ?? '';
+  if (isDemoMode()) {
+    if (!teacherLinkedTo(access.viewer.id, studentId)) return <AccessDenied viewerRole="teacher" />;
+    return (
+      <NotReadyYet
+        title={findPersona(studentId)?.displayName ?? ''}
+        body="Student details work with real accounts."
+        homeHref="/teacher"
+        homeLabel="Go to my dashboard"
+      />
+    );
+  }
+  const student = await getLinkedStudent(db(), access.viewer.id, studentId);
+  if (!student) return <AccessDenied viewerRole="teacher" />;
   return (
-    <NotReadyYet
-      title={name}
-      body="Student details come with real accounts (Phase 2). How teachers are linked to students is still being decided (D-09)."
-      homeHref="/teacher"
-      homeLabel="Go to my dashboard"
-    />
+    <div className="flex flex-col gap-6">
+      <Link href="/teacher/students" className="inline-flex min-h-11 items-center font-bold">
+        ← All my students
+      </Link>
+      <Card className="flex flex-wrap items-center gap-4">
+        <span
+          aria-hidden="true"
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-fixed font-headline text-[28px] font-extrabold text-on-primary-fixed-variant"
+        >
+          {[...student.name][0]?.toUpperCase()}
+        </span>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-headline-md">{student.name}</h1>
+          <span className="text-sm text-on-surface-variant">
+            Grade {student.grade} · Subjects with you:{' '}
+            {student.subjects.map((x) => SUBJECTS[x as SubjectId]?.name ?? x).join(', ')}
+          </span>
+        </div>
+      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="flex flex-col gap-2">
+          <h2 className="text-[20px] font-bold leading-7">Sessions with you</h2>
+          <p className="text-sm leading-5 text-on-surface-variant">Lessons appear here once booking opens.</p>
+        </Card>
+        <Card className="flex flex-col gap-2">
+          <h2 className="text-[20px] font-bold leading-7">Books and files</h2>
+          <p className="text-sm leading-5 text-on-surface-variant">
+            The parent&apos;s books for your subjects appear here once uploads open. You can read them, not download
+            them.
+          </p>
+        </Card>
+      </div>
+      <p className="text-sm leading-5 text-on-surface-variant">
+        No parent contact details, surname, school or home information are shown.
+      </p>
+    </div>
   );
 }

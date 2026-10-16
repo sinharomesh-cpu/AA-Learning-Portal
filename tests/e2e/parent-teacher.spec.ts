@@ -66,6 +66,7 @@ test.describe('parent family home (P19, boards 53 and 54)', () => {
   test('every parent menu item opens a page in the parent shell', async ({ page }, testInfo) => {
     const items = [
       'Children',
+      'Teachers',
       'Schedule AI class',
       'Book human teacher',
       'Family calendar',
