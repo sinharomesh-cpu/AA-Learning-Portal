@@ -11,7 +11,9 @@ test('home shows the public landing page to a signed-out visitor (OC-39, board 6
     /Learning at home with an AI Tutor and real teachers/,
   );
   for (const name of [
+    'Teachers looking for students',
     'Three simple paths',
+    'Teach with AA Pro',
     'Built for children, run by parents',
     'About AA Pro',
     'Questions parents and teachers ask',
@@ -39,6 +41,24 @@ test('the landing menu reaches every section', async ({ page }) => {
   if (await nav.getByText('Menu').isVisible()) await nav.getByText('Menu').click();
   await nav.getByRole('link', { name: 'FAQ' }).click();
   await expect(page).toHaveURL(/#faq$/);
+});
+
+test('H1/H2: "Find a teacher" reaches the teachers section, which says honestly that no one is listed yet', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  if (await nav.getByText('Menu').isVisible()) await nav.getByText('Menu').click();
+  await nav.getByRole('link', { name: 'Find a teacher' }).click();
+  await expect(page).toHaveURL(/#teachers$/);
+  const section = page.locator('#teachers');
+  await expect(section.getByText(/No teachers are listed right now/)).toBeVisible();
+  await expect(section.getByRole('link', { name: 'Create an account' })).toHaveAttribute('href', '/create-account');
+  // Nothing about listings or enquiries until they exist; no contact details anywhere.
+  await expect(page.getByText(/Connect with teacher|Looking for students\?/)).toHaveCount(0);
+  expect(await page.locator('main').innerText()).not.toMatch(/@/);
+  await expect(page.getByText('How do I pay a teacher?')).toBeVisible();
+  await expectNoHorizontalScroll(page);
 });
 
 test('a signed-in user skips the landing page and goes to their own home', async ({ page }) => {

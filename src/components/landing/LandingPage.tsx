@@ -3,15 +3,28 @@ import type { ReactNode } from 'react';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { brand } from '@/config/brand';
-import { ABOUT_PLACEHOLDERS, FAQ, HOW_IT_WORKS, landing, SAFETY } from '@/config/landing';
+import {
+  ABOUT_PLACEHOLDERS,
+  FAQ,
+  HOW_IT_WORKS,
+  landing,
+  MARKETPLACE,
+  type MarketplaceSwitches,
+  SAFETY,
+} from '@/config/landing';
 import { cx } from '@/lib/cx';
+import { TeacherBand, TeachersSection } from './TeachersSection';
 
 /**
- * Public landing page (board 63, approved 14 Oct 2026; OC-39). Shown to signed-out visitors
- * at `/`. Static content only; nothing here reads account or child data.
+ * Public landing page (board 63, approved 14 Oct 2026; OC-39), updated to boards H1 (desktop)
+ * and H2 (phone), approved 16 Oct 2026: "Find a teacher" and the public "Teachers looking for
+ * students" section (OC-79 C2). Shown to signed-out visitors at `/`. Nothing here reads account
+ * or child data. Parts that describe listings or enquiries appear only when those features are
+ * live (`MARKETPLACE`), so the page never describes something that does not work.
  */
 
 const NAV = [
+  { href: '#teachers', label: 'Find a teacher' },
   { href: '#how', label: 'How it works' },
   { href: '#safety', label: 'Safety and privacy' },
   { href: '#about', label: 'About us' },
@@ -75,7 +88,7 @@ const ICONS: Record<(typeof SAFETY)[number]['id'], ReactNode> = {
   ),
 };
 
-export function LandingPage() {
+export function LandingPage({ marketplace = MARKETPLACE }: { marketplace?: MarketplaceSwitches } = {}) {
   const wrap = 'mx-auto w-full max-w-[1160px] px-4 sm:px-6';
   return (
     <div className="min-h-screen bg-background">
@@ -160,10 +173,10 @@ export function LandingPage() {
                 Create an account
               </Link>
               <a
-                href="#how"
+                href="#teachers"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border-2 px-[22px] text-[15px] leading-5 font-bold no-underline transition-colors border-primary-fixed bg-transparent text-on-primary hover:bg-primary-hover hover:text-on-primary"
               >
-                See how it works
+                Find a teacher
               </a>
             </div>
           </div>
@@ -183,6 +196,14 @@ export function LandingPage() {
               <span className={cx('rounded-full px-3 py-1 text-xs font-bold', TAG_TONE.teacher)}>Library</span>
               Books, notes and worksheets for each child
             </p>
+            {marketplace.listings ? (
+              <p className="flex flex-wrap items-center gap-3 text-[15px]">
+                <span className="rounded-full bg-success-container px-3 py-1 text-xs font-bold text-on-tertiary-fixed-variant">
+                  Find
+                </span>
+                Approved teachers looking for students
+              </p>
+            ) : null}
             <p className="text-body-sm text-on-surface-variant">
               Subjects: Maths, Science, SST, English, Hindi and IT.
             </p>
@@ -191,31 +212,39 @@ export function LandingPage() {
       </section>
 
       <main>
-        <section aria-labelledby="how" className={cx(wrap, 'flex flex-col gap-7 py-12 md:py-16')}>
-          <SectionHeading eyebrow="How it works" title="Three simple paths" id="how" />
-          <div className="grid gap-6 lg:grid-cols-3">
-            {HOW_IT_WORKS.map((path) => (
-              <Card as="article" key={path.id} className="flex flex-col gap-4" aria-label={path.label}>
-                <span className={cx('self-start rounded-full px-3 py-1 text-xs font-bold', TAG_TONE[path.tone])}>
-                  {path.label}
-                </span>
-                <ol className="flex flex-col gap-3.5">
-                  {path.steps.map((step, i) => (
-                    <li key={step} className="flex items-start gap-3 text-[15px] leading-[22px]">
-                      <span
-                        aria-hidden="true"
-                        className="flex size-8 flex-none items-center justify-center rounded-full bg-primary-fixed font-headline text-[15px] font-extrabold text-on-primary-fixed"
-                      >
-                        {i + 1}
-                      </span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
-            ))}
+        <TeachersSection marketplace={marketplace} wrap={wrap} />
+
+        <section aria-labelledby="how" className="bg-surface-container-low">
+          <div className={cx(wrap, 'flex flex-col gap-7 py-12 md:py-16')}>
+            <SectionHeading eyebrow="How it works" title="Three simple paths" id="how" />
+            <div className="grid gap-6 lg:grid-cols-3">
+              {HOW_IT_WORKS.map((path) => (
+                <Card as="article" key={path.id} className="flex flex-col gap-4" aria-label={path.label}>
+                  <span className={cx('self-start rounded-full px-3 py-1 text-xs font-bold', TAG_TONE[path.tone])}>
+                    {path.label}
+                  </span>
+                  <ol className="flex flex-col gap-3.5">
+                    {('stepsWithListings' in path && marketplace.listings ? path.stepsWithListings : path.steps).map(
+                      (step, i) => (
+                        <li key={step} className="flex items-start gap-3 text-[15px] leading-[22px]">
+                          <span
+                            aria-hidden="true"
+                            className="flex size-8 flex-none items-center justify-center rounded-full bg-primary-fixed font-headline text-[15px] font-extrabold text-on-primary-fixed"
+                          >
+                            {i + 1}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ),
+                    )}
+                  </ol>
+                </Card>
+              ))}
+            </div>
           </div>
         </section>
+
+        <TeacherBand marketplace={marketplace} wrap={wrap} />
 
         <section aria-labelledby="safety" className="bg-surface-container-low">
           <div className={cx(wrap, 'flex flex-col gap-7 py-12 md:py-16')}>
@@ -242,7 +271,10 @@ export function LandingPage() {
                   </span>
                   <div className="flex flex-col gap-1.5">
                     <h3 className="text-headline-sm">{item.title}</h3>
-                    <p className="text-[15px] leading-[23px] text-on-surface-variant">{item.body}</p>
+                    <p className="text-[15px] leading-[23px] text-on-surface-variant">
+                      {item.body}
+                      {'withListings' in item && marketplace.listings ? ` ${item.withListings}` : ''}
+                    </p>
                   </div>
                 </Card>
               ))}
@@ -272,7 +304,7 @@ export function LandingPage() {
           <div className={cx(wrap, 'flex flex-col gap-7 py-12 md:py-16')}>
             <SectionHeading eyebrow="FAQ" title="Questions parents and teachers ask" id="faq" />
             <div className="flex max-w-[860px] flex-col gap-3">
-              {FAQ.map((item, i) => (
+              {FAQ.filter((item) => !item.needs || marketplace[item.needs]).map((item, i) => (
                 <details key={item.q} open={i === 0} className="rounded-sm border border-card-border bg-white px-5">
                   <summary className="flex min-h-14 cursor-pointer items-center text-[16px] font-bold">
                     {item.q}
@@ -318,6 +350,11 @@ export function LandingPage() {
           <span className="font-headline text-[24px] font-extrabold text-white">{brand.productName}</span>
           <nav aria-label="Footer">
             <ul className="flex flex-wrap gap-x-6 gap-y-1">
+              <li>
+                <a href="#teachers" className="flex min-h-11 items-center text-white">
+                  Find a teacher
+                </a>
+              </li>
               <li>
                 <Link href="/sign-in" className="flex min-h-11 items-center text-white">
                   Sign in

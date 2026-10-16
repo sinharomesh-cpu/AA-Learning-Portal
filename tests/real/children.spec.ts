@@ -150,6 +150,8 @@ test('a reset needs the parent password, shows the new one once and signs the ch
   // stale case and the 5-wrong-tries sign-out are covered in tests/db/children.test.ts.
   await page.goto('/parent/children');
   await page.getByRole('link', { name: "Edit Neel's profile" }).click();
+  // Wait for the profile page itself, or the scan can run while the page is still changing.
+  await expect(page.getByLabel('New password for Neel (optional)')).toBeVisible();
   await noSeriousA11yIssues(page);
   await page.getByLabel('New password for Neel (optional)').fill(['neel', 'likes', 'kites'].join('-'));
   await page.getByRole('button', { name: "Reset Neel's password" }).click();

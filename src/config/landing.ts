@@ -25,6 +25,21 @@ export const landing: LandingContent = {
   pricing: null,
 };
 
+/**
+ * Marketplace switches for the home page (boards H1/H2, approved 16 Oct 2026; OC-79 C2).
+ * Parts of H1 describe features that are not built yet: teacher listings (board D5) and
+ * enquiries (D3, D11). They stay hidden until these switches are turned on in the pull request
+ * that builds the feature, so the page never describes something that does not work (C-7).
+ */
+export interface MarketplaceSwitches {
+  /** Approved teachers can publish "Looking for students" listings, shown publicly. */
+  listings: boolean;
+  /** Signed-in parents can send an enquiry ("Connect with teacher"). */
+  enquiries: boolean;
+}
+
+export const MARKETPLACE: MarketplaceSwitches = { listings: false, enquiries: false };
+
 export const ABOUT_PLACEHOLDERS = [
   'Who we are — owner to add',
   'Why we started AA Pro — owner to add',
@@ -39,7 +54,7 @@ export const HOW_IT_WORKS = [
     steps: [
       'Create your account and add each child. You choose their username and password.',
       'Pick their subjects and set quiet times when lessons can’t be booked.',
-      'Book AI lessons or a teacher, and see what your child learned.',
+      'Book AI lessons, add your child’s own teacher or find one here, and see what your child learned.',
     ],
   },
   {
@@ -61,6 +76,12 @@ export const HOW_IT_WORKS = [
       'The AA Pro team checks and approves your profile.',
       'Set your available times and teach your students on Zoom.',
     ],
+    /** H1 wording once listings exist. */
+    stepsWithListings: [
+      'Register yourself, or accept the invitation when a parent adds you.',
+      'The AA Pro team checks and approves your profile.',
+      'Set your available times, publish a “Looking for students” listing if you want new students, and teach your students on Zoom.',
+    ],
   },
 ] as const;
 
@@ -69,6 +90,8 @@ export const SAFETY = [
     id: 'checked',
     title: 'Every teacher is checked',
     body: 'The AA Pro team approves each teacher before they can see any child. A teacher only sees the children a parent has linked to them.',
+    /** Added once listings exist (H1). */
+    withListings: 'Experience on a listing is as stated by the teacher.',
   },
   {
     id: 'parents',
@@ -87,10 +110,26 @@ export const SAFETY = [
   },
 ] as const;
 
-export const FAQ = [
+export interface FaqItem {
+  q: string;
+  a: string;
+  /** Shown only when this marketplace feature is live. */
+  needs?: keyof MarketplaceSwitches;
+}
+
+export const FAQ: readonly FaqItem[] = [
   {
     q: 'Does my child need an email address?',
     a: 'No. You create your child’s account with a username and password. Children never need an email or phone number.',
+  },
+  {
+    q: 'Can I find a new teacher on AA Pro?',
+    a: 'Yes. Browse “Teachers looking for students” without signing in. To contact a teacher, sign in or create a parent account and send a short enquiry. The teacher sees your first name and your child’s grade, curriculum and subjects, never your child’s name.',
+    needs: 'enquiries',
+  },
+  {
+    q: 'How do I pay a teacher?',
+    a: 'You agree the price with the teacher and pay them directly. AA Pro doesn’t take, hold or refund payments.',
   },
   {
     q: 'How do teachers get my child’s books?',
@@ -112,4 +151,4 @@ export const FAQ = [
     q: 'Which subjects are covered?',
     a: 'Maths, Science, SST, English, Hindi and IT. You choose which ones each child sees.',
   },
-] as const;
+];
