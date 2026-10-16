@@ -448,8 +448,8 @@ The owner consolidated the marketplace decisions (Part C), the teacher terms (Pa
 
 | # | Item | Smallest decision needed |
 |---|---|---|
-| C-2 to C-7 (§13.6) | Marketplace technical constraints: duplicate key for siblings without profiles, a small rate-event log, configurable limits as settings, a new Moderation permission, consent re-prompt only when public fields change, sign-in email as the shared contact | Accept the recommendations in §13.6 as written (yes / no, or name the one to change). The owner's Part B "C-2 to C-7" refers to the textbook conflicts in P2-R2 §4, not these |
-| Terms tick | Teachers already tick the draft general teacher terms (OC-71) when sending their profile. Part D says no mandatory legal acceptance until the final terms are approved | Keep the existing tick on the test site (synthetic accounts only, clearly marked draft), or make it non-binding until the final terms. The new marketplace terms are **not** made mandatory anywhere |
+| ~~C-2 to C-7 (§13.6)~~ **Decided (OC-80): as recommended** | Marketplace technical constraints: duplicate key for siblings without profiles, a small rate-event log, configurable limits as settings, a new Moderation permission, consent re-prompt only when public fields change, sign-in email as the shared contact | Accept the recommendations in §13.6 as written (yes / no, or name the one to change). The owner's Part B "C-2 to C-7" refers to the textbook conflicts in P2-R2 §4, not these |
+| ~~Terms tick~~ **Decided (OC-80): keep on the test site, marked draft; no tick for the marketplace terms; replaced before launch** | Teachers already tick the draft general teacher terms (OC-71) when sending their profile. Part D says no mandatory legal acceptance until the final terms are approved | Keep the existing tick on the test site (synthetic accounts only, clearly marked draft), or make it non-binding until the final terms. The new marketplace terms are **not** made mandatory anywhere |
 
 ### 14.4 Acceptance criteria added
 
@@ -462,3 +462,16 @@ The owner consolidated the marketplace decisions (Part C), the teacher terms (Pa
 ### 14.5 Delivery
 
 Boards D0–D11 are presented for visual review. After approval: PR-D1 profile additions → PR-D2 listings, consent, prices, expiry and the 7-day reminder → PR-D3 public pages and filters (`noindex`) → PR-D4 enquiries, limits, contact consent, reports → PR-D5 adoption figures with the Reports permission. Each is a separate pull request with a scope summary first and a report afterwards.
+
+### 14.6 Home page boards (OC-80)
+
+The owner asked for the home page design first. Boards **H1** (desktop) and **H2** (phone) show the whole approved board 63 with the public "Teachers looking for students" section added (C2). D8 showed only that section and is superseded. Both boards are **awaiting visual review**.
+
+Changes from board 63:
+- "Find a teacher" is added to the menu and the hero.
+- The new section has filters, listing cards, "See all teachers", a short "how connecting works" and an empty state.
+- A "Looking for students?" band for teachers.
+- Two new FAQs, about finding a teacher and paying one.
+- One sentence added to "Every teacher is checked" ("as stated by the teacher").
+
+Listing cards show only the public fields of C2: name, approved subjects and grades, curriculum, experience as stated, online, asking prices. Listing pages carry `noindex`.
