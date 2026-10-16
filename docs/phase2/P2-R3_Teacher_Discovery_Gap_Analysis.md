@@ -1,6 +1,6 @@
 # AA Pro — P2-R3 Two-way teacher discovery, matching and payment planning: gap analysis and plan
 
-**Version:** 1.1 · 16 Oct 2026 (adds §11 public listings) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
+**Version:** 1.2 · 16 Oct 2026 (§11 public listings; §12 owner decisions OC-76) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
 **Source:** owner requirement "Consolidated Requirement: Two-Way Teacher Discovery, Student Matching and Future Payment Planning" (16 Oct 2026, 17:06 IST), checked against the repository at `main` after PR #39, the decision register v1.30 and the approved design boards.
 
 ## 1. What exists today
@@ -39,14 +39,14 @@
 | # | Question | Recommendation |
 |---|---|---|
 | Q-1 | Which teachers appear in "Find a teacher"? | Approved, active teachers who have not hidden themselves (OC-54). Teachers with a **published listing** show their full listing and a "Looking for students" label |
-| Q-2 | What does a teacher see in an enquiry? | Child's **grade, subjects and curriculum**, preferred times, mode and the parent's message and first name. **Not** the child's name or any learning data until the parent links the teacher |
-| Q-3 | Enquiry expiry and limits | Expires after **14 days** without an answer (like OC-67); a parent can have at most **5 pending enquiries** at once and one pending enquiry per teacher and child |
-| Q-4 | Listing expiry | A published listing expires after **60 days** unless renewed; the teacher is reminded 7 days before (queued email) |
-| Q-5 | Currencies | INR, SGD and USD to start (the time zones seen so far are India and Singapore); amounts stored in the smallest unit |
+| Q-2 | **Decided (OC-76 1)** — What does a teacher see in an enquiry? | Child's **grade, subjects and curriculum**, preferred times, mode and the parent's message and first name. **Not** the child's name or any learning data until the parent links the teacher |
+| Q-3 | **Decided (OC-76 2)** — Enquiry expiry and limits | Expires after **14 days** without an answer (like OC-67); a parent can have at most **5 pending enquiries** at once and one pending enquiry per teacher and child |
+| Q-4 | **Decided (OC-76 3)** — Listing expiry | A published listing expires after **60 days** unless renewed; the teacher is reminded 7 days before (queued email) |
+| Q-5 | **Decided (OC-76 4)** — Currencies | INR, SGD and USD to start (the time zones seen so far are India and Singapore); amounts stored in the smallest unit |
 | Q-6 | How many prices per listing? | Up to **three** pricing options (for example hourly and monthly), each with currency, amount, model, sessions per period and minutes per session |
 | Q-7 | Free-text messages in enquiries | Allowed, up to 500 characters, with a notice not to share contact details before acceptance; reports can be sent to the AA Pro team |
-| Q-8 | "Feedback requesting integrated payments" | A one-time optional question after an accepted enquiry: "Would you like to pay (or be paid) through AA Pro in future?" Yes / No / Not sure. Counted in aggregate only |
-| Q-9 | Who sees the adoption metrics? | Super Admin, and Admins with a new "Reports" permission; numbers only, never names (OC-21) |
+| Q-8 | **Decided with changes (OC-76 5)** — "Feedback requesting integrated payments" | A one-time optional question after an accepted enquiry: "Would you like to pay (or be paid) through AA Pro in future?" Yes / No / Not sure. Counted in aggregate only |
+| Q-9 | **Decided with changes (OC-76 6)** — Who sees the adoption metrics? | Super Admin, and Admins with a new "Reports" permission; numbers only, never names (OC-21) |
 | Q-10 | Order of work | Build the authorised PR3 (board 65) first, as approved; then the new pieces in §8 after design approval |
 
 ## 4. User stories and acceptance criteria
@@ -208,3 +208,124 @@ Parent search and filters; listing create, edit, publish, pause, withdraw and ex
 ### 11.7 Boards
 
 D8 homepage section (desktop), D9 public teacher list and listing page (desktop), D10 phone, D11 Connect: sign-in or register and the return to the enquiry. All marked PROPOSED.
+
+
+## 12. Owner decisions of 16 Oct 2026, 17:29 IST (OC-76) — revised specification
+
+These decisions replace the recommendations they answer. Nothing below is built; the revised scope is presented for review before implementation.
+
+### 12.1 Decisions applied
+
+| # | Decision | Effect on this specification |
+|---|---|---|
+| 1 | **Enquiry visibility — accepted.** Teachers see the child's grade, curriculum and the enquiry's subjects; never the child's name, contact details, learning data or uploaded materials at enquiry stage. Acceptance grants no access; any link follows OC-36/OC-75 | US-D6, D6, access matrix row "See an enquiry" |
+| 2 | **Enquiry limits — accepted.** Expiry 14 days without an answer; at most **5 unanswered** enquiries per parent; **one active** enquiry per teacher–child combination; expired, declined and withdrawn ones don't count; a new enquiry is allowed once the previous one is no longer active, with anti-spam controls; enforced on the server | §12.3 rules E-1 to E-6 |
+| 3 | **Listing expiry — accepted.** 60 days, then hidden until renewed; renewal confirms availability, charges and approved subjects are still accurate; expired, paused, withdrawn, rejected or ineligible listings get no enquiries and no search results | §12.3 rules L-1 to L-5, journey J-7 |
+| 4 | **Currencies — accepted.** INR, SGD, USD; currency always shown; **no conversion**; packages record period, sessions included and minutes per session | §12.3 rules P-a to P-d |
+| 5 | **Payment-interest question — accepted with changes.** After an accepted enquiry, the parent is optionally asked: *"Would you be interested in paying for lessons through AA Pro in the future?"* Optional; market research only; reported as totals; not a purchase, commitment or authorisation to charge | Q-8 replaced; parents only (teachers are not asked); journey J-8; §12.4 |
+| 6 | **Reports permission — accepted with changes.** Super Admins see the aggregate marketplace reports; other Admins only with a new **Reports** permission; enforced on the server; report access audited; aggregates only — no child information, no individual payment-interest answers, no private parent–teacher messages | Access matrix, D7, §12.4 |
+| 7 | **Public homepage listings — confirmed** (§11) | §11 stands; enquiry steps follow decisions 1–3 |
+| 8 | **Payment boundary — confirmed.** No gateway, collection, commissions, payouts, refunds or payment obligations; a future proposal uses registrations, active usage, listings, enquiries, matches and aggregate payment interest; payments need separate explicit approval | §9 stands |
+
+### 12.2 Updated access-control matrix (marketplace)
+
+| Action | Visitor | Parent | Student | Teacher not approved / deactivated | Approved teacher | Admin with Reports | Admin without Reports | Super Admin |
+|---|---|---|---|---|---|---|---|---|
+| Browse public listings and filters | Yes | Yes | No (child app shows no marketplace) | Public pages only | Yes | Public pages only | Public pages only | Public pages only |
+| Send an enquiry | Sign in first | Yes, within E-1–E-6 | No | No | No | No | No | No |
+| See an enquiry | — | Own only | — | — | Addressed to them: grade, curriculum, subjects, times, mode, message, parent's first name | No | No | No |
+| Accept / decline | — | Withdraw own | — | — | Own enquiries | — | — | — |
+| Create / edit / publish / pause / withdraw / renew a listing | No | No | No | No | Own, approved subjects and grades | No | No | Hide only (P-8, audited) |
+| Answer the payment-interest question | — | Optional, once per accepted enquiry (at most once a month) | — | — | — | — | — | — |
+| See marketplace reports (totals) | No | No | No | No | No | Yes, access audited | No (refused on the server) | Yes, access audited |
+| See individual payment-interest answers or private messages | Never | Own answer | — | — | Own enquiries' messages | Never | Never | Never |
+
+### 12.3 Server rules
+
+**Enquiries**
+- E-1 Only a signed-in, active parent can send. The listing must be published, unexpired and the teacher approved and active at that moment.
+- E-2 At most **5** enquiries in status *pending* per parent; *accepted*, *declined*, *withdrawn* and *expired* don't count.
+- E-3 At most **one active** (pending or accepted) enquiry per **teacher + child**. When the enquiry has no child account (P-4), "child" means the parent plus the stated grade and curriculum — *Claude's reading, to confirm*.
+- E-4 Pending enquiries become *expired* 14 days after sending. Expiry is applied when anyone views them and by a daily clean-up once a scheduler exists.
+- E-5 Anti-spam (proposed): at most **10 new enquiries per parent per day**; after a teacher **declines**, the same parent can ask that teacher again for the same child after **7 days**; message up to 500 characters, plain text; rate limit per network address for signed-out visitors' connect attempts.
+- E-6 Subjects must be among the teacher's approved subjects (and the child's subjects when a child account is chosen).
+
+**Listings**
+- L-1 Only an approved, active teacher can publish; subjects and grades must be within the approved profile (database check).
+- L-2 A published listing expires **60 days** after publishing or last renewal; a reminder is queued 7 days before.
+- L-3 **Renewal** requires the teacher to tick three confirmations: usual free times are correct; asking prices are correct; subjects and grades are still the ones they are approved for. Renewal restarts the 60 days.
+- L-4 Paused, withdrawn, expired listings, and listings of pending, rejected or deactivated teachers, are excluded from every public and parent query and refuse new enquiries; pending enquiries on such a listing stay answerable by the teacher only while the teacher is approved and active.
+- L-5 An approved subject change (OC-73) that removes a listed subject removes it from the listing; a listing left with no subject returns to draft.
+
+**Prices**
+- P-a Currencies: INR, SGD, USD. Every displayed price shows its currency; no conversion anywhere.
+- P-b Models: hourly (rate + minutes per session), weekly, biweekly, monthly (amount + sessions included + minutes per session; the period is the model).
+- P-c Up to 3 prices per listing (P2-R3 Q-6, still to confirm). Amounts stored in the smallest unit; positive; sensible upper bound.
+- P-d The enquiry stores a snapshot of the asking price the parent chose; any agreed price is recorded separately at booking (Phase 3).
+
+### 12.4 Reporting specification (D7)
+
+| Figure | Definition |
+|---|---|
+| Registered parents / teachers | Accounts created, by role (all time and in period) |
+| Active parents / teachers | Signed in at least once in the period |
+| Approved teachers | Teachers with an approved profile and active account |
+| Published listings | Listings shown publicly at the end of the period |
+| Enquiries by status | Sent in the period: pending, accepted, declined, withdrawn, expired |
+| Successful matches | Accepted enquiries followed by an active teacher–child link for that parent within 30 days |
+| Confirmed lessons | After booking exists (Phase 3) |
+| Payment interest | Totals of Yes / No / Not sure from parents, in the period |
+
+- Totals only; no names, children, messages or individual answers. **Small numbers below 5 are shown as "fewer than 5"** so that no individual can be singled out — *Claude's proposal, to confirm*.
+- Access: Super Admin, and Admins with the **Reports** permission (new value in `admin_permissions`, managed on board 66). Every report view and CSV download is written to the audit log (`REPORT_VIEWED`, `REPORT_DOWNLOADED`).
+- The payment-interest answer is stored against the account only so that it is asked once; it is never shown individually and can be deleted with the account.
+
+### 12.5 User journeys (additions)
+
+| # | Journey | Steps |
+|---|---|---|
+| J-7 | Teacher renews a listing | Reminder email (queued) 7 days before expiry → Looking for students → "Renew for 60 days" → three confirmations → renewed. Not renewed: hidden at day 60; renewing later publishes it again |
+| J-8 | Payment-interest question | Parent opens an accepted enquiry → optional card "Would you be interested in paying for lessons through AA Pro in the future?" Yes / No / Not sure / Skip → thank-you line; never asked again for that enquiry, at most once a month |
+| J-9 | Enquiry limits | A sixth unanswered enquiry is refused: "You have 5 enquiries waiting for an answer. Withdraw one or wait for answers." A second active enquiry to the same teacher for the same child is refused with a link to the existing one |
+
+### 12.6 Acceptance criteria (marketplace, consolidated)
+
+1. A visitor browses published, eligible listings on the homepage and `/teachers` without signing in, on desktop and phone.
+2. Draft, paused, withdrawn, expired listings and listings of pending, rejected or deactivated teachers never appear and refuse enquiries (server and database tests).
+3. Connect while signed out leads to sign-in or parent sign-up and back to the same teacher's enquiry form, including after email confirmation on another device.
+4. A teacher sees grade, curriculum and subjects of an enquiry, never the child's name, contact details, learning data or materials; acceptance creates no link and no access.
+5. Limits E-1 to E-6 hold under direct requests, including a sixth unanswered enquiry, a duplicate active enquiry and re-asking after decline.
+6. Listings expire after 60 days; renewal requires the three confirmations; expired listings are hidden.
+7. Prices show their currency (INR, SGD, USD) and are never converted; packages show period, sessions and minutes.
+8. The payment-interest question is optional, uses the approved wording, and appears in reports only as totals.
+9. Reports are refused to Admins without the Reports permission (direct request included); views and downloads are audited; small numbers are suppressed.
+10. No payment gateway, collection, commission, payout, refund or payment obligation exists anywhere; no paid service is connected.
+11. Teachers can publish only within their approved subjects and grades; parent accounts can never publish.
+12. All existing CI checks and regression suites keep passing.
+
+### 12.7 Still open (decisions needed before the matching pull requests)
+
+| # | Topic | Recommendation |
+|---|---|---|
+| K-1 / P-1 | Public and in-app listing fields beyond OC-54; publishing = consent to public display | As recommended in §2 and §11.4 |
+| K-2 | Directory "Add as my teacher" (OC-36(6)) vs enquiry first | Keep "Add by email"; directory uses enquiries |
+| K-3 | In-person teaching | Online only for now |
+| K-4 | Contact details after acceptance | Shared only if both choose |
+| K-6 | Curriculum and experience reviewed or "as stated" | "As stated", reviewed at first approval |
+| P-3 | Search-engine indexing | Not indexed until you decide |
+| P-4 / E-3 | Enquiry without a child account; what "teacher–child" means then | Parent + stated grade and curriculum |
+| Q-6 | Up to 3 prices per listing | Yes |
+| Q-7 | Free-text messages and "Report" | 500 characters, plain text, report to the AA Pro team |
+| Q-10 | Build PR3 (board 65) now | Yes, as approved; marketplace PRs after design approval |
+| New | Anti-spam values in E-5 and small-number suppression in §12.4 | As proposed |
+
+### 12.8 Revised delivery plan
+
+PR3 (approved board 65) → PR-D1 profile additions and weekly times → PR-D2 listings, prices, expiry and renewal → PR-D3 public homepage section, `/teachers`, listing pages, filters (behind the test-site password) → PR-D4 enquiries for parents and teachers with limits, connect-and-return flow → PR-D5 reports with the Reports permission, audit and the payment-interest question. Each pull request: scope summary first, report afterwards, all CI checks green.
+
+### 12.9 Dependencies
+
+- Email delivery (A-02 / OC-65) for reminders and enquiry notices — queued to the outbox until a provider is approved.
+- A scheduler for daily expiry clean-up (free Vercel daily cron on the test project, or expiry applied on read until then).
+- Production deployment (P-2) for truly public browsing — not authorised.
+- Booking (Phase 3) for confirmed lessons and agreed prices.
