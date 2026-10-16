@@ -1,12 +1,25 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.26 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.27 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.27 changes (PR1 teacher profile and approval, 16 Oct 2026):**
+- **OC-73** records the owner's answer on re-approval ("Re-review, keep access").
+- **OC-72** is built: server checks at child sign-in and on every child request, and a parent's deactivation signs their children out.
+- Teacher terms (OC-71) are published at `/teacher-terms`, labelled **DRAFT, not legal advice**, for owner review. Teachers accept version `teacher-terms-draft-2026-10-16` when sending their profile.
+- Claude's readings, for the owner to correct (no new business rule is final until confirmed):
+  1. A child may sign in while **at least one** of their parents has an active account (OC-72 speaks of "a parent"; families with two linked parents keep access if one is active).
+  2. Profile limits: name shown to families 2–80 characters; bio 20–1,000 characters; at least one subject and one grade to send.
+  3. A profile that is already sent can still be corrected; it keeps its place in the queue.
+  4. A self-registered or admin-created teacher who has not sent a profile can be **rejected** (for example a spam account) but not approved or sent back for changes.
+  5. Accepting or declining a subject/grade change needs a decision note, like other approval decisions.
+  6. A parent-added teacher approved before filling in the profile: their first subjects and grades go through the same change review.
+  7. The contact email on the profile is the sign-in email, shown read-only; changing it goes through support (Accounts tool), because an unconfirmed email must not replace a sign-in address.
 
 **v1.26 changes (owner, 16 Oct 2026, 13:16 IST — decisions on P2-R1 Q-1 to Q-12):**
 - **OC-61 to OC-72** record the answers. **D-25** is replaced by OC-61; **D-26** is partly settled by OC-64 (the parent confirms sharing rights).
@@ -193,6 +206,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-70** | **Security review (Q-10):** a **separate reviewer with no build history** for the Phase 2 review, a written findings report, fixes and retest. Separately, options and pricing for a **human third-party penetration test** before real-user launch. A Claude review is never described as a human independent assessment. | Owner, 16 Oct 2026, 13:16 IST | WP2-9; pre-launch |
 | **OC-71** | **Teacher terms (Q-11):** Claude drafts them, clearly labelled as a draft and not legal advice, for owner review. | Owner, 16 Oct 2026, 13:16 IST | M-20 |
 | **OC-72** | **Account states (Q-12):** (1) while a parent's account is deactivated, **their children cannot sign in** until access is restored; (2) a **rejected teacher** may sign in **only** to see the status message, with no protected portal access. Server-side checks and tests required. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 (with the teacher profile PR) |
+| **OC-73** | **Re-approval after profile changes (D-09 remainder):** an approved teacher's changes to **name, bio or time zone** save at once; a change to **subjects or grades** goes to the approval queue for review, and the teacher **keeps their access** with the approved values until it is accepted or declined. | Owner, 16 Oct 2026 (answer: "Re-review, keep access (Recommended)") | Phase 2 PR1 (M-22) |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

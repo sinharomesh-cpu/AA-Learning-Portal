@@ -578,6 +578,20 @@ export async function signInChild(
     );
     return { ok: false, reason: 'paused' };
   }
+  // OC-72 (1): while the parent's account is deactivated, the child cannot sign in either.
+  const [guardian] = await sql<Array<{ ok: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
+      WHERE g.student_id = ${account.id} AND g.status = 'active' AND p.status = 'active'
+    ) AS ok`;
+  if (!guardian?.ok) {
+    await writeAudit(
+      sql,
+      { type: 'CHILD_LOGIN_FAILED', outcome: 'denied', subjectId: account.id, details: { status: 'parent_inactive' } },
+      now,
+    );
+    return { ok: false, reason: 'paused' };
+  }
   await writeAudit(
     sql,
     { type: 'CHILD_LOGIN_SUCCEEDED', outcome: 'success', subjectId: account.id, actorId: account.id },

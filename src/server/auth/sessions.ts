@@ -99,7 +99,11 @@ export async function loadSession(
       AND s.idle_expires_at > ${now}
       AND s.absolute_expires_at > ${now}
       AND s.credential_version = a.credential_version
-      AND (a.status = 'active' OR (a.status = 'pending_approval' AND a.role = 'teacher'))`;
+      AND (a.status = 'active' OR (a.status = 'pending_approval' AND a.role = 'teacher'))
+      -- OC-72 (1): a child's session ends when no parent of theirs has an active account.
+      AND (a.role <> 'student' OR EXISTS (
+        SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
+        WHERE g.student_id = a.id AND g.status = 'active' AND p.status = 'active'))`;
   const row = rows[0];
   if (!row) return null;
 

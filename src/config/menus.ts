@@ -48,3 +48,13 @@ export const TEACHER_MENU: MenuItem[] = [
   { href: '/teacher/resources', label: 'Learning resources' },
   { href: '/teacher/profile', label: 'Profile' },
 ];
+
+/**
+ * M-20 (board 33): while waiting for approval a teacher can open only their status and profile;
+ * the other pages show greyed out until approval (OC-38).
+ */
+export const TEACHER_PENDING_MENU: MenuItem[] = [
+  { href: '/teacher/status', label: 'Account status' },
+  { href: '/teacher/profile', label: 'Profile' },
+  ...TEACHER_MENU.filter((item) => item.href !== '/teacher/profile').map((item) => ({ ...item, disabled: true })),
+];

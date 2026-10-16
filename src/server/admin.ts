@@ -251,7 +251,7 @@ const SUBJECT_NAME: Record<string, string> = {
 
 function teacherDetail(subjects: string[] | null, grades: number[] | null): string {
   const s = (subjects ?? []).map((x) => SUBJECT_NAME[x] ?? x).join(', ');
-  const g = grades?.length ? `Grades ${Math.min(...grades)}–${Math.max(...grades)}` : '';
+  const g = grades?.length ? `Grades ${[...grades].sort((a, b) => a - b).join(', ')}` : '';
   return [s, g].filter(Boolean).join(' · ') || 'Profile not completed';
 }
 
@@ -435,6 +435,17 @@ export async function setAccountActive(
     } else {
       await tx`UPDATE accounts SET status = 'deactivated', status_reason = ${reason} WHERE id = ${accountId}`;
       await revokeAllSessions(tx, accountId, now);
+      if (account.role === 'parent') {
+        // OC-72 (1): their children are signed out too, unless another parent of theirs is active.
+        const children = await tx<Array<{ id: string }>>`
+          SELECT g.student_id AS id FROM guardian_links g
+          WHERE g.parent_id = ${accountId} AND g.status = 'active'
+            AND NOT EXISTS (
+              SELECT 1 FROM guardian_links o JOIN accounts p ON p.id = o.parent_id
+              WHERE o.student_id = g.student_id AND o.parent_id <> ${accountId}
+                AND o.status = 'active' AND p.status = 'active')`;
+        for (const child of children) await revokeAllSessions(tx, child.id, now);
+      }
       await writeAudit(
         tx,
         {
@@ -463,6 +474,21 @@ export interface PendingTeacher {
   approvalStatus: string;
   detail: string;
   bio: string | null;
+  submittedAt: Date | null;
+  /** Self-registered and admin-created teachers must send their profile first; parent-added ones may be approved from draft. */
+  canApprove: boolean;
+  /** "Request changes" needs a sent profile and is not offered for parent-added teachers. */
+  canRequestChanges: boolean;
+}
+
+/** Which decisions are open for a teacher in the queue (also enforced in decideTeacher). */
+export function decisionsOpen(origin: string, approvalStatus: string): Record<TeacherDecision, boolean> {
+  const sent = approvalStatus === 'submitted';
+  return {
+    approve: sent || (origin === 'parent_added' && approvalStatus === 'draft'),
+    changes: sent && origin !== 'parent_added',
+    reject: sent || approvalStatus === 'draft',
+  };
 }
 
 export async function listPendingTeachers(sql: Db, actorId: string): Promise<PendingTeacher[] | null> {
@@ -479,14 +505,15 @@ export async function listPendingTeachers(sql: Db, actorId: string): Promise<Pen
       subjects: string[];
       grades: number[];
       bio: string | null;
+      submitted_at: Date | null;
     }>
   >`SELECT a.id, a.display_name AS name, a.email, t.origin, p.email AS parent_email, a.created_at,
-           t.approval_status, t.subjects, t.grades, t.bio
+           t.approval_status, t.subjects, t.grades, t.bio, t.submitted_at
     FROM accounts a JOIN teacher_profiles t ON t.account_id = a.id
     LEFT JOIN accounts p ON p.id = t.added_by_parent_id
     WHERE a.role = 'teacher' AND a.status = 'pending_approval'
       AND t.approval_status IN ('draft', 'submitted')
-    ORDER BY (t.approval_status = 'submitted') DESC, a.created_at, a.id`;
+    ORDER BY (t.approval_status = 'submitted') DESC, t.submitted_at, a.created_at, a.id`;
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -497,6 +524,9 @@ export async function listPendingTeachers(sql: Db, actorId: string): Promise<Pen
     approvalStatus: r.approval_status,
     detail: teacherDetail(r.subjects, r.grades),
     bio: r.bio,
+    submittedAt: r.submitted_at,
+    canApprove: decisionsOpen(r.origin, r.approval_status).approve,
+    canRequestChanges: decisionsOpen(r.origin, r.approval_status).changes,
   }));
 }
 
@@ -509,19 +539,25 @@ export async function decideTeacher(
   teacherId: string,
   input: { decision: TeacherDecision; note: string; baseUrl: string },
   now: Date = new Date(),
-): Promise<{ ok: true } | { ok: false; reason: 'note_required' } | Denied | NotFound> {
+): Promise<{ ok: true } | { ok: false; reason: 'note_required' | 'not_ready' } | Denied | NotFound> {
   if (!(await mayAct(sql, actorId, 'teacher_approvals'))) return DENIED;
   if (!UUID.test(teacherId)) return NOT_FOUND;
   const note = input.note.trim().slice(0, 1000);
   if (note.length < 3) return { ok: false, reason: 'note_required' };
   return sql.begin(async (tx) => {
-    const [t] = await tx<Array<{ email: string; display_name: string; has_password: boolean }>>`
-      SELECT a.email, a.display_name, a.password_hash IS NOT NULL AS has_password
+    const [t] = await tx<
+      Array<{ email: string; display_name: string; has_password: boolean; origin: string; approval_status: string }>
+    >`
+      SELECT a.email, a.display_name, a.password_hash IS NOT NULL AS has_password, p.origin, p.approval_status
       FROM accounts a JOIN teacher_profiles p ON p.account_id = a.id
       WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'pending_approval'
         AND p.approval_status IN ('draft', 'submitted')
-      FOR UPDATE OF a`;
+      FOR UPDATE OF a, p`;
     if (!t) return NOT_FOUND;
+    // A teacher who registered themselves (or was created by an admin) must send their profile
+    // and accept the terms before they can be approved (OC-38, OC-71).
+    if (!decisionsOpen(t.origin, t.approval_status)[input.decision])
+      return { ok: false as const, reason: 'not_ready' as const };
     const approval = { approve: 'approved', reject: 'rejected', changes: 'changes_requested' }[input.decision];
     await tx`UPDATE teacher_profiles SET approval_status = ${approval}, decided_by = ${actorId}, decided_at = ${now},
                     decision_note = ${note}
@@ -555,6 +591,101 @@ export async function decideTeacher(
     await writeAudit(
       tx,
       { type: 'TEACHER_DECISION', outcome: 'success', actorId, subjectId: teacherId, details: { decision: approval } },
+      now,
+    );
+    return { ok: true as const };
+  });
+}
+
+// ------------------------------------------------------------------ Profile changes (OC-73)
+
+export interface ProfileChange {
+  id: string;
+  name: string;
+  email: string;
+  current: string;
+  requested: string;
+  submittedAt: Date;
+}
+
+/** Approved teachers who asked to change their subjects or grades (OC-73). They keep teaching meanwhile. */
+export async function listProfileChanges(sql: Db, actorId: string): Promise<ProfileChange[] | null> {
+  if (!(await mayAct(sql, actorId, 'teacher_approvals'))) return null;
+  const rows = await sql<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      subjects: string[];
+      grades: number[];
+      pending_subjects: string[];
+      pending_grades: number[];
+      change_submitted_at: Date;
+    }>
+  >`SELECT a.id, a.display_name AS name, a.email, t.subjects, t.grades, t.pending_subjects, t.pending_grades,
+           t.change_submitted_at
+    FROM accounts a JOIN teacher_profiles t ON t.account_id = a.id
+    WHERE a.role = 'teacher' AND a.status = 'active' AND t.change_submitted_at IS NOT NULL
+    ORDER BY t.change_submitted_at, a.id`;
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    current: teacherDetail(r.subjects, r.grades),
+    requested: teacherDetail(r.pending_subjects, r.pending_grades),
+    submittedAt: r.change_submitted_at,
+  }));
+}
+
+/**
+ * Accept or decline an approved teacher's subject/grade change (OC-73). Accepting replaces the
+ * approved values; declining keeps them. Either way the teacher keeps their access, is emailed
+ * and sees the note on their profile page.
+ */
+export async function decideProfileChange(
+  sql: Sql,
+  actorId: string,
+  teacherId: string,
+  input: { decision: 'approve' | 'decline'; note: string; baseUrl: string },
+  now: Date = new Date(),
+): Promise<{ ok: true } | { ok: false; reason: 'note_required' } | Denied | NotFound> {
+  if (!(await mayAct(sql, actorId, 'teacher_approvals'))) return DENIED;
+  if (!UUID.test(teacherId)) return NOT_FOUND;
+  const note = input.note.trim().slice(0, 1000);
+  if (note.length < 3) return { ok: false, reason: 'note_required' };
+  return sql.begin(async (tx) => {
+    const [t] = await tx<Array<{ email: string; display_name: string }>>`
+      SELECT a.email, a.display_name
+      FROM accounts a JOIN teacher_profiles p ON p.account_id = a.id
+      WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active'
+        AND p.approval_status = 'approved' AND p.change_submitted_at IS NOT NULL
+      FOR UPDATE OF a, p`;
+    if (!t) return NOT_FOUND;
+    const decision = input.decision === 'approve' ? 'approved' : 'declined';
+    if (decision === 'approved') {
+      await tx`UPDATE teacher_profiles SET subjects = pending_subjects, grades = pending_grades
+               WHERE account_id = ${teacherId}`;
+    }
+    await tx`UPDATE teacher_profiles
+             SET pending_subjects = NULL, pending_grades = NULL, change_submitted_at = NULL,
+                 change_decision = ${decision}, change_decision_note = ${note},
+                 change_decided_by = ${actorId}, change_decided_at = ${now}
+             WHERE account_id = ${teacherId}`;
+    await queueEmail(tx, {
+      to: t.email,
+      template: decision === 'approved' ? 'teacher_profile_change_approved' : 'teacher_profile_change_declined',
+      payload: { name: t.display_name, profileUrl: `${input.baseUrl}/teacher/profile` },
+      dedupeKey: `teacher_profile_change:${teacherId}:${now.getTime()}`,
+    });
+    await writeAudit(
+      tx,
+      {
+        type: 'TEACHER_PROFILE_CHANGE_DECISION',
+        outcome: 'success',
+        actorId,
+        subjectId: teacherId,
+        details: { decision },
+      },
       now,
     );
     return { ok: true as const };
