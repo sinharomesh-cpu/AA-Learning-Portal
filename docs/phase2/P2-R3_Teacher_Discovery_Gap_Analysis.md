@@ -1,6 +1,6 @@
 # AA Pro — P2-R3 Two-way teacher discovery, matching and payment planning: gap analysis and plan
 
-**Version:** 1.2 · 16 Oct 2026 (§11 public listings; §12 owner decisions OC-76) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
+**Version:** 1.3 · 16 Oct 2026 (§11 public listings; §12 OC-76; §13 OC-77) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
 **Source:** owner requirement "Consolidated Requirement: Two-Way Teacher Discovery, Student Matching and Future Payment Planning" (16 Oct 2026, 17:06 IST), checked against the repository at `main` after PR #39, the decision register v1.30 and the approved design boards.
 
 ## 1. What exists today
@@ -329,3 +329,89 @@ PR3 (approved board 65) → PR-D1 profile additions and weekly times → PR-D2 l
 - A scheduler for daily expiry clean-up (free Vercel daily cron on the test project, or expiry applied on read until then).
 - Production deployment (P-2) for truly public browsing — not authorised.
 - Booking (Phase 3) for confirmed lessons and agreed prices.
+
+## 13. Owner decisions of 16 Oct 2026, 18:22 IST on the 11 open clarifications (OC-77)
+
+These decisions close §12.7. Where they differ from earlier sections, this section wins. Nothing here is built; the marketplace features stay gated by approval of their designs and requirements (decision 11).
+
+### 13.1 Decisions applied
+
+| # | Decision | Changes to this specification |
+|---|---|---|
+| 1 | **Directory fields and consent.** OC-54 fields (name, subjects, grades, time zone, bio) for teachers without a published listing. Publishing needs **explicit consent** to show the public fields exactly as previewed. Never contact details or child data. Teachers can pause or withdraw | Listing editor (D5) gets a consent step under the preview; consent recorded with version and time (§13.2) |
+| 2 | **Linking.** "Add by email" stays. Directory and public-listing **enquiries need the teacher's acceptance** before the parent is offered the linking step; acceptance grants no access | US-D4/D6, D4 next steps; see conflict C-1 for PR3 |
+| 3 | **Online only.** In-person deferred to a separate safeguarding and privacy decision | Mode is fixed to online; no mode filter until in-person exists; no location data collected |
+| 4 | **Contact details.** Never revealed automatically after acceptance; **both** parent and teacher must agree before they are exchanged; a notice says AA Pro does not process or guarantee payments arranged directly | `contact_consents` (§13.2); D4/D6 copy |
+| 5 | **Claims.** Curriculum and experience shown as **"As stated by the teacher"**; never "verified" or "certified" without an approved verification process | Copy rule for all boards and pages |
+| 6 | **Indexing.** `noindex` on public listing pages; still browseable signed out; indexing revisited separately; normal access controls unchanged | Page metadata and `X-Robots-Tag`; note: the whole site is already `noindex` today (`src/app/layout.tsx`) |
+| 7 | **Duplicate enquiries.** With a child profile: check by child id. Without: **parent + teacher + stated grade + curriculum**, subjects recorded on the enquiry. One active enquiry per combination. No child profile is created automatically | Rule E-3 replaced (§13.3); constraint C-2 |
+| 8 | **Pricing.** Up to **3** options from hourly, weekly, biweekly, monthly; show currency, amount, period, sessions and duration where applicable; information only | Rule P-c confirmed |
+| 9 | **Messages and reports.** Free text ≤ 500 characters, shown as plain text; **Report** action; server validation and anti-abuse; the reporter's identity is **not** shown to the reported person by default | `marketplace_reports` (§13.2); moderation access, constraint C-5 |
+| 10 | **Limits (configurable starting values).** 5 pending enquiries per parent; 10 new enquiries per parent per rolling 24 h; 3 reports per account per rolling 24 h; 10 listing edits per teacher per rolling 24 h. Report counts below 5 shown as **"Fewer than 5"** where they could expose individuals. Exact moderation details only for authorised staff | §13.3 rules; constraint C-4 |
+| 11 | **PR3** proceeds with the approved board 65 scope; listings, prices, enquiries and reports stay in separate pull requests, gated by design approval | Delivery plan §13.6; conflict C-1 |
+
+The 7-day wait after a decline (my proposal in §12.3 E-5) is **not** part of decision 10 and is dropped unless you ask for it.
+
+### 13.2 Data model changes (proposed, not built)
+
+| Table / column | Purpose |
+|---|---|
+| `teacher_listings.consent_version`, `consent_at` | The public-display consent given when publishing; asked again when the previewed public fields change (subjects, grades, curriculum, prices, free times, bio) |
+| `teacher_listings.mode` = `online` only (check constraint) | Decision 3 |
+| `listing_prices` (max 3 per listing, enforced in the database) | Decision 8 |
+| `teacher_enquiries.child_id` (nullable), `stated_grade`, `stated_curriculum`, `subjects`, `message` (≤ 500) | Decision 7; a partial unique index on (parent, teacher, child) where active, and another on (parent, teacher, grade, curriculum) where active and `child_id` is null |
+| `contact_consents` (enquiry, party, agreed_at) | Decision 4: details shown only when both rows exist |
+| `marketplace_reports` (reporter, reported account, enquiry or listing, reason, text ≤ 500, status, handled_by) | Decision 9; reporter never exposed to the reported person |
+| `marketplace_limits` (name, value) or code constants with an environment override | Decision 10 "configurable"; see C-4 |
+| `rate_events` (account, kind, at) | Rolling 24-hour counts for enquiries, reports and listing edits |
+
+### 13.3 Server rules replaced or added
+
+- **E-2** at most 5 enquiries in *pending* per parent. **E-3 (replaced)** one active (pending or accepted) enquiry per parent + teacher + child id; without a child profile, per parent + teacher + stated grade + curriculum. **E-5 (replaced)** at most 10 new enquiries per parent per rolling 24 hours; messages ≤ 500 characters, plain text.
+- **R-1** at most 3 reports per account per rolling 24 hours; a report needs a reason; the reported person never sees who reported.
+- **L-6** at most 10 listing saves per teacher per rolling 24 hours (drafts included).
+- **L-7** publishing requires the consent of decision 1 against the current preview.
+- **C-x** contact details are shown to each party only after both have agreed, per enquiry; agreement can be withdrawn and hides them again.
+- **M-1** mode must be `online`.
+- Report figures below 5 show as "Fewer than 5".
+
+### 13.4 Access-control matrix (additions to §12.2)
+
+| Action | Visitor | Parent | Student | Teacher not approved | Approved teacher | Admin with Moderation (proposed) | Other Admins | Super Admin |
+|---|---|---|---|---|---|---|---|---|
+| Agree to share contact details for an enquiry | — | Own accepted enquiries | — | — | Own accepted enquiries | — | — | — |
+| See the other party's contact details | Never | Only after both agreed | — | — | Only after both agreed | Never | Never | Never |
+| Report a listing or enquiry | Sign in first | Yes, R-1 | No | No | Yes (enquiries they received), R-1 | — | — | — |
+| See and handle reports, with reporter identity | No | No | No | No | No | Yes, audited | No | Yes, audited |
+| Give public-display consent and publish | No | No | No | No | Own listing | No | No | No |
+
+### 13.5 Acceptance criteria added
+
+13. Publishing is impossible without the consent step; the consent's version and time are stored; changing a public field asks again.
+14. Contact details appear only after both parties agree, and disappear if either withdraws.
+15. Duplicate checks use the child id when present, otherwise parent + teacher + grade + curriculum; no child profile is created by an enquiry.
+16. The four limits of decision 10 hold under direct requests, including the 11th enquiry and the 4th report in 24 hours.
+17. A reported person never sees the reporter; only authorised staff see report details, and each view is audited.
+18. Listing pages send `noindex`; signed-out browsing still works.
+19. Only "online" is accepted as a mode; no in-person option or location field exists.
+20. No page or report shows "verified" or "certified" for curriculum or experience.
+
+### 13.6 Implementation conflicts and technical constraints (not resolved silently)
+
+| # | Conflict or constraint | Options | Recommendation |
+|---|---|---|---|
+| C-1 | **Board 65 vs decision 2.** Approved board 65 has "Add as my teacher" (immediate link, OC-36(6)) and "See available times". Decision 2 says directory enquiries need acceptance first, while decision 11 says build board 65's approved scope | (a) Keep "Add as my teacher" in PR3; it opens the existing Add-by-email form pre-filled (OC-75 subject rules apply); replace it with "Send an enquiry" in the enquiry PR. (b) PR3 shows profiles only, no add button, until enquiries exist | (a), and hide "See available times" until availability exists |
+| C-2 | **Fallback duplicate key.** Two siblings with the same grade and curriculum and no profiles collapse into one combination; and a parent may create a child profile later while a fallback enquiry is active | Treat the fallback combination as matching any of that parent's children with the same grade and curriculum | As stated: one active enquiry across both forms |
+| C-3 | **Rolling 24-hour limits** need a small event log; counts are checked inside the same transaction to avoid races | — | `rate_events` table, pruned after 7 days |
+| C-4 | **"Configurable" limits.** Changing them without a code change needs a settings table and a Super Admin screen, which is new UI | (a) Constants with an environment override (change needs a redeploy). (b) Settings table plus a small admin screen | (a) now; (b) later if tuning is frequent |
+| C-5 | **Who moderates reports.** The existing Admin permissions are Accounts, Teacher approvals and Audit log | (a) New "Moderation" permission. (b) Reuse Teacher approvals | (a) |
+| C-6 | **Consent re-prompt.** Small edits (a typo in the bio) would ask for consent again | Re-ask only when public fields change; show what changed | As stated |
+| C-7 | **Contact details** are the account email; teachers and parents may prefer not to share their sign-in email | Share the sign-in email only, or let each person type a contact email for sharing | Sign-in email only for now |
+
+### 13.7 Proposed screens
+
+D4, D5 and D6 are updated for decisions 1, 4, 5 and 9 (consent step, mutual contact sharing, "As stated by the teacher", Report). D1, D2, D3 and D8–D10 drop the in-person option. No new boards are needed.
+
+### 13.8 Delivery plan
+
+PR3 (board 65, with C-1 option a) → PR-D1 profile additions → PR-D2 listings, consent, prices, expiry → PR-D3 public pages and filters (`noindex`, behind the test-site password) → PR-D4 enquiries, limits, contact consent, reports → PR-D5 reports page with the Reports permission. Each marketplace PR starts only after you approve its designs.
