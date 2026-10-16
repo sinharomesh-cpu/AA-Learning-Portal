@@ -1,12 +1,17 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.25 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.26 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.26 changes (owner, 16 Oct 2026, 13:16 IST — decisions on P2-R1 Q-1 to Q-12):**
+- **OC-61 to OC-72** record the answers. **D-25** is replaced by OC-61; **D-26** is partly settled by OC-64 (the parent confirms sharing rights).
+- Delivery order authorised: teacher profile and approval, parent–teacher linking, teacher directory. External invitations and document sharing: **designs first**, for approval, before building.
+- Restrictions: synthetic data only; no paid services, real email, paywalls, real child data, production changes or deployment without approval; a Claude reviewer is never described as a human independent assessment.
 
 **v1.25 changes (WP2-5b Admins and admin tools, built while the owner was away, 16 Oct 2026):**
 - Built from approved boards 66, M-27, M-28, M-29/60 and M-30 under OC-21, OC-50 and the owner's "you are working" (15 Oct, 23:36 IST). No business rule was decided; deviations DV-38 to DV-41.
@@ -176,6 +181,18 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-58** | **Curriculum list (D-44):** the child profile offers CBSE, ICSE, State board, IB, Cambridge (IGCSE), Other, or "Not set". | Owner, 15 Oct 2026, 19:10 IST | WP2-4 |
 | **OC-59** | **Sign-in role choice (M-01):** "I am signing in as… A parent / A teacher" radio buttons, for guidance only. The account's own role decides the portal; a wrong pick still signs in. Chosen over a required choice, which would cause failed sign-ins and hint at an email's role. | Owner, 15 Oct 2026, 20:46 IST | DV-35 |
 | **OC-60** | **AI tutor daily limit (D-05):** at most **30 minutes of AI lessons per child per day**, however they are booked (by the student or by the parent). Claude's reading, for the owner to correct: the day is the child's own calendar day in the child's time zone; cancelled lessons do not count; with OC-22 (15- or 30-minute lessons) this allows one 30-minute or two 15-minute AI lessons a day; it is a platform limit, checked on the server at booking time. Human-teacher lessons are not affected. | Owner, 15 Oct 2026, 23:01 IST | Phase 3 booking (S13, M-09) |
+| **OC-61** | **External teacher invitation (Q-1; replaces the approved M-11 and D-25, amends OC-36(7)).** The parent proposes **up to three** time slots; the external teacher answers through a **secure link** (accept a slot, decline, or suggest another time). **No** booking, Zoom meeting or teacher account is created. Moves into Phase 2. New boards to be approved before building. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 (designs first) |
+| **OC-62** | **Linking registered teachers (Q-2):** parents can add an approved teacher **by email** (boards 57–58) **and** search an **approved-teacher directory** (board 65, moved from Phase 3). The directory shows limited profile information only — never email addresses or phone numbers. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 |
+| **OC-63** | **Chapter or topic (Q-3):** a free-text field until the parent's uploaded chapter list exists. No invented chapter names. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 |
+| **OC-64** | **Chapter material sharing (Q-4), in principle:** secure, **view-only** PDF sharing; max **20 MB**; link expiry **no later than 14 days**; malware scanning, access logging, revocation, and a parent confirmation of sharing rights. **No storage or scanning service is connected or bought** until the owner approves options and prices. | Owner, 16 Oct 2026, 13:16 IST | Designs first; build after provider approval |
+| **OC-65** | **Email (Q-5):** real email delivery stays **disabled**. Claude presents 2–3 providers with pricing and sender-domain requirements for decision. | Owner, 16 Oct 2026, 13:16 IST | A-02 |
+| **OC-66** | **Test-site password (Q-6):** only the token-protected external-invitation **response route** may bypass the test-site password, and **only on the test environment**. Nothing else is weakened. | Owner, 16 Oct 2026, 13:16 IST | With the invitation build |
+| **OC-67** | **Invitation rules (Q-7):** at most **three** proposed slots; **one** reminder; expires when the **last proposed slot passes or after 14 days, whichever is first**; duplicate = same teacher email + same child + same subject with an open invitation. | Owner, 16 Oct 2026, 13:16 IST | Invitation build |
+| **OC-68** | **External meeting durations (Q-8): 20, 30 or 40 minutes.** | Owner, 16 Oct 2026, 13:16 IST | Invitation build |
+| **OC-69** | **Branch protection (Q-9):** protect `main` (all applicable CI checks required, no direct pushes) if Claude's permissions allow; otherwise Claude gives exact setup steps. | Owner, 16 Oct 2026, 13:16 IST | A-03 |
+| **OC-70** | **Security review (Q-10):** a **separate reviewer with no build history** for the Phase 2 review, a written findings report, fixes and retest. Separately, options and pricing for a **human third-party penetration test** before real-user launch. A Claude review is never described as a human independent assessment. | Owner, 16 Oct 2026, 13:16 IST | WP2-9; pre-launch |
+| **OC-71** | **Teacher terms (Q-11):** Claude drafts them, clearly labelled as a draft and not legal advice, for owner review. | Owner, 16 Oct 2026, 13:16 IST | M-20 |
+| **OC-72** | **Account states (Q-12):** (1) while a parent's account is deactivated, **their children cannot sign in** until access is restored; (2) a **rejected teacher** may sign in **only** to see the status message, with no protected portal access. Server-side checks and tests required. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 (with the teacher profile PR) |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -223,8 +240,8 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ~~D-22~~ | **Closed → OC-49.** | | | | | |
 | ~~D-37~~ | **Closed → OC-35.** | | | | | |
 | **D-24** | Session summaries: source and retention | Summary generated after the session; transcript discarded; summaries kept for a period you set (proposed 12 months) | Keep the transcript; no summaries | Privacy, cost | **Yes** | Phase 5 |
-| **D-25** | External invitation content | The email contains the real Zoom join link and no child profile data | Time-limited AA Pro link | M-32 | **Yes** | Phase 6 |
-| **D-26** | Rights in uploaded textbooks | The parent confirms permitted use on upload; only lesson pages are sent to the AI Tutor | No attestation; legal review first | Upload flow, legal exposure | **Yes** | Phase 4 |
+| ~~D-25~~ | **Closed → OC-61** (no Zoom in the invitation). External invitation content | The email contains the real Zoom join link and no child profile data | Time-limited AA Pro link | M-32 | **Yes** | Phase 6 |
+| **D-26** | Rights in uploaded textbooks (partly settled by OC-64: the parent confirms sharing rights; licensing questions remain) | The parent confirms permitted use on upload; only lesson pages are sent to the AI Tutor | No attestation; legal review first | Upload flow, legal exposure | **Yes** | Phase 4 |
 | **D-10** | Zoom hosting model | Platform-owned account (Server-to-Server OAuth), verified in a spike first | Teacher-owned accounts | Concurrency, cost | **Yes**, after spike | Phase 6 |
 | **D-28** | Data residency, hosting region and retention | Decide before any deployment with real data | — | Provider/region, legal | **Yes** | Pre-production |
 | ~~D-35~~ | **Closed → OC-44.** | | | | | |
@@ -242,6 +259,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **A-05.** Before the first push, add a repository secret named `IDENTIFYING_TERMS` (GitHub → repository → Settings → Secrets and variables → Actions → New repository secret). It holds the identifying demo terms that CI must never find in the repository. This keeps those terms out of Git entirely. The value is given to you in the chat, not in any document. Without the secret, the CI privacy check fails on purpose rather than passing silently.
 - **A-06 (optional).** The project root holds stale duplicate copies of several docs (for example a v1.0 G1-04 and older G1-05 copies) next to the current `claude/` versions. The authoritative copies are under `claude/`. You may delete the root duplicates. I will not delete them.
 - **A-07 (done 14 Oct 2026).** Create the hosting account, choose its plan and import the repository with the two demo settings. Steps: `docs/deployment/hosted-demo-preview.md`. Then send Claude the web address to check.
+- **A-03 (owner, now — OC-69).** Claude's GitHub access cannot change repository rules (the API returns "not permitted through this proxy"). Steps in `docs/phase2/P2-S0_Repository_Security_Review.md` §3.
 - **A-10 (done 15 Oct).** Set `AA_SUPERADMIN_EMAIL` on `aa-pro-test`, redeploy, then use `/setup` to create the Super Admin with a password, authenticator app and recovery codes.
 - **A-09 (done 15 Oct).** Create the test environment: new Vercel project `aa-pro-test`, Neon database, settings and redeploy, as in `docs/deployment/test-environment.md`. Claude supplies the two secret values in the chat, never in Git.
 - **A-08 (waiting: owner's GitHub Pro).** The owner will subscribe to GitHub Pro and make `AA-Learning-Portal` private. **Claude reminds the owner when they say GitHub Pro is active**, then:
