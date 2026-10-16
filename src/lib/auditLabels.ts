@@ -29,6 +29,7 @@ const LABELS: Record<string, string> = {
   TEACHER_PROFILE_CHANGE_SUBMITTED: 'Teacher asked to change subjects or grades',
   TEACHER_PROFILE_CHANGE_DECISION: 'Teacher profile change decided',
   TEACHER_LINKED: 'Parent added a teacher',
+  TEACHER_SEARCH_VISIBILITY: 'Teacher changed whether parents can find them',
   TEACHER_LINK_CHANGED: 'Parent changed a teacher’s children or subjects',
   TEACHER_LINK_REMOVED: 'Parent removed a teacher',
   TEACHER_LINK_REFUSED: 'Teacher could not be added',

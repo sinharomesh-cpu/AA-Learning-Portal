@@ -42,6 +42,8 @@ export interface TeacherProfile {
   termsAccepted: boolean;
   /** A subject/grade change waiting for review (approved teachers only). */
   pendingChange: { subjects: string[]; grades: number[]; submittedAt: Date } | null;
+  /** OC-54: the teacher has chosen not to appear in the parents' teacher directory (board 65). */
+  hiddenFromSearch: boolean;
   /** The outcome of the latest change review. */
   lastChange: { decision: 'approved' | 'declined'; note: string | null; decidedAt: Date } | null;
 }
@@ -122,6 +124,7 @@ type Row = {
   change_decision: 'approved' | 'declined' | null;
   change_decision_note: string | null;
   change_decided_at: Date | null;
+  hidden_from_search: boolean;
 };
 
 async function loadRow(sql: Db, teacherId: string, lock = false): Promise<Row | undefined> {
@@ -130,7 +133,7 @@ async function loadRow(sql: Db, teacherId: string, lock = false): Promise<Row | 
            t.approval_status, t.decision_note, t.submitted_at,
            EXISTS (SELECT 1 FROM consents c WHERE c.account_id = a.id AND c.kind = 'teacher_terms') AS terms,
            t.pending_subjects, t.pending_grades, t.change_submitted_at,
-           t.change_decision, t.change_decision_note, t.change_decided_at
+           t.change_decision, t.change_decision_note, t.change_decided_at, t.hidden_from_search
     FROM accounts a JOIN teacher_profiles t ON t.account_id = a.id
     WHERE a.id = ${teacherId} AND a.role = 'teacher'
     ${lock ? sql`FOR UPDATE OF a, t` : sql``}`;
@@ -157,6 +160,7 @@ export async function getTeacherProfile(sql: Db, teacherId: string): Promise<Tea
       r.pending_subjects && r.pending_grades && r.change_submitted_at
         ? { subjects: r.pending_subjects, grades: r.pending_grades.map(Number), submittedAt: r.change_submitted_at }
         : null,
+    hiddenFromSearch: r.hidden_from_search,
     lastChange:
       r.change_decision && r.change_decided_at
         ? { decision: r.change_decision, note: r.change_decision_note, decidedAt: r.change_decided_at }
@@ -305,3 +309,32 @@ export const teacherApprovalStatus = cache(async (teacherId: string): Promise<Ap
     SELECT approval_status FROM teacher_profiles WHERE account_id = ${teacherId}`;
   return row?.approval_status ?? null;
 });
+
+/**
+ * OC-54: "Hide me from search". Only the teacher changes it, for their own profile. Hiding removes
+ * the teacher from the parents' directory (board 65) at once; existing links and "Add by email"
+ * (OC-36) are not affected. A rejected teacher cannot change it (OC-72).
+ */
+export async function setHiddenFromSearch(
+  sql: Sql,
+  teacherId: string,
+  hidden: boolean,
+  now: Date = new Date(),
+): Promise<{ ok: true } | { ok: false; reason: 'not_allowed' }> {
+  if (!UUID.test(teacherId)) return { ok: false, reason: 'not_allowed' };
+  return sql.begin(async (tx) => {
+    const rows = await tx`
+      UPDATE teacher_profiles t SET hidden_from_search = ${hidden}
+      FROM accounts a
+      WHERE t.account_id = ${teacherId} AND a.id = t.account_id AND a.role = 'teacher'
+        AND a.status IN ('active', 'pending_approval') AND t.approval_status <> 'rejected'
+      RETURNING t.account_id`;
+    if (rows.length === 0) return { ok: false as const, reason: 'not_allowed' as const };
+    await writeAudit(
+      tx,
+      { type: 'TEACHER_SEARCH_VISIBILITY', outcome: 'success', actorId: teacherId, details: { hidden } },
+      now,
+    );
+    return { ok: true as const };
+  });
+}

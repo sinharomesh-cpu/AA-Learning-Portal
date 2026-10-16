@@ -69,12 +69,18 @@ export default async function MyTeachersPage({
             can&apos;t download them.
           </p>
         </div>
-        <LinkButton href="/parent/teachers/new">Add a teacher</LinkButton>
+        <div className="flex flex-wrap gap-2.5">
+          <LinkButton href="/parent/teachers/find" variant="secondary">
+            Find a teacher
+          </LinkButton>
+          <LinkButton href="/parent/teachers/new">Add a teacher</LinkButton>
+        </div>
       </div>
       {message ? <FormMessage tone="success">{message}</FormMessage> : null}
       {teachers.length === 0 ? (
         <EmptyState title="No teachers yet" action={<LinkButton href="/parent/teachers/new">Add a teacher</LinkButton>}>
-          You haven&apos;t added any teachers yet. Add your child&apos;s own teacher by their email address.
+          You haven&apos;t added any teachers yet. Add your child&apos;s own teacher by their email address, or use Find
+          a teacher to choose an approved AA Pro teacher.
         </EmptyState>
       ) : null}
       {teachers.map((t) => {

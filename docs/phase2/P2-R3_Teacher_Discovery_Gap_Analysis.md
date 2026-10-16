@@ -1,6 +1,6 @@
 # AA Pro — P2-R3 Two-way teacher discovery, matching and payment planning: gap analysis and plan
 
-**Version:** 1.3 · 16 Oct 2026 (§11 public listings; §12 OC-76; §13 OC-77) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; nothing in this document is built.
+**Version:** 1.4 · 16 Oct 2026 (§11 public listings; §12 OC-76; §13 OC-77; C-1 decided as OC-78 and board 65 built in PR3) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; apart from the board 65 directory (PR3), nothing in this document is built.
 **Source:** owner requirement "Consolidated Requirement: Two-Way Teacher Discovery, Student Matching and Future Payment Planning" (16 Oct 2026, 17:06 IST), checked against the repository at `main` after PR #39, the decision register v1.30 and the approved design boards.
 
 ## 1. What exists today
@@ -10,7 +10,7 @@
 | Approved teacher profiles | Name, time zone, subjects, grades, bio; subject/grade changes re-reviewed (OC-73) | PR #35 |
 | Approval | Every teacher sends a completed profile and is approved by the Super Admin or an Admin (OC-38, OC-75) | PR #35, #39 |
 | Parent–teacher links | Add by email, per-child subjects limited to the teacher's approved subjects (OC-75); pending links give no access; one server check `teacherMaySee` | PR #38, #39 |
-| Teacher directory | **Approved board 65, not built** (authorised as PR3). Search by subject, grade, name; shows name, subjects, grades, time zone, bio; teacher can hide from search (OC-54); "Add as my teacher" links at once (OC-36(6)) | Board 65 |
+| Teacher directory | **Approved board 65, built in PR3** (C-1 option (a), OC-78). Search by subject, grade, name; shows name, subjects, grades, time zone, bio; teacher can hide from search (OC-54); "Add as my teacher" links at once (OC-36(6)) | Board 65 |
 | Teacher availability | **Approved board M-23, not built** (Phase 3). Weekly one-student times of up to 40 minutes; draft/publish | Board M-23 |
 | Booking and calendar | **Demo screens only** (sample data). Real booking is Phase 3; cancellation rules (D-07) and group sessions (D-15) still open | Phase 1 |
 | External invitation | **Designs first** (OC-61): parent proposes up to 3 slots, teacher answers through a secure link | OC-61, OC-67 |
@@ -400,7 +400,7 @@ The 7-day wait after a decline (my proposal in §12.3 E-5) is **not** part of de
 
 | # | Conflict or constraint | Options | Recommendation |
 |---|---|---|---|
-| C-1 | **Board 65 vs decision 2.** Approved board 65 has "Add as my teacher" (immediate link, OC-36(6)) and "See available times". Decision 2 says directory enquiries need acceptance first, while decision 11 says build board 65's approved scope | (a) Keep "Add as my teacher" in PR3; it opens the existing Add-by-email form pre-filled (OC-75 subject rules apply); replace it with "Send an enquiry" in the enquiry PR. (b) PR3 shows profiles only, no add button, until enquiries exist | (a), and hide "See available times" until availability exists |
+| C-1 | **Board 65 vs decision 2.** Approved board 65 has "Add as my teacher" (immediate link, OC-36(6)) and "See available times". Decision 2 says directory enquiries need acceptance first, while decision 11 says build board 65's approved scope | (a) Keep "Add as my teacher" in PR3; it opens the existing Add-by-email form pre-filled (OC-75 subject rules apply); replace it with "Send an enquiry" in the enquiry PR. (b) PR3 shows profiles only, no add button, until enquiries exist | (a), and hide "See available times" until availability exists — **Decided (OC-78, owner 16 Oct 2026): option (a); built in PR3** |
 | C-2 | **Fallback duplicate key.** Two siblings with the same grade and curriculum and no profiles collapse into one combination; and a parent may create a child profile later while a fallback enquiry is active | Treat the fallback combination as matching any of that parent's children with the same grade and curriculum | As stated: one active enquiry across both forms |
 | C-3 | **Rolling 24-hour limits** need a small event log; counts are checked inside the same transaction to avoid races | — | `rate_events` table, pruned after 7 days |
 | C-4 | **"Configurable" limits.** Changing them without a code change needs a settings table and a Super Admin screen, which is new UI | (a) Constants with an environment override (change needs a redeploy). (b) Settings table plus a small admin screen | (a) now; (b) later if tuning is frequent |

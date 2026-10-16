@@ -8,7 +8,13 @@ import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { cx } from '@/lib/cx';
-import { addTeacherAction, removeTeacherAction, type TeacherFormState, updateLinksAction } from './actions';
+import {
+  addFromDirectoryAction,
+  addTeacherAction,
+  removeTeacherAction,
+  type TeacherFormState,
+  updateLinksAction,
+} from './actions';
 
 /** Boards 57 and 58: choose children and, for each, the subjects this teacher teaches (OC-41). */
 export interface PickableChild {
@@ -153,6 +159,34 @@ export function AddTeacherForm({ kids }: { kids: PickableChild[] }) {
             {pending ? 'Adding…' : 'Add teacher'}
           </Button>
           <LinkButton href="/parent/teachers" variant="secondary">
+            Cancel
+          </LinkButton>
+        </div>
+      </Card>
+    </form>
+  );
+}
+
+/** Board 65 → board 58 checklist for a teacher picked from the directory (C-1 option (a)). */
+export function DirectoryAddForm({ teacherId, kids }: { teacherId: string; kids: PickableChild[] }) {
+  const [state, action, pending] = useActionState<TeacherFormState, FormData>(addFromDirectoryAction, {});
+  const usable = kids.filter((k) => k.subjects.length > 0);
+  return (
+    <form action={action} noValidate className="flex max-w-[760px] flex-col gap-5">
+      <input type="hidden" name="teacherId" value={teacherId} />
+      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      <Card className="flex flex-col gap-5 p-4 sm:p-6">
+        <ChildSubjectPicker
+          key={state.at ?? 0}
+          kids={kids}
+          initial={state.values?.picks ?? (usable.length === 1 ? { [usable[0]!.id]: [] } : {})}
+          error={state.fieldErrors?.children}
+        />
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" inactive={pending}>
+            {pending ? 'Adding…' : 'Add teacher'}
+          </Button>
+          <LinkButton href="/parent/teachers/find" variant="secondary">
             Cancel
           </LinkButton>
         </div>
