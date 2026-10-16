@@ -1,6 +1,6 @@
 # AA Pro — P2-R3 Two-way teacher discovery, matching and payment planning: gap analysis and plan
 
-**Version:** 1.4 · 16 Oct 2026 (§11 public listings; §12 OC-76; §13 OC-77; C-1 decided as OC-78 and board 65 built in PR3) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; apart from the board 65 directory (PR3), nothing in this document is built.
+**Version:** 1.5 · 16 Oct 2026 (§11 public listings; §12 OC-76; §13 OC-77; C-1 decided as OC-78 and board 65 built in PR3; §14 consolidated decisions OC-79) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Planning and design only; apart from the board 65 directory (PR3), nothing in this document is built.
 **Source:** owner requirement "Consolidated Requirement: Two-Way Teacher Discovery, Student Matching and Future Payment Planning" (16 Oct 2026, 17:06 IST), checked against the repository at `main` after PR #39, the decision register v1.30 and the approved design boards.
 
 ## 1. What exists today
@@ -415,3 +415,50 @@ D4, D5 and D6 are updated for decisions 1, 4, 5 and 9 (consent step, mutual cont
 ### 13.8 Delivery plan
 
 PR3 (board 65, with C-1 option a) → PR-D1 profile additions → PR-D2 listings, consent, prices, expiry → PR-D3 public pages and filters (`noindex`, behind the test-site password) → PR-D4 enquiries, limits, contact consent, reports → PR-D5 reports page with the Reports permission. Each marketplace PR starts only after you approve its designs.
+
+## 14. Consolidated owner decisions (OC-79, 16 Oct 2026, 19:27 IST)
+
+The owner consolidated the marketplace decisions (Part C), the teacher terms (Part D) and the delivery order (Part E) in one message. OC-76, OC-77 and OC-78 stay in force except where amended below.
+
+### 14.1 Status of each item
+
+| Category | Items |
+|---|---|
+| **Confirmed by the owner** | Part C1–C12 business rules; Part D principles for the draft terms; Part E delivery order |
+| **Designs awaiting visual review** | Boards D1–D11, revised for this message, with a read-me board (D0) that gives each board's role, purpose, key actions, states and next screens. The contact-consent step is on D4 (parent) and D6 (teacher); renewal and expiry are on D5. **None is visually approved** |
+| **Approved for implementation** | Board 65 basic directory — **built and merged (PR #44)**. Marketplace screens are built only after their boards are approved (C13) |
+| **Still needs separate approval** | Real email delivery (OC-65); payment processing, checkout, commission or subscriptions (C9, C12); in-person teaching (C4); ratings or reviews (C11); production deployment; final teacher terms after legal review (Part D) |
+
+### 14.2 Changes from earlier decisions
+
+| # | Rule | Source | Change |
+|---|---|---|---|
+| M-1 | Renewal reminder **7 days before** a listing expires, through the configured notification mechanism; if real email is not configured, the queued message is reported as queued, not delivered | C3 | **New** (OC-76(3) had expiry and renewal only) |
+| M-2 | Enquiry messages carry a **warning not to share contact details** before acceptance | C6 | **New** |
+| M-3 | Before linking, the teacher may see the **parent's first name** as well as the child's grade, curriculum, subjects, preferred times, mode and message; never the child's name or learning data | C7 | **Amends OC-76(1)**, which did not mention the parent's first name |
+| M-4 | Payment-interest question wording: **"Would you like to pay or be paid through AA Pro in future?"** Choices Yes, No, Not sure; asked after an accepted enquiry; reported in aggregate only. Read as asked of **both** the parent and the teacher, since it says "pay or be paid" | C12 | **Amends OC-76(5)** (old wording asked parents only) |
+| M-5 | **No fixed registration threshold** for the future payment phase; a proposal follows when usage, demand and feedback justify it | C12 | Clarified |
+| M-6 | No **ratings, reviews or ranking badges** | C11 | Recorded explicitly |
+| M-7 | Adoption metrics include registered and active parents and teachers, published listings, enquiries by status, accepted enquiries followed by a teacher link, confirmed lessons (once real booking exists) and the payment-question totals; small counts suppressed | C12 | Lists the metrics; suppression stays "Fewer than 5" (OC-77(10)) |
+| M-8 | Rate limits are **configurable**; the values recorded in OC-77(10) are starting values, not fixed rules | C6 | Clarified |
+| M-9 | Public pages show the teacher's name, approved subjects and grades, curriculum, experience ("as stated by the teacher"), online mode and asking prices only | C2 | Same as OC-77(1), (5), (6) |
+| M-10 | Asking price recorded with the enquiry stays separate from any later agreed lesson price | C5, C10 | Same |
+
+### 14.3 Open items (genuinely not answered)
+
+| # | Item | Smallest decision needed |
+|---|---|---|
+| C-2 to C-7 (§13.6) | Marketplace technical constraints: duplicate key for siblings without profiles, a small rate-event log, configurable limits as settings, a new Moderation permission, consent re-prompt only when public fields change, sign-in email as the shared contact | Accept the recommendations in §13.6 as written (yes / no, or name the one to change). The owner's Part B "C-2 to C-7" refers to the textbook conflicts in P2-R2 §4, not these |
+| Terms tick | Teachers already tick the draft general teacher terms (OC-71) when sending their profile. Part D says no mandatory legal acceptance until the final terms are approved | Keep the existing tick on the test site (synthetic accounts only, clearly marked draft), or make it non-binding until the final terms. The new marketplace terms are **not** made mandatory anywhere |
+
+### 14.4 Acceptance criteria added
+
+21. Seven days before expiry the teacher gets a renewal reminder in the outbox, once per listing period; the report says "queued" unless real delivery is configured.
+22. The enquiry form shows the contact-details warning next to the message box.
+23. A teacher's enquiry view shows the parent's first name and never the child's name; checked by a test that searches the page for the child's name.
+24. The payment question offers exactly Yes, No and Not sure, can be ignored, and appears only after an accepted enquiry; reports show totals only.
+25. No page shows a rating, review or ranking badge.
+
+### 14.5 Delivery
+
+Boards D0–D11 are presented for visual review. After approval: PR-D1 profile additions → PR-D2 listings, consent, prices, expiry and the 7-day reminder → PR-D3 public pages and filters (`noindex`) → PR-D4 enquiries, limits, contact consent, reports → PR-D5 adoption figures with the Reports permission. Each is a separate pull request with a scope summary first and a report afterwards.
