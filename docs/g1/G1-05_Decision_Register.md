@@ -1,12 +1,25 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.27 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.28 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.28 changes (owner, 16 Oct 2026, 14:41 IST — decisions on P2-R2 textbooks, chapters and reader):**
+- **OC-74** records the ten decisions. OC-03 stays in force: no OCR and no AI-made study content in this scope.
+- Design boards R1–R6 drawn on the canvas page "Textbooks & chapter reader (proposed, P2-R2)" for approval before any textbook UI is built.
+- Points Claude raised with the owner (to confirm or correct):
+  1. Board 64 (approved) showed the teacher's book view with Next/Previous page buttons; under OC-74(1) it uses the same continuous scrolling.
+  2. Text size works on the **Text** view (PDFs that already contain text); on page pictures A−/A+ zooms the page. Read-aloud reads text, so picture-only pages cannot be read aloud (no OCR).
+  3. Original PDF: parents view and download their own uploads; children and teachers view inside AA Pro only (C-10 of P2-R2, not stated in OC-74).
+  4. The 30-day removal of archived chapters needs a daily clean-up job; none exists yet. Until one does, archived chapters stay hidden from everyone and are removed when next touched after 30 days.
+  5. The test database's free space is small (a few hundred MB), so only a few dozen 20 MB sample files fit.
+  6. "View only" for teachers cannot stop screenshots or photos of the screen.
+  7. M-14's approved upload dialog (optional chapter, formats "to be configured") is replaced for books by R3 (chapter title required; PDF, PNG, JPG, 20 MB).
+  8. Quiz answers are not scored or saved in the first version (proposed on R6).
 
 **v1.27 changes (PR1 teacher profile and approval, 16 Oct 2026):**
 - **OC-73** records the owner's answer on re-approval ("Re-review, keep access").
@@ -207,6 +220,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-71** | **Teacher terms (Q-11):** Claude drafts them, clearly labelled as a draft and not legal advice, for owner review. | Owner, 16 Oct 2026, 13:16 IST | M-20 |
 | **OC-72** | **Account states (Q-12):** (1) while a parent's account is deactivated, **their children cannot sign in** until access is restored; (2) a **rejected teacher** may sign in **only** to see the status message, with no protected portal access. Server-side checks and tests required. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 (with the teacher profile PR) |
 | **OC-73** | **Re-approval after profile changes (D-09 remainder):** an approved teacher's changes to **name, bio or time zone** save at once; a change to **subjects or grades** goes to the approval queue for review, and the teacher **keeps their access** with the approved values until it is accepted or declined. | Owner, 16 Oct 2026 (answer: "Re-review, keep access (Recommended)") | Phase 2 PR1 (M-22) |
+| **OC-74** | **Textbooks, chapters and reader (P2-R2), initial scope:** (1) continuous vertical scrolling with original page markers, Go to page where supported, Original PDF separate, text size, browser read-aloud, last reading position remembered per child; no Next/Previous needed. (2) Parents manage books and chapters for their own children; students read-only for assigned content; approved linked teachers view-only for permitted subjects; all enforced on the server. (3) PDF, PNG, JPG up to 20 MB with real file-type checks; parent-typed chapter titles; chapter ordering; confirmed archive with 30-day recovery. (4) Text extracted only from PDFs that already contain text; no OCR; original files, page order and page references preserved. (5) Summaries, vocabulary, flashcards, quizzes and concept diagrams are parent-provided; no AI-made content or paid AI services. (6) A book belongs to its parent and can be assigned to several of that parent's children; no school names; no school/publisher textbooks preloaded without rights; synthetic data only. (7) Test files stored in the test database; 2–3 private storage and malware-scanning options researched with costs; nothing bought without separate approval. (8) Add Book and Chapter Reader designs (desktop and phone) approved before the textbook UI is built. (9) PR2 and PR3 continue; designs in parallel; then R2-2 onward. (10) Evidence for scrolling (desktop, phone), page markers and jumps, Original PDF, reading progress, upload validation, role restrictions and cross-child protection. | Owner, 16 Oct 2026, 14:41 IST | P2-R2 R2-1 to R2-6 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
