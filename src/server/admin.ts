@@ -4,6 +4,7 @@ import { writeAudit } from './auth/audit';
 import { queueEmail, type EmailTemplate } from './auth/outbox';
 import { revokeAllSessions } from './auth/sessions';
 import { hashToken, newToken } from './auth/tokens';
+import { settleLinksOnDecision } from './teacherLinks';
 import type { Db, Sql } from './db/client';
 
 /**
@@ -562,6 +563,18 @@ export async function decideTeacher(
     await tx`UPDATE teacher_profiles SET approval_status = ${approval}, decided_by = ${actorId}, decided_at = ${now},
                     decision_note = ${note}
              WHERE account_id = ${teacherId}`;
+    if (input.decision !== 'changes') {
+      // OC-36: waiting links start on approval; the parents who added the teacher are told.
+      const parents = await settleLinksOnDecision(tx, teacherId, approval as 'approved' | 'rejected');
+      for (const parent of parents) {
+        await queueEmail(tx, {
+          to: parent.email,
+          template: approval === 'approved' ? 'parent_teacher_approved' : 'parent_teacher_not_approved',
+          payload: { name: parent.name, teacher: t.display_name, teachersUrl: `${input.baseUrl}/parent/teachers` },
+          dedupeKey: `parent_teacher_decision:${teacherId}:${parent.email}:${approval}`,
+        });
+      }
+    }
     if (input.decision === 'approve') {
       await tx`UPDATE accounts SET status = 'active' WHERE id = ${teacherId}`;
       if (t.has_password) {

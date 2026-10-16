@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { type Browser, expect, test, type Page } from '@playwright/test';
 import { generate } from 'otplib';
 import {
   confirmFromMailbox,
@@ -318,4 +318,111 @@ test('deactivating a parent signs out their child until the parent is reactivate
   await childSignIn();
   await expect(c).toHaveURL(/\/student$/);
   await childContext.close();
+});
+
+/** A signed-in parent (own browser) with one child studying the given subjects. */
+async function parentWithChild(browser: Browser, ip: string, child: string, subjects: string[]) {
+  const context = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': ip } });
+  const p = await context.newPage();
+  const address = freshEmail('fam');
+  await createAccount(p, 'parent', address);
+  await confirmFromMailbox(p, address);
+  await signIn(p, address, ADULT_PHRASE);
+  await expect(p).toHaveURL(/\/parent$/);
+  await p.goto('/parent/children/new');
+  await p.getByRole('checkbox', { name: /parent or legal guardian/ }).check();
+  await p.getByRole('checkbox', { name: /AI lessons/ }).check();
+  await p.getByRole('button', { name: 'Agree and continue' }).click();
+  await p.getByLabel('First name (shown in the app)').fill(child);
+  for (const s of subjects) await p.getByRole('checkbox', { name: s, exact: true }).check();
+  await p.getByLabel('Username').fill(child);
+  await p.getByRole('button', { name: 'Add child' }).click();
+  await expect(p.getByTestId('child-credentials')).toBeVisible();
+  return { context, page: p };
+}
+
+test('a parent adds a new teacher; after approval the teacher sees only the ticked child and subjects (OC-36, OC-41)', async ({
+  page,
+  browser,
+}) => {
+  const fam = await parentWithChild(browser, '10.200.0.12', 'Asha', ['Maths', 'English']);
+  const p = fam.page;
+  await p.getByRole('navigation', { name: 'Parent menu' }).getByRole('link', { name: 'Teachers' }).click();
+  await expect(p.getByRole('heading', { level: 1, name: 'My teachers' })).toBeVisible();
+  await expect(p.getByText("You haven't added any teachers yet.")).toBeVisible();
+  await noSeriousA11yIssues(p);
+
+  await p.getByRole('link', { name: 'Add a teacher' }).first().click();
+  await noSeriousA11yIssues(p);
+  const teacherEmail = freshEmail('linked');
+  await p.getByLabel("Teacher's name").fill('Teacher H. Kapoor');
+  await p.getByLabel("Teacher's email").fill(teacherEmail);
+  // Nothing ticked: a clear message.
+  await p.getByRole('button', { name: 'Add teacher' }).click();
+  await expect(p.getByText('Tick at least one child and one subject.')).toBeVisible();
+  await p.getByRole('group', { name: 'Subjects for Asha' }).getByRole('checkbox', { name: 'Maths' }).check();
+  await p.getByRole('button', { name: 'Add teacher' }).click();
+  await expect(p.getByText(/Request sent. Teacher H. Kapoor is waiting for AA Pro approval/)).toBeVisible();
+  await expect(p.getByText('Waiting for AA Pro approval', { exact: true })).toBeVisible();
+
+  // The Super Admin approves the parent-added teacher straight from draft.
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.13' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Added by a parent; checked');
+  await card.getByRole('button', { name: 'Approve Teacher H. Kapoor' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+
+  // The teacher sets a password from the email and sees Asha for Maths only.
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.14' } });
+  const t = await tc.newPage();
+  const TEACHER_PHRASE = ['kapoor', 'teaches', 'maths', 'well'].join(' ');
+  await t.goto(await linkFromMailbox(t, teacherEmail, 'teacher_approved_set_password'));
+  await t.getByLabel('New password').fill(TEACHER_PHRASE);
+  await t.getByLabel('Type it again').fill(TEACHER_PHRASE);
+  await t.getByRole('button', { name: 'Save password and continue' }).click();
+  await expect(t).toHaveURL(/\/sign-in/);
+  await signIn(t, teacherEmail, TEACHER_PHRASE);
+  await expect(t).toHaveURL(/\/teacher/);
+  await t.goto('/teacher/students');
+  await expect(t.getByText('Grade 5 · Subjects with you: Maths')).toBeVisible();
+  await noSeriousA11yIssues(t);
+  await t.getByRole('link', { name: 'Open Asha' }).click();
+  await expect(t.getByRole('heading', { level: 1, name: 'Asha' })).toBeVisible();
+  const studentUrl = t.url();
+
+  // The parent changes the subject: the teacher sees the change at once.
+  await p.goto('/parent/teachers');
+  await expect(p.getByText('Active', { exact: true })).toBeVisible();
+  await p.getByRole('link', { name: 'Change children and subjects' }).click();
+  const subjects = p.getByRole('group', { name: 'Subjects for Asha' });
+  await subjects.getByRole('checkbox', { name: 'Maths' }).uncheck();
+  await subjects.getByRole('checkbox', { name: 'English' }).check();
+  await p.getByRole('button', { name: 'Save changes' }).click();
+  await expect(p.getByText(/Saved. The teacher sees only the children and subjects you ticked/)).toBeVisible();
+  await t.reload();
+  await expect(t.getByText('Grade 5 · Subjects with you: English')).toBeVisible();
+
+  // Another family cannot open this teacher's page; the teacher cannot open other children.
+  const other = await parentWithChild(browser, '10.200.0.15', 'Ravi', ['Maths']);
+  const teacherId = new URL(p.url()).pathname.split('/').pop() ?? '';
+  await other.page.goto(`/parent/teachers`);
+  await expect(other.page.getByText("You haven't added any teachers yet.")).toBeVisible();
+  await other.context.close();
+  await t.goto('/teacher/students/00000000-0000-4000-8000-000000000000');
+  await expect(t.getByRole('heading', { level: 1 })).toHaveText("You can't open this");
+  expect(teacherId).not.toBe('');
+
+  // Removing the teacher ends access straight away.
+  await p.goto('/parent/teachers');
+  await p.getByRole('button', { name: 'Remove teacher' }).click();
+  await p.getByRole('dialog').getByRole('button', { name: 'Remove' }).click();
+  await expect(p.getByText(/Removed. The teacher no longer sees those children/)).toBeVisible();
+  await t.goto(studentUrl);
+  await expect(t.getByRole('heading', { level: 1 })).toHaveText("You can't open this");
+  await t.goto('/teacher/students');
+  await expect(t.getByText('When a parent adds you as their child')).toBeVisible();
+  await tc.close();
+  await fam.context.close();
 });

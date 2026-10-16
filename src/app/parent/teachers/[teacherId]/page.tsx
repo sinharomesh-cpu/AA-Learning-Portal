@@ -1,0 +1,49 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { Card } from '@/components/Card';
+import { AccessDenied } from '@/components/states/AccessDenied';
+import { requireRole } from '@/server/authz';
+import { listChildren } from '@/server/children';
+import { db } from '@/server/db/client';
+import { isDemoMode } from '@/server/demo';
+import { listMyTeachers } from '@/server/teacherLinks';
+import { ChangeLinksForm, RemoveTeacherButton } from '../TeacherForms';
+
+export const metadata: Metadata = { title: 'Change children and subjects' };
+export const dynamic = 'force-dynamic';
+
+/** Board 57 "Change children and subjects": only teachers linked to this parent's own children. */
+export default async function ChangeTeacherPage({ params }: { params: Promise<{ teacherId: string }> }) {
+  const access = await requireRole('parent');
+  if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
+  if (isDemoMode()) notFound();
+  const { teacherId } = await params;
+  const teacher = (await listMyTeachers(db(), access.viewer.id)).find((t) => t.id === teacherId);
+  // Another family's teacher, an unknown id or a removed link: the same "not found".
+  if (!teacher || teacher.state === 'not_approved') notFound();
+  const kids = (await listChildren(db(), access.viewer.id)).filter((k) => k.status === 'active');
+  const initial = Object.fromEntries(teacher.children.map((c) => [c.childId, c.subjects]));
+  return (
+    <div className="flex max-w-[760px] flex-col gap-6">
+      <Link href="/parent/teachers" className="inline-flex min-h-11 items-center font-bold">
+        ‹ My teachers
+      </Link>
+      <h1 className="text-headline-lg-mobile lg:text-headline-lg">{teacher.name}</h1>
+      <Card className="flex flex-col gap-5 p-4 sm:p-6">
+        <ChangeLinksForm
+          teacherId={teacher.id}
+          kids={kids.map((k) => ({ id: k.id, name: k.name, grade: k.grade, subjects: k.subjects }))}
+          initial={initial}
+        />
+      </Card>
+      <RemoveTeacherButton
+        teacherId={teacher.id}
+        label={teacher.state === 'waiting' ? 'Cancel request' : 'Remove teacher'}
+        title={`Remove ${teacher.name}?`}
+        confirmLabel="Remove"
+        body="They will stop seeing your children and their books straight away."
+      />
+    </div>
+  );
+}

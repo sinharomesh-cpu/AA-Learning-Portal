@@ -1,12 +1,21 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.28 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.29 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.29 changes (PR2 parent–teacher linking, 16 Oct 2026):**
+- Built from approved boards 57, 58 and M-25 under OC-36, OC-41 and OC-62. Deviations DV-47 to DV-50.
+- Claude's readings, for the owner to correct:
+  1. Cancelling the request for a new teacher the parent added (no password yet, no other family linked) withdraws it from the approval queue; the same or another parent can add the email again later.
+  2. A parent can create at most 10 new teacher accounts a day (protects the email form from misuse).
+  3. A rejected teacher stays on the parent's list as "Not approved" (no access) until the parent removes them, as on board 57.
+  4. A teacher sees a child only while the child's account is active and a parent of that child is active (OC-72).
+  5. **Open question to the owner:** may a parent tick only subjects on the teacher's approved profile? Until answered, ticks are limited to the child's own subjects and the teacher's subjects are shown for information.
 
 **v1.28 changes (owner, 16 Oct 2026, 14:41 IST — decisions on P2-R2 textbooks, chapters and reader):**
 - **OC-74** records the ten decisions. OC-03 stays in force: no OCR and no AI-made study content in this scope.

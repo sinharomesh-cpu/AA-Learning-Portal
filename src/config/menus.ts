@@ -30,6 +30,8 @@ export function adminMenuFor(role: 'superadmin' | 'admin', permissions: readonly
 export const PARENT_MENU: MenuItem[] = [
   { href: '/parent', label: 'Family home', exact: true },
   { href: '/parent/children', label: 'Children' },
+  // Board 57 (approved): the new Teachers item (OC-36, OC-41).
+  { href: '/parent/teachers', label: 'Teachers' },
   { href: '/parent/book-ai', label: 'Schedule AI class' },
   { href: '/parent/book-teacher', label: 'Book human teacher' },
   { href: '/parent/calendar', label: 'Family calendar' },

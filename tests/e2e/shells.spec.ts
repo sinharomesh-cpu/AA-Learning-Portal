@@ -96,6 +96,7 @@ test.describe('parent and teacher shells (P19 / P21)', () => {
     await expect(page.getByRole('navigation', { name: 'Parent menu' }).getByRole('link')).toHaveText([
       'Family home',
       'Children',
+      'Teachers',
       'Schedule AI class',
       'Book human teacher',
       'Family calendar',
