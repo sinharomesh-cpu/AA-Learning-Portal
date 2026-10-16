@@ -3,6 +3,7 @@ import { SUBJECT_IDS } from '@/fixtures/subjects';
 import { looksLikeEmail, normaliseEmail } from './auth/accounts';
 import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
+import { issueSetPassword } from './auth/setPasswordLink';
 import type { Db, Sql } from './db/client';
 
 /**
@@ -59,6 +60,13 @@ async function ownChildren(sql: Db, parentId: string): Promise<Map<string, { nam
   return new Map(rows.map((r) => [r.id, { name: r.name, subjects: r.subjects }]));
 }
 
+/** The subjects on a teacher's approved profile (empty unless approved). */
+async function approvedSubjects(sql: Db, teacherId: string): Promise<string[]> {
+  const [row] = await sql<Array<{ subjects: string[] }>>`
+    SELECT subjects FROM teacher_profiles WHERE account_id = ${teacherId} AND approval_status = 'approved'`;
+  return row?.subjects ?? [];
+}
+
 /** Board 57: the teachers linked to this parent's children, with their children and subjects. */
 export async function listMyTeachers(sql: Db, parentId: string): Promise<MyTeacher[]> {
   if (!UUID.test(parentId)) return [];
@@ -106,7 +114,9 @@ export async function listMyTeachers(sql: Db, parentId: string): Promise<MyTeach
 
 export type AddTeacherResult =
   | { ok: true; outcome: 'linked' | 'requested'; teacherName: string }
-  | { ok: false; reason: 'name' | 'email' | 'choose' | 'subjects' | 'cannot_add' | 'too_many' | 'not_allowed' };
+  | { ok: false; reason: 'name' | 'email' | 'choose' | 'subjects' | 'cannot_add' | 'too_many' | 'not_allowed' }
+  /** OC-75: an approved teacher can only be linked for subjects on their approved profile. */
+  | { ok: false; reason: 'not_taught'; teacherName: string; teaches: string[] };
 
 /** Validates a children/subjects choice against the parent's own children. */
 function checkChoice(
@@ -208,17 +218,17 @@ export async function addTeacher(
       teacherName = name;
       await tx`INSERT INTO teacher_profiles (account_id, origin, added_by_parent_id, approval_status)
                VALUES (${teacherId}, 'parent_added', ${parentId}, 'draft')`;
-      await queueEmail(tx, {
-        to: email,
-        template: 'teacher_added_by_parent',
-        payload: { name },
-        dedupeKey: `teacher_added_by_parent:${teacherId}`,
-      });
+      // OC-75: the teacher sets a password now, completes the profile and sends it for approval.
+      await issueSetPassword(tx, { id: teacherId, email, name }, 'teacher_added_by_parent', input.baseUrl, now);
       outcome = 'requested';
     } else if (existing.role === 'teacher' && existing.status === 'active' && existing.approval === 'approved') {
       teacherId = existing.id;
       teacherName = existing.name;
       outcome = 'linked';
+      const teaches = await approvedSubjects(tx, teacherId);
+      if (!picked.every((c) => c.subjects.every((x) => teaches.includes(x)))) {
+        return { ok: false, reason: 'not_taught', teacherName, teaches };
+      }
     } else if (
       existing.role === 'teacher' &&
       existing.status === 'pending_approval' &&
@@ -298,6 +308,10 @@ export async function updateTeacherLinks(
       SELECT (a.status = 'active' AND tp.approval_status = 'approved') AS ok
       FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id WHERE a.id = ${teacherId}`;
     const status: LinkStatus = teacher?.ok ? 'active' : 'pending';
+    if (teacher?.ok) {
+      const teaches = await approvedSubjects(tx, teacherId);
+      if (!picked.every((c) => c.subjects.every((x) => teaches.includes(x)))) return { ok: false, reason: 'subjects' };
+    }
     const keep = new Set(picked.map((c) => c.childId));
     await removeLinks(
       tx,
@@ -380,18 +394,111 @@ async function removeLinks(
 }
 
 /**
- * When an approver decides a teacher: on approval the waiting links start. On rejection they stay
- * (giving no access, because the teacher is not approved) so the parent sees "Not approved" on
- * board 57 and can remove the teacher. Returns the parents to tell.
+ * OC-75: brings a teacher's links in line with their approved subjects. Each link keeps only
+ * subjects the teacher is approved for; a link left with none ends. With `activate`, waiting
+ * links that still have subjects start (teacher approval). The parents affected are emailed.
  */
-export async function settleLinksOnDecision(
+export async function revalidateTeacherLinks(
   tx: Db,
   teacherId: string,
-  decision: 'approved' | 'rejected',
-): Promise<Array<{ email: string; name: string }>> {
-  if (decision === 'approved') {
-    await tx`UPDATE teacher_student_links SET status = 'active' WHERE teacher_id = ${teacherId} AND status = 'pending'`;
+  opts: { activate: boolean; baseUrl: string },
+  now: Date,
+): Promise<void> {
+  const teaches = await approvedSubjects(tx, teacherId);
+  const [teacher] = await tx<
+    Array<{ name: string }>
+  >`SELECT display_name AS name FROM accounts WHERE id = ${teacherId}`;
+  const links = await tx<
+    Array<{
+      id: string;
+      subjects: string[];
+      status: LinkStatus;
+      parent_email: string | null;
+      parent_name: string | null;
+      child: string;
+      parent_id: string;
+    }>
+  >`
+    SELECT l.id, l.subjects, l.status, p.email AS parent_email, p.display_name AS parent_name,
+           c.display_name AS child, l.created_by_parent_id AS parent_id
+    FROM teacher_student_links l
+    JOIN accounts c ON c.id = l.student_id
+    LEFT JOIN accounts p ON p.id = l.created_by_parent_id AND p.status = 'active'
+    WHERE l.teacher_id = ${teacherId} AND l.status <> 'removed' FOR UPDATE OF l`;
+  const told = new Set<string>();
+  for (const l of links) {
+    const keep = l.subjects.filter((x) => teaches.includes(x));
+    const dropped = l.subjects.filter((x) => !teaches.includes(x));
+    if (keep.length === 0) {
+      await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = ${now} WHERE id = ${l.id}`;
+      await writeAudit(
+        tx,
+        { type: 'TEACHER_LINK_ENDED_SUBJECTS', outcome: 'success', subjectId: teacherId, details: { link: l.id } },
+        now,
+      );
+      if (l.parent_email) {
+        await queueEmail(tx, {
+          to: l.parent_email,
+          template: 'parent_teacher_link_ended',
+          payload: {
+            name: l.parent_name ?? '',
+            teacher: teacher?.name ?? '',
+            child: l.child,
+            teachersUrl: `${opts.baseUrl}/parent/teachers`,
+          },
+          dedupeKey: `link_ended:${l.id}`,
+        });
+      }
+      continue;
+    }
+    const status: LinkStatus = opts.activate && teaches.length ? 'active' : l.status;
+    if (dropped.length || status !== l.status) {
+      await tx`UPDATE teacher_student_links SET subjects = ${keep}, status = ${status} WHERE id = ${l.id}`;
+    }
+    if (dropped.length && l.parent_email) {
+      await queueEmail(tx, {
+        to: l.parent_email,
+        template: 'parent_teacher_subjects_reduced',
+        payload: {
+          name: l.parent_name ?? '',
+          teacher: teacher?.name ?? '',
+          child: l.child,
+          teachersUrl: `${opts.baseUrl}/parent/teachers`,
+        },
+        dedupeKey: `link_reduced:${l.id}:${now.getTime()}`,
+      });
+      await writeAudit(
+        tx,
+        {
+          type: 'TEACHER_LINK_SUBJECTS_REDUCED',
+          outcome: 'success',
+          subjectId: teacherId,
+          details: { link: l.id, removed: dropped.join(',') },
+        },
+        now,
+      );
+    }
+    if (opts.activate && l.parent_email && !told.has(l.parent_email)) {
+      told.add(l.parent_email);
+      await queueEmail(tx, {
+        to: l.parent_email,
+        template: 'parent_teacher_approved',
+        payload: {
+          name: l.parent_name ?? '',
+          teacher: teacher?.name ?? '',
+          teachersUrl: `${opts.baseUrl}/parent/teachers`,
+        },
+        dedupeKey: `parent_teacher_decision:${teacherId}:${l.parent_email}:approved`,
+      });
+    }
   }
+}
+
+/** On rejection the waiting links stay (no access) so the parent sees "Not approved" (board 57). */
+export async function parentsToTellOfRejection(
+  tx: Db,
+  teacherId: string,
+): Promise<Array<{ email: string; name: string }>> {
   return tx<Array<{ email: string; name: string }>>`
     SELECT DISTINCT p.email, p.display_name AS name
     FROM teacher_student_links l JOIN accounts p ON p.id = l.created_by_parent_id AND p.status = 'active'
@@ -421,7 +528,8 @@ export async function teacherMaySee(sql: Db, teacherId: string, studentId: strin
       JOIN teacher_profiles tp ON tp.account_id = t.id AND tp.approval_status = 'approved'
       JOIN accounts c ON c.id = l.student_id AND c.status = 'active'
       WHERE l.teacher_id = ${teacherId} AND l.student_id = ${studentId} AND l.status = 'active'
-        AND (${subject ?? null}::text IS NULL OR ${subject ?? null}::text = ANY(l.subjects))
+        AND (${subject ?? null}::text IS NULL
+             OR (${subject ?? null}::text = ANY(l.subjects) AND ${subject ?? null}::text = ANY(tp.subjects)))
         AND EXISTS (SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
                     WHERE g.student_id = c.id AND g.status = 'active' AND p.status = 'active')
     ) AS ok`;
@@ -432,7 +540,8 @@ export async function teacherMaySee(sql: Db, teacherId: string, studentId: strin
 export async function listLinkedStudents(sql: Db, teacherId: string): Promise<LinkedStudent[]> {
   if (!UUID.test(teacherId)) return [];
   const rows = await sql<Array<{ id: string; name: string; grade: number; subjects: string[] }>>`
-    SELECT c.id, c.display_name AS name, sp.grade, l.subjects
+    SELECT c.id, c.display_name AS name, sp.grade,
+           ARRAY(SELECT unnest(l.subjects) INTERSECT SELECT unnest(tp.subjects) ORDER BY 1) AS subjects
     FROM teacher_student_links l
     JOIN accounts t ON t.id = l.teacher_id AND t.status = 'active'
     JOIN teacher_profiles tp ON tp.account_id = t.id AND tp.approval_status = 'approved'

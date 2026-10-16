@@ -365,7 +365,20 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await expect(p.getByText(/Request sent. Teacher H. Kapoor is waiting for AA Pro approval/)).toBeVisible();
   await expect(p.getByText('Waiting for AA Pro approval', { exact: true })).toBeVisible();
 
-  // The Super Admin approves the parent-added teacher straight from draft.
+  // OC-75: the teacher sets a password from the email, completes the profile and sends it.
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.14' } });
+  const t = await tc.newPage();
+  const TEACHER_PHRASE = ['kapoor', 'teaches', 'maths', 'well'].join(' ');
+  await t.goto(await linkFromMailbox(t, teacherEmail, 'teacher_added_by_parent'));
+  await t.getByLabel('New password').fill(TEACHER_PHRASE);
+  await t.getByLabel('Type it again').fill(TEACHER_PHRASE);
+  await t.getByRole('button', { name: 'Save password and continue' }).click();
+  await expect(t).toHaveURL(/\/sign-in/);
+  await signIn(t, teacherEmail, TEACHER_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths', 'English'], [5]);
+
+  // The Super Admin approves once the profile is sent.
   await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.13' });
   await ownerSignedIn(page);
   await page.goto('/admin/approvals');
@@ -374,17 +387,7 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await card.getByRole('button', { name: 'Approve Teacher H. Kapoor' }).click();
   await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
 
-  // The teacher sets a password from the email and sees Asha for Maths only.
-  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.14' } });
-  const t = await tc.newPage();
-  const TEACHER_PHRASE = ['kapoor', 'teaches', 'maths', 'well'].join(' ');
-  await t.goto(await linkFromMailbox(t, teacherEmail, 'teacher_approved_set_password'));
-  await t.getByLabel('New password').fill(TEACHER_PHRASE);
-  await t.getByLabel('Type it again').fill(TEACHER_PHRASE);
-  await t.getByRole('button', { name: 'Save password and continue' }).click();
-  await expect(t).toHaveURL(/\/sign-in/);
-  await signIn(t, teacherEmail, TEACHER_PHRASE);
-  await expect(t).toHaveURL(/\/teacher/);
+  // The teacher sees Asha for Maths only.
   await t.goto('/teacher/students');
   await expect(t.getByText('Grade 5 · Subjects with you: Maths')).toBeVisible();
   await noSeriousA11yIssues(t);

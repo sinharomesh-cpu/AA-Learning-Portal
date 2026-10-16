@@ -27,7 +27,9 @@ export type EmailTemplate =
   | 'teacher_not_approved'
   | 'teacher_changes_requested'
   | 'teacher_profile_change_approved'
-  | 'teacher_profile_change_declined';
+  | 'teacher_profile_change_declined'
+  | 'parent_teacher_link_ended'
+  | 'parent_teacher_subjects_reduced';
 
 export interface QueuedEmail {
   to: string;

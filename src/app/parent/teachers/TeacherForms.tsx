@@ -61,6 +61,7 @@ function ChildSubjectPicker({
                 type="checkbox"
                 name="child"
                 value={k.id}
+                disabled={k.subjects.length === 0}
                 checked={on}
                 onChange={(e) => toggleChild(k.id, e.target.checked)}
                 className="h-[22px] w-[22px] accent-primary"
@@ -94,7 +95,11 @@ function ChildSubjectPicker({
                 </button>
               </div>
             ) : (
-              <p className="text-sm leading-5 text-on-surface-variant">Tick {k.name} to choose subjects.</p>
+              <p className="text-sm leading-5 text-on-surface-variant">
+                {k.subjects.length === 0
+                  ? `No subjects in common: this teacher doesn't teach any of ${k.name}'s subjects.`
+                  : `Tick ${k.name} to choose subjects.`}
+              </p>
             )}
             {on ? (
               <p className="text-sm leading-5 text-on-surface-variant">Only {k.name}&apos;s subjects are shown.</p>

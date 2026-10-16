@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Card } from '@/components/Card';
+import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { requireRole } from '@/server/authz';
 import { listChildren } from '@/server/children';
@@ -30,10 +31,27 @@ export default async function ChangeTeacherPage({ params }: { params: Promise<{ 
         ‹ My teachers
       </Link>
       <h1 className="text-headline-lg-mobile lg:text-headline-lg">{teacher.name}</h1>
+      {teacher.state === 'active' ? (
+        <p className="text-sm leading-5 text-on-surface-variant">
+          Teaches on AA Pro: {teacher.teaches.map((x) => SUBJECTS[x as SubjectId]?.name ?? x).join(', ')}. You can
+          choose only these subjects.
+        </p>
+      ) : (
+        <p className="text-sm leading-5 text-on-surface-variant">
+          Waiting for AA Pro approval. Your choices are saved and start only for the subjects the teacher is approved
+          for.
+        </p>
+      )}
       <Card className="flex flex-col gap-5 p-4 sm:p-6">
         <ChangeLinksForm
           teacherId={teacher.id}
-          kids={kids.map((k) => ({ id: k.id, name: k.name, grade: k.grade, subjects: k.subjects }))}
+          // OC-75: for an approved teacher, only subjects both the teacher and the child have.
+          kids={kids.map((k) => ({
+            id: k.id,
+            name: k.name,
+            grade: k.grade,
+            subjects: teacher.state === 'active' ? k.subjects.filter((x) => teacher.teaches.includes(x)) : k.subjects,
+          }))}
           initial={initial}
         />
       </Card>

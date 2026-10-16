@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { db } from '@/server/db/client';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getRealSession } from '@/server/session';
@@ -70,6 +71,14 @@ export async function addTeacherAction(_prev: TeacherFormState, fd: FormData): P
         at,
         error: 'You have added many new teachers today. Please try again tomorrow, or contact support.',
       };
+    case 'not_taught':
+      return {
+        values,
+        at,
+        fieldErrors: {
+          children: `${r.teacherName} teaches only ${r.teaches.map((x) => SUBJECTS[x as SubjectId]?.name ?? x).join(', ') || 'no subjects yet'} on AA Pro. Untick the other subjects.`,
+        },
+      };
     case 'cannot_add':
       return { values, at, error: "We couldn't add this teacher. Check the email address, or contact support." };
     default:
@@ -86,7 +95,13 @@ export async function updateLinksAction(_prev: TeacherFormState, fd: FormData): 
     revalidatePath('/parent/teachers');
     redirect(`/parent/teachers?done=${r.removed ? 'removed' : 'changed'}`);
   }
-  if (r.reason === 'subjects') return { values: { picks }, at: Date.now(), fieldErrors: { children: CHOOSE } };
+  if (r.reason === 'subjects') {
+    return {
+      values: { picks },
+      at: Date.now(),
+      fieldErrors: { children: 'Tick at least one child and one subject this teacher teaches.' },
+    };
+  }
   return { error: 'This teacher is no longer linked to your children.', at: Date.now() };
 }
 
