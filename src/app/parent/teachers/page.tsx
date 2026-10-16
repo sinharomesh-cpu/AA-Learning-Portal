@@ -114,8 +114,9 @@ export default async function MyTeachersPage({
             )}
             {t.state === 'waiting' ? (
               <p className="text-sm leading-5 text-on-surface-variant">
-                Added on {day(t.addedAt)}. We emailed the teacher. They can&apos;t see anything until the AA Pro team
-                approves them.
+                Added on {day(t.addedAt)}. We emailed the teacher a link to set up their account and send their profile.
+                They can&apos;t see anything until the AA Pro team approves them, and then only for subjects they are
+                approved to teach.
               </p>
             ) : null}
             {t.state === 'active' && t.teaches.length ? (

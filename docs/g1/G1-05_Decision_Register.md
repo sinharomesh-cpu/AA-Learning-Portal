@@ -1,12 +1,20 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.29 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.30 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.30 changes (owner, 16 Oct 2026, 15:14 IST — teacher subject rule; answers to Claude's three questions):**
+- **OC-75** records the rule. It **amends OC-36(3)–(4)**: a parent-added teacher now gets a set-password link in the first email, completes and sends the profile, and is approved like any other teacher (owner chose "Teacher completes profile first").
+- Consequences Claude applied, for the owner to correct:
+  1. "Request changes" is still not offered for parent-added teachers (approved board 60); the approver can approve or reject.
+  2. Cancelling a request withdraws the teacher from the queue only while they have not set a password; after that the request stays for the approver to decide.
+  3. On approval, a parent's waiting choices are cut to the teacher's approved subjects; the parent is emailed if a subject was dropped, and if nothing is left the link ends and the parent is told.
+  4. The database itself refuses an active link for a teacher who is not approved, or for a subject not on their approved profile.
 
 **v1.29 changes (PR2 parent–teacher linking, 16 Oct 2026):**
 - Built from approved boards 57, 58 and M-25 under OC-36, OC-41 and OC-62. Deviations DV-47 to DV-50.
@@ -15,7 +23,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
   2. A parent can create at most 10 new teacher accounts a day (protects the email form from misuse).
   3. A rejected teacher stays on the parent's list as "Not approved" (no access) until the parent removes them, as on board 57.
   4. A teacher sees a child only while the child's account is active and a parent of that child is active (OC-72).
-  5. **Open question to the owner:** may a parent tick only subjects on the teacher's approved profile? Until answered, ticks are limited to the child's own subjects and the teacher's subjects are shown for information.
+  5. ~~Open question~~ answered by OC-75.
 
 **v1.28 changes (owner, 16 Oct 2026, 14:41 IST — decisions on P2-R2 textbooks, chapters and reader):**
 - **OC-74** records the ten decisions. OC-03 stays in force: no OCR and no AI-made study content in this scope.
@@ -230,6 +238,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-72** | **Account states (Q-12):** (1) while a parent's account is deactivated, **their children cannot sign in** until access is restored; (2) a **rejected teacher** may sign in **only** to see the status message, with no protected portal access. Server-side checks and tests required. | Owner, 16 Oct 2026, 13:16 IST | Phase 2 (with the teacher profile PR) |
 | **OC-73** | **Re-approval after profile changes (D-09 remainder):** an approved teacher's changes to **name, bio or time zone** save at once; a change to **subjects or grades** goes to the approval queue for review, and the teacher **keeps their access** with the approved values until it is accepted or declined. | Owner, 16 Oct 2026 (answer: "Re-review, keep access (Recommended)") | Phase 2 PR1 (M-22) |
 | **OC-74** | **Textbooks, chapters and reader (P2-R2), initial scope:** (1) continuous vertical scrolling with original page markers, Go to page where supported, Original PDF separate, text size, browser read-aloud, last reading position remembered per child; no Next/Previous needed. (2) Parents manage books and chapters for their own children; students read-only for assigned content; approved linked teachers view-only for permitted subjects; all enforced on the server. (3) PDF, PNG, JPG up to 20 MB with real file-type checks; parent-typed chapter titles; chapter ordering; confirmed archive with 30-day recovery. (4) Text extracted only from PDFs that already contain text; no OCR; original files, page order and page references preserved. (5) Summaries, vocabulary, flashcards, quizzes and concept diagrams are parent-provided; no AI-made content or paid AI services. (6) A book belongs to its parent and can be assigned to several of that parent's children; no school names; no school/publisher textbooks preloaded without rights; synthetic data only. (7) Test files stored in the test database; 2–3 private storage and malware-scanning options researched with costs; nothing bought without separate approval. (8) Add Book and Chapter Reader designs (desktop and phone) approved before the textbook UI is built. (9) PR2 and PR3 continue; designs in parallel; then R2-2 onward. (10) Evidence for scrolling (desktop, phone), page markers and jumps, Original PDF, reading progress, upload validation, role restrictions and cross-child protection. | Owner, 16 Oct 2026, 14:41 IST | P2-R2 R2-1 to R2-6 |
+| **OC-75** | **Teacher subjects for a child (amends OC-36(3)–(4)):** (1) for an approved teacher, the parent may tick only subjects on the teacher's **approved profile** that the child also studies; (2) the parent chooses which of those are on; (3) a teacher waiting for approval never has an active link or any access; the parent's choices are saved as waiting preferences and start **automatically on approval**, limited to the approved subjects; parent-added teachers **complete and send their profile before approval**; (4) enforced on the server and in the database; when a teacher's approved subjects shrink, links lose those subjects at once and a link left with none **ends and the parent is told**; (5) tests for approved, pending, rejected and deactivated teachers and direct attempts. | Owner, 16 Oct 2026, 15:14 IST (rule) and answers "Teacher completes profile first", "Automatic on approval", "Remove it, tell the parent" | Phase 2 (PR2 follow-up) |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

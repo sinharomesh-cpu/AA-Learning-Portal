@@ -123,7 +123,7 @@ describe('relationships', () => {
     const child = await createChild(sql, parent);
     const insert = () =>
       sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
-          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'active', ${['maths']})`;
+          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'pending', ${['maths']})`;
     await insert();
     await expect(insert()).rejects.toThrow(/teacher_student_links_live/);
     await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
@@ -137,7 +137,7 @@ describe('relationships', () => {
     const child = await createChild(sql, parent); // studies maths only
     const link = (subjects: string[]) =>
       sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
-          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'active', ${subjects})`;
+          VALUES (${teacher}, ${child}, ${parent}, 'parent_added', 'pending', ${subjects})`;
     await expect(link([])).rejects.toThrow(/teacher_student_links_subjects_present/);
     await expect(link(['science'])).rejects.toThrow(/among the child's subjects/);
     await expect(link(['art'])).rejects.toThrow(/among the child's subjects|teacher_student_links_subjects_check/);

@@ -212,13 +212,18 @@ describe('approval gating (OC-38, OC-71)', () => {
     });
   });
 
-  it('a parent-added teacher may be approved from draft, but never sent back for changes', async () => {
+  it('a parent-added teacher also sends a profile before approval (OC-75), and is never sent back for changes', async () => {
     const adminId = await approver();
     const id = await teacher('parent_added');
     expect((await listPendingTeachers(sql, adminId))?.find((t) => t.id === id)).toMatchObject({
-      canApprove: true,
+      canApprove: false,
       canRequestChanges: false,
     });
+    expect(await decideTeacher(sql, adminId, id, { decision: 'approve', note: 'Checked', baseUrl: BASE }, T0)).toEqual({
+      ok: false,
+      reason: 'not_ready',
+    });
+    await saveTeacherProfile(sql, id, profile(), 'submit', T0);
     expect(await decideTeacher(sql, adminId, id, { decision: 'changes', note: 'More', baseUrl: BASE }, T0)).toEqual({
       ok: false,
       reason: 'not_ready',

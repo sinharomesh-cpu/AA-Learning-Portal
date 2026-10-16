@@ -1,10 +1,10 @@
 import 'server-only';
-import { looksLikeEmail, maskEmail, normaliseEmail, SET_PASSWORD_HOURS } from './auth/accounts';
+import { looksLikeEmail, maskEmail, normaliseEmail } from './auth/accounts';
 import { writeAudit } from './auth/audit';
-import { queueEmail, type EmailTemplate } from './auth/outbox';
+import { queueEmail } from './auth/outbox';
 import { revokeAllSessions } from './auth/sessions';
-import { hashToken, newToken } from './auth/tokens';
-import { settleLinksOnDecision } from './teacherLinks';
+import { issueSetPassword } from './auth/setPasswordLink';
+import { parentsToTellOfRejection, revalidateTeacherLinks } from './teacherLinks';
 import type { Db, Sql } from './db/client';
 
 /**
@@ -26,7 +26,6 @@ export const PERMISSION_LABEL: Record<AdminPermission, string> = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const hours = (n: number) => n * 3_600_000;
 
 export type Denied = { ok: false; reason: 'denied' };
 const DENIED: Denied = { ok: false, reason: 'denied' };
@@ -58,25 +57,6 @@ export async function mayAct(sql: Db, actorId: string, permission: AdminPermissi
   if (actor.role === 'superadmin') return true;
   if (permission === 'superadmin') return false;
   return (await adminPermissions(sql, actorId)).includes(permission);
-}
-
-async function issueSetPassword(
-  sql: Db,
-  account: { id: string; email: string; name: string },
-  template: EmailTemplate,
-  baseUrl: string,
-  now: Date,
-  extra: Record<string, string> = {},
-): Promise<void> {
-  const token = newToken();
-  await sql`INSERT INTO one_time_tokens (account_id, purpose, token_hash, expires_at, created_at)
-            VALUES (${account.id}, 'set_password', ${hashToken(token)}, ${new Date(now.getTime() + hours(SET_PASSWORD_HOURS))}, ${now})`;
-  await queueEmail(sql, {
-    to: account.email,
-    template,
-    payload: { name: account.name, link: `${baseUrl}/reset-password?purpose=set_password&token=${token}`, ...extra },
-    dedupeKey: `${template}:${account.id}:${now.getTime()}`,
-  });
 }
 
 function cleanPermissions(input: string[]): AdminPermission[] {
@@ -476,7 +456,7 @@ export interface PendingTeacher {
   detail: string;
   bio: string | null;
   submittedAt: Date | null;
-  /** Self-registered and admin-created teachers must send their profile first; parent-added ones may be approved from draft. */
+  /** Every teacher must send their profile (and accept the terms) before approval (OC-38, OC-75). */
   canApprove: boolean;
   /** "Request changes" needs a sent profile and is not offered for parent-added teachers. */
   canRequestChanges: boolean;
@@ -486,7 +466,8 @@ export interface PendingTeacher {
 export function decisionsOpen(origin: string, approvalStatus: string): Record<TeacherDecision, boolean> {
   const sent = approvalStatus === 'submitted';
   return {
-    approve: sent || (origin === 'parent_added' && approvalStatus === 'draft'),
+    // OC-75: every teacher, parent-added ones too, sends a completed profile before approval.
+    approve: sent,
     changes: sent && origin !== 'parent_added',
     reject: sent || approvalStatus === 'draft',
   };
@@ -563,15 +544,16 @@ export async function decideTeacher(
     await tx`UPDATE teacher_profiles SET approval_status = ${approval}, decided_by = ${actorId}, decided_at = ${now},
                     decision_note = ${note}
              WHERE account_id = ${teacherId}`;
-    if (input.decision !== 'changes') {
-      // OC-36: waiting links start on approval; the parents who added the teacher are told.
-      const parents = await settleLinksOnDecision(tx, teacherId, approval as 'approved' | 'rejected');
-      for (const parent of parents) {
+    if (input.decision === 'approve') {
+      // OC-36, OC-75: waiting links start, limited to the subjects just approved; parents are told.
+      await revalidateTeacherLinks(tx, teacherId, { activate: true, baseUrl: input.baseUrl }, now);
+    } else if (input.decision === 'reject') {
+      for (const parent of await parentsToTellOfRejection(tx, teacherId)) {
         await queueEmail(tx, {
           to: parent.email,
-          template: approval === 'approved' ? 'parent_teacher_approved' : 'parent_teacher_not_approved',
+          template: 'parent_teacher_not_approved',
           payload: { name: parent.name, teacher: t.display_name, teachersUrl: `${input.baseUrl}/parent/teachers` },
-          dedupeKey: `parent_teacher_decision:${teacherId}:${parent.email}:${approval}`,
+          dedupeKey: `parent_teacher_decision:${teacherId}:${parent.email}:rejected`,
         });
       }
     }
@@ -684,6 +666,10 @@ export async function decideProfileChange(
                  change_decision = ${decision}, change_decision_note = ${note},
                  change_decided_by = ${actorId}, change_decided_at = ${now}
              WHERE account_id = ${teacherId}`;
+    if (decision === 'approved') {
+      // OC-75: links lose subjects the teacher no longer teaches; parents are told.
+      await revalidateTeacherLinks(tx, teacherId, { activate: false, baseUrl: input.baseUrl }, now);
+    }
     await queueEmail(tx, {
       to: t.email,
       template: decision === 'approved' ? 'teacher_profile_change_approved' : 'teacher_profile_change_declined',
