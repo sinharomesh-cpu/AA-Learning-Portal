@@ -81,3 +81,5 @@
 | 64 | Teacher · student's books by subject | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
 | 65 | Find a teacher | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
 | 66 | Admins and permissions | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
+| H1 | Home page with "Teachers looking for students" (desktop), update to board 63 | 16 Oct 2026 | "Approved, Please go ahead" (OC-81) |
+| H2 | Home page with "Teachers looking for students" (phone) | 16 Oct 2026 | "Approved, Please go ahead" (OC-81) |
