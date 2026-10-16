@@ -10,6 +10,8 @@ export interface MenuItem {
   href: string;
   label: string;
   exact?: boolean;
+  /** Shown greyed out and not a link (M-20: pages that open after approval). */
+  disabled?: boolean;
 }
 
 interface AdultShellProps {
@@ -17,6 +19,8 @@ interface AdultShellProps {
   menu: MenuItem[];
   displayName: string;
   initial: string;
+  /** A short line under the menu, e.g. why some items are greyed out. */
+  menuNote?: string;
   children: ReactNode;
 }
 
@@ -24,26 +28,43 @@ interface AdultShellProps {
  * CMP-ShellAdult: one sidebar shell, a separate menu per role (G1-02 Appendix A).
  * Desktop shows the sidebar; phones get a "Menu" disclosure (board 52).
  */
-export function AdultShell({ role, menu, displayName, initial, children }: AdultShellProps) {
+export function AdultShell({ role, menu, displayName, initial, menuNote, children }: AdultShellProps) {
   const roleLabel = ROLE_LABEL[role];
   const navLabel = `${roleLabel} menu`;
-  const links = (layout: 'side' | 'sheet') =>
-    menu.map((item) => (
-      <NavLink
-        key={item.href}
-        href={item.href}
-        exact={item.exact}
-        className="flex min-h-12 items-center rounded-full px-4 text-[15px] font-bold no-underline"
-        activeClassName="bg-primary text-on-primary hover:text-on-primary"
-        inactiveClassName={
-          layout === 'side'
-            ? 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-            : 'text-on-surface hover:bg-surface-container-low'
-        }
-      >
-        {item.label}
-      </NavLink>
-    ));
+  const links = (layout: 'side' | 'sheet') => [
+    ...menu.map((item) =>
+      item.disabled ? (
+        <span
+          key={item.href}
+          aria-disabled="true"
+          className="flex min-h-12 cursor-not-allowed items-center gap-2 rounded-full px-4 text-[15px] font-medium text-on-surface-variant"
+        >
+          {item.label}
+        </span>
+      ) : (
+        <NavLink
+          key={item.href}
+          href={item.href}
+          exact={item.exact}
+          className="flex min-h-12 items-center rounded-full px-4 text-[15px] font-bold no-underline"
+          activeClassName="bg-primary text-on-primary hover:text-on-primary"
+          inactiveClassName={
+            layout === 'side'
+              ? 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+              : 'text-on-surface hover:bg-surface-container-low'
+          }
+        >
+          {item.label}
+        </NavLink>
+      ),
+    ),
+    menuNote ? (
+      <p key="menu-note" className="px-4 pt-2 text-sm leading-5 text-on-surface-variant">
+        {menuNote}
+      </p>
+    ) : null,
+  ];
+  const home = menu.find((item) => !item.disabled)?.href;
   const roleChip = (
     <span className="rounded-full bg-on-surface px-2.5 py-0.5 text-[12px] font-bold text-white">{roleLabel}</span>
   );
@@ -58,7 +79,7 @@ export function AdultShell({ role, menu, displayName, initial, children }: Adult
       </a>
       <aside className="hidden w-[260px] shrink-0 flex-col gap-1 border-r border-card-border bg-white px-4 py-6 lg:flex">
         <div className="mb-4 flex flex-col items-start gap-2 px-2">
-          <Wordmark href={menu[0]?.href} size={28} />
+          <Wordmark href={home} size={28} />
           {roleChip}
         </div>
         <nav aria-label={navLabel} className="flex flex-col gap-1">
@@ -68,7 +89,7 @@ export function AdultShell({ role, menu, displayName, initial, children }: Adult
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="relative flex items-center justify-between gap-3 border-b border-card-border bg-white px-4 py-2.5 sm:px-8 lg:justify-end lg:py-4">
           <div className="flex items-center gap-2 lg:hidden">
-            <Wordmark href={menu[0]?.href} size={24} />
+            <Wordmark href={home} size={24} />
             {roleChip}
           </div>
           <div className="flex items-center gap-2">

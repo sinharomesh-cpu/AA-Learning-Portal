@@ -1,6 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { confirmFromMailbox, createAccount, freshEmail, linkFromMailbox, PHRASE, signIn } from './helpers';
+import {
+  confirmFromMailbox,
+  createAccount,
+  freshEmail,
+  linkFromMailbox,
+  PHRASE,
+  sendTeacherProfile,
+  signIn,
+} from './helpers';
 
 /** WP2-3: real adult accounts end to end (boards 62, M-01, M-03, M-21, M-34). */
 
@@ -117,12 +125,53 @@ test('a self-registered teacher waits for approval and sees only the status page
   await expect(page.getByText('Your email is confirmed. Sign in to tell us about your teaching.')).toBeVisible();
   await signIn(page, email);
   await expect(page).toHaveURL(/\/teacher\/status$/);
-  await expect(page.getByRole('heading', { level: 1, name: "We're reviewing your profile" })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Welcome! Tell us about your teaching' })).toBeVisible();
   for (const path of ['/teacher', '/teacher/schedule', '/teacher/students/anyone', '/parent']) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/teacher\/status$/);
   }
   await noSeriousA11yIssues(page);
+});
+
+test('a waiting teacher fills in the profile, saves a draft and sends it for approval (M-20)', async ({ page }) => {
+  const email = freshEmail('profile');
+  await createAccount(page, 'teacher', email);
+  await confirmFromMailbox(page, email);
+  await signIn(page, email);
+  await page.getByRole('link', { name: 'Set up my profile' }).click();
+  await expect(page).toHaveURL(/\/teacher\/profile$/);
+  await expect(page.getByText(email)).toBeVisible();
+  await noSeriousA11yIssues(page);
+
+  // Sending an empty profile explains what is missing.
+  await page.getByRole('button', { name: 'Send for approval' }).click();
+  await expect(page.getByText('Choose at least one subject.')).toBeVisible();
+  await expect(page.getByText('Choose at least one grade.')).toBeVisible();
+  await expect(page.getByText('Please agree to the teacher terms to send your profile.')).toBeVisible();
+
+  // A draft keeps what was ticked.
+  await page.getByRole('checkbox', { name: 'Science', exact: true }).check();
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByText('Draft saved. Send it for approval when you are ready.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'Science', exact: true })).toBeChecked();
+
+  // The draft terms are labelled as a draft.
+  const terms = await page.context().newPage();
+  await terms.goto('/teacher-terms');
+  await expect(terms.getByText(/DRAFT for owner review/)).toBeVisible();
+  await noSeriousA11yIssues(terms);
+  await terms.close();
+
+  await sendTeacherProfile(page, [], [4, 5]);
+  await expect(page.getByRole('heading', { level: 1, name: "We're reviewing your profile" })).toBeVisible();
+  await expect(page.getByText('Your profile was sent for approval.')).toBeVisible();
+  await noSeriousA11yIssues(page);
+  await page.getByRole('link', { name: 'View my profile' }).click();
+  await expect(page.getByText('Under review')).toBeVisible();
+  // Still no portal pages before approval.
+  await page.goto('/teacher/schedule');
+  await expect(page).toHaveURL(/\/teacher\/status$/);
 });
 
 test('changing the password signs out everywhere', async ({ page, browser }) => {

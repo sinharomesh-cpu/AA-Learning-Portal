@@ -47,7 +47,9 @@ async function pendingTeacher() {
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO accounts (role, status, email, display_name, password_hash)
     VALUES ('teacher', 'pending_approval', ${email('teacher')}, 'Teacher Waiting', 'x') RETURNING id`;
-  await sql`INSERT INTO teacher_profiles (account_id, origin, approval_status) VALUES (${row!.id}, 'self_registered', 'draft')`;
+  // A self-registered teacher who has sent their profile (only a sent profile can be approved).
+  await sql`INSERT INTO teacher_profiles (account_id, origin, approval_status, subjects, grades, submitted_at)
+            VALUES (${row!.id}, 'self_registered', 'submitted', ${['science']}, ${[4, 5]}, now())`;
   return row!.id;
 }
 

@@ -7,6 +7,7 @@ import {
   freshEmail,
   linkFromMailbox,
   PHRASE as ADULT_PHRASE,
+  sendTeacherProfile,
   signIn,
 } from './helpers';
 
@@ -177,13 +178,63 @@ test('the Super Admin approves a teacher and manages accounts', async ({ page, b
   await page.goto('/admin/approvals');
   await noSeriousA11yIssues(page);
   const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  // Not approvable until the teacher sends the profile (OC-38, OC-71).
+  await expect(card.getByText('Waiting for the teacher to complete and send their profile.')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Approve Test Teacher' })).toHaveCount(0);
+
+  await sendTeacherProfile(t);
+  await page.reload();
+  await expect(card.getByText(/Sent for approval/)).toBeVisible();
   await card.getByLabel('Decision note (required)').fill('Checked the profile');
   await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
   await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
 
   await t.goto('/teacher');
   await expect(t).toHaveURL(/\/teacher$/);
+
+  // M-22: after approval a subject change waits for review; the teacher keeps their access (OC-73).
+  await t.goto('/teacher/profile');
+  await expect(t.getByRole('heading', { level: 1, name: /Your teacher profile/ })).toBeVisible();
+  await noSeriousA11yIssues(t);
+  await t.getByRole('checkbox', { name: 'Maths', exact: true }).check();
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText(/Your new subjects or grades are waiting for review/)).toBeVisible();
+  await t.goto('/teacher');
+  await expect(t).toHaveURL(/\/teacher$/);
+
+  await page.goto('/admin/approvals');
+  const change = page.getByRole('article').filter({ hasText: teacherEmail });
+  await expect(change.getByText('Maths, Science · Grades 4, 5')).toBeVisible();
+  await change.getByLabel('Decision note (required)').fill('Maths confirmed');
+  await change.getByRole('button', { name: 'Accept the change for Test Teacher' }).click();
+  await expect(page.getByText(/Change accepted/)).toBeVisible();
+  await t.goto('/teacher/profile');
+  await expect(t.getByText(/Your subject and grade change was approved/)).toBeVisible();
+  await expect(t.getByRole('checkbox', { name: 'Maths', exact: true })).toBeChecked();
   await teacherContext.close();
+
+  // OC-72 (2): a rejected teacher sees only the status message.
+  const rejectedContext = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.8' } });
+  const r = await rejectedContext.newPage();
+  const rejectedEmail = freshEmail('reject');
+  await createAccount(r, 'teacher', rejectedEmail);
+  await confirmFromMailbox(r, rejectedEmail);
+  await signIn(r, rejectedEmail, ADULT_PHRASE);
+  await expect(r).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(r);
+  await page.goto('/admin/approvals');
+  const rejectCard = page.getByRole('article').filter({ hasText: rejectedEmail });
+  await rejectCard.getByLabel('Decision note (required)').fill('Could not verify');
+  await rejectCard.getByRole('button', { name: 'Reject Test Teacher' }).click();
+  await expect(page.getByText(/Not approved. The decision/)).toBeVisible();
+  for (const path of ['/teacher/status', '/teacher/profile', '/teacher', '/teacher/schedule']) {
+    await r.goto(path);
+    await expect(r).toHaveURL(/\/teacher\/status$/);
+    await expect(r.getByRole('heading', { level: 1, name: 'Your profile was not approved' })).toBeVisible();
+  }
+  await expect(r.getByRole('link', { name: 'Profile' })).toHaveCount(0);
+  await noSeriousA11yIssues(r);
+  await rejectedContext.close();
 
   // Accounts: find the teacher, deactivate with a reason, then reactivate.
   await page.goto(`/admin/accounts?q=${encodeURIComponent(teacherEmail)}`);
@@ -207,4 +258,64 @@ test('the Super Admin approves a teacher and manages accounts', async ({ page, b
   await page.getByRole('button', { name: 'Create and send email' }).click();
   await expect(page.getByText(/Account created/)).toBeVisible();
   expect(await linkFromMailbox(page, parentEmail, 'account_created_set_password')).toMatch(/purpose=set_password/);
+});
+
+test('deactivating a parent signs out their child until the parent is reactivated (OC-72)', async ({
+  page,
+  browser,
+}) => {
+  // A parent adds a child (M-06, M-08).
+  const parentContext = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.9' } });
+  const p = await parentContext.newPage();
+  const parentEmail = freshEmail('family');
+  await createAccount(p, 'parent', parentEmail);
+  await confirmFromMailbox(p, parentEmail);
+  await signIn(p, parentEmail, ADULT_PHRASE);
+  await expect(p).toHaveURL(/\/parent$/);
+  await p.goto('/parent/children/new');
+  await p.getByRole('checkbox', { name: /parent or legal guardian/ }).check();
+  await p.getByRole('checkbox', { name: /AI lessons/ }).check();
+  await p.getByRole('button', { name: 'Agree and continue' }).click();
+  await p.getByLabel('First name (shown in the app)').fill('Asha');
+  await p.getByRole('checkbox', { name: 'Maths' }).check();
+  await p.getByLabel('Username').fill('Asha');
+  await p.getByRole('button', { name: 'Add child' }).click();
+  const creds = p.getByTestId('child-credentials');
+  await expect(creds).toBeVisible();
+  const username = (await creds.getByTestId('child-username').innerText()).trim();
+  const password = (await creds.getByTestId('child-password').innerText()).trim();
+  await parentContext.close();
+
+  const childContext = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.10' } });
+  const c = await childContext.newPage();
+  const childSignIn = async () => {
+    await c.goto('/sign-in/child');
+    await c.getByLabel('Your username').fill(username);
+    await c.getByLabel('Your password').fill(password);
+    await c.getByRole('button', { name: "Let's go" }).click();
+  };
+  await childSignIn();
+  await expect(c).toHaveURL(/\/student$/);
+
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.11' });
+  await ownerSignedIn(page);
+  await page.goto(`/admin/accounts?q=${encodeURIComponent(parentEmail)}`);
+  await page.getByRole('link', { name: 'Edit Test Parent' }).first().click();
+  await page.getByRole('button', { name: 'Deactivate account' }).click();
+  await page.getByLabel('Reason (required)').fill('Test of OC-72');
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(page.getByText(/Account deactivated/)).toBeVisible();
+
+  // The child's open session ends and a new sign-in is refused.
+  await c.goto('/student');
+  await expect(c).toHaveURL(/\/sign-in/);
+  await childSignIn();
+  await expect(c.getByText('Your account is paused. Please ask your parent.')).toBeVisible();
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Reactivate account' }).click();
+  await expect(page.getByText('Account reactivated.')).toBeVisible();
+  await childSignIn();
+  await expect(c).toHaveURL(/\/student$/);
+  await childContext.close();
 });

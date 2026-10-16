@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import {
   createAccount,
   createAdmin,
+  decideProfileChange,
   decideTeacher,
   resendAdminInvite,
   setAccountActive,
@@ -163,5 +164,27 @@ export async function decideTeacherAction(_prev: AdminFormState, fd: FormData): 
   }
   if (r.reason === 'note_required') return { fieldErrors: { note: 'Write a short decision note (required).' } };
   if (r.reason === 'not_found') return { error: 'This teacher has already been decided or is no longer waiting.' };
+  if (r.reason === 'not_ready') {
+    return { error: 'This teacher has not sent their profile yet, so it cannot be approved or sent back for changes.' };
+  }
+  return NOT_ALLOWED;
+}
+
+/** OC-73: accept or decline an approved teacher's subject/grade change. */
+export async function decideProfileChangeAction(_prev: AdminFormState, fd: FormData): Promise<AdminFormState> {
+  const actorId = await actor();
+  const decision = str(fd, 'decision');
+  if (decision !== 'approve' && decision !== 'decline') return { error: 'Choose a decision.' };
+  const r = await decideProfileChange(db(), actorId, str(fd, 'teacherId'), {
+    decision,
+    note: str(fd, 'note'),
+    baseUrl: await siteBaseUrl(),
+  });
+  if (r.ok) {
+    revalidatePath('/admin');
+    redirect(`/admin/approvals?done=change_${decision}`);
+  }
+  if (r.reason === 'note_required') return { fieldErrors: { note: 'Write a short decision note (required).' } };
+  if (r.reason === 'not_found') return { error: 'This change has already been decided or was withdrawn.' };
   return NOT_ALLOWED;
 }

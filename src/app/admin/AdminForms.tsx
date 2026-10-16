@@ -9,6 +9,7 @@ import {
   type AdminFormState,
   createAccountAction,
   createAdminAction,
+  decideProfileChangeAction,
   decideTeacherAction,
   setAccountActiveAction,
   updateAccountAction,
@@ -314,10 +315,12 @@ export function AccountStatusForm({ account }: { account: { id: string; name: st
 export function DecisionForm({
   teacherId,
   name,
+  allowApprove = true,
   allowChanges,
 }: {
   teacherId: string;
   name: string;
+  allowApprove?: boolean;
   allowChanges: boolean;
 }) {
   const [state, action, pending] = useActionState<AdminFormState, FormData>(decideTeacherAction, {});
@@ -332,9 +335,11 @@ export function DecisionForm({
         hint="Stored with the decision. The teacher sees it if you ask for changes."
       />
       <div className="flex flex-wrap gap-2.5">
-        <Button type="submit" name="decision" value="approve" inactive={pending} aria-label={`Approve ${name}`}>
-          Approve
-        </Button>
+        {allowApprove ? (
+          <Button type="submit" name="decision" value="approve" inactive={pending} aria-label={`Approve ${name}`}>
+            Approve
+          </Button>
+        ) : null}
         {allowChanges ? (
           <Button type="submit" name="decision" value="changes" variant="secondary" inactive={pending}>
             Request changes
@@ -349,6 +354,44 @@ export function DecisionForm({
           aria-label={`Reject ${name}`}
         >
           Reject
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** OC-73: an approved teacher's subject/grade change. */
+export function ProfileChangeForm({ teacherId, name }: { teacherId: string; name: string }) {
+  const [state, action, pending] = useActionState<AdminFormState, FormData>(decideProfileChangeAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-3" noValidate>
+      <input type="hidden" name="teacherId" value={teacherId} />
+      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      <TextArea
+        label="Decision note (required)"
+        name="note"
+        error={state.fieldErrors?.note}
+        hint="Stored with the decision. The teacher sees it on their profile page."
+      />
+      <div className="flex flex-wrap gap-2.5">
+        <Button
+          type="submit"
+          name="decision"
+          value="approve"
+          inactive={pending}
+          aria-label={`Accept the change for ${name}`}
+        >
+          Accept change
+        </Button>
+        <Button
+          type="submit"
+          name="decision"
+          value="decline"
+          variant="secondary"
+          inactive={pending}
+          aria-label={`Decline the change for ${name}`}
+        >
+          Decline change
         </Button>
       </div>
     </form>
