@@ -1,6 +1,6 @@
 # AA Pro — P2-R2 Textbooks, chapters and the chapter reader: gap analysis and plan
 
-**Version:** 1.0 · 16 Oct 2026 · **Prepared by:** Claude (business analyst and developer roles) · **Status:** for owner review. Nothing in this document is built yet.
+**Version:** 1.1 · 16 Oct 2026 (§9: consolidated owner decisions, OC-79) · **Prepared by:** Claude (business analyst and developer roles) · **Status:** requirements confirmed by the owner; designs awaiting visual review. Nothing in this document is built yet.
 **Source:** owner requirements "Existing Textbook and Chapter Functionality: Parent/Student Role Separation" (16 Oct 2026, 14:25 IST) and "Chapter Scrolling" (14:27 IST), and four screenshots of the owner's separate local application.
 
 ## 1. What was checked
@@ -159,3 +159,80 @@ Tests 10–12 belong to booking and invitation work that is already planned; the
 - **AI service** only if C-1(b) is chosen: provider choice and prices, your approval.
 - **Licensing advice** before any school or publisher textbook is preloaded (C-3, D-26).
 - **Zoom** (D-10) and **ElevenLabs** (Phase 5) for the reader's lesson shortcuts.
+
+## 9. Consolidated owner decisions (OC-79, 16 Oct 2026, 19:27 IST)
+
+The owner consolidated all textbook decisions in one message (Parts A, B and E). This section applies them. Earlier decisions in OC-74 stay in force unless amended below.
+
+### 9.1 Status of each item
+
+| Category | Items |
+|---|---|
+| **Confirmed by the owner** | Parts A1–A5 and A7 (requirements); conflicts C-2 to C-7 in §4 (decisions below); delivery order (Part E) |
+| **Designs awaiting visual review** | Boards R1–R6, revised, new boards R7 (review proposed chapters) and R8 (parent and student libraries), and a read-me board (R0) giving each board's role, purpose, key actions, states and next screens. **None is visually approved** |
+| **Approved for implementation** | The requirements in §9.2–9.4. The textbook **screens** are built only after the owner approves the boards (OC-74(8), A6). Server-side groundwork before that needs the owner's go-ahead (§9.7) |
+| **Still needs separate approval** | Paid storage, malware scanning, OCR or any other external service (A7, C-5); real textbook files or real child data; AI-made study content (A7, C-2); production deployment |
+
+### 9.2 Requirements added or changed
+
+| # | Requirement | Source | Change from OC-74 |
+|---|---|---|---|
+| T-1 | The parent may upload a **complete textbook PDF** or **one chapter** (PDF, or PNG/JPG photos of pages) | A2 | **New:** OC-74 and R3 covered one chapter at a time |
+| T-2 | For a complete PDF, AA Pro **proposes** chapters from the PDF's bookmarks, its contents page, extractable text and reliable chapter headings: title, sequence number and page range. The parent reviews and corrects them before they are saved | A3 | **New** |
+| T-3 | Scanned (image-only) PDFs: the original is kept and the parent sets up chapters by hand (page ranges from thumbnails). No OCR | A3, OC-74(4) | Same rule, now with manual page ranges |
+| T-4 | A chapter is a **page range of the original file** where possible; the original PDF is never split into copies | A3 | **New** data-model rule |
+| T-5 | For a single-chapter upload the parent types the title; the next sequence number is suggested | A3, C-6 | Same as OC-63/OC-74 |
+| T-6 | The parent selects **one of their own children and a subject** first; a book or selected chapters can be assigned to one or more of their linked children | A2 | **Changed:** assignment per chapter as well as per book |
+| T-7 | The parent confirms they are **authorised to upload and use the material** for the children's education; books stay private to the family | A1 | Wording updated; final wording goes to legal review with the terms |
+| T-8 | Reader: continuous vertical scrolling, original PDF page markers, Go to page, separate Original PDF view, text size, browser read-aloud, saved position per student and chapter, desktop and phone | A4 | Same as OC-74(1) |
+| T-9 | Page markers show the **PDF page number**; where the printed number differs, the reader says "PDF page"; no page numbers are made up | A4 | Clarified |
+| T-10 | Teachers: view only, approved and linked, only subjects both ticked by the parent and approved for the teacher; **no download of the original PDF**; enforced on pages, data requests and file routes | A5 | Same as OC-74(2); uses `teacherMaySee` from PR2 |
+| T-11 | 20 MB per file; PDF, PNG, JPG checked by content and signature | A7 | Same |
+| T-12 | No AI-made summaries, vocabulary, flashcards, quizzes or diagrams | A7, C-2 | Same; parent-written study tools (OC-74(5)) are unchanged |
+| T-13 | Archive with confirmation and 30-day restore; no irreversible deletion without confirmation and the approved retention behaviour | A7 | Same as OC-74(3) |
+| T-14 | No school or school-class field on the child profile; grade and curriculum may be collected where needed | A2, C-4 | Same |
+
+### 9.3 Decisions on §4 conflicts C-2 to C-7
+
+| # | Decision (owner) |
+|---|---|
+| C-2 | Do not invent textbook content. Show only the parent's uploaded material and parent-entered information. Never show "Full Textbook Content Verified" or similar unless a person has done that check. Future AI content needs separate approval, labelling and review |
+| C-3 | No preloaded textbooks from a named school. Synthetic, made-up data only for tests and demos. A licensed catalogue needs a separate rights review |
+| C-4 | No school or class field on the child profile |
+| C-5 | Test with synthetic files only; do not store real textbooks or private family content in the test database. Research 2–3 private-storage options (costs, security, data region, operations) and present them before connecting a paid provider. Never claim malware scanning or secure production storage that is not configured and tested |
+| C-6 | The parent enters or confirms the chapter title; the sequence number may be suggested; automatic detection is a proposal for the parent to review |
+| C-7 | No non-working booking or AI Tutor controls in the reader. Show them only when genuinely available; until then hide them or link clearly to an existing working page. Use the approved "AI Tutor" name; no Lumina branding |
+
+Note on numbering: these are the textbook conflicts of this document (§4). The marketplace document P2-R3 also has items numbered C-2 to C-7 (§13.6); those are different and remain open.
+
+### 9.4 Data model (proposed, for R2-2)
+
+- `books`: parent owner, subject, title, source type (`whole_pdf`, `chapters`), status.
+- `book_files`: one row per uploaded file; original kept unchanged; size, checked type, page count, whether text was found.
+- `chapters`: book, sequence number, parent-confirmed title, file, **first and last page in that file**, status (draft, published, archived), archived date; proposal source (`bookmarks`, `contents_page`, `heading`, `manual`).
+- `chapter_assignments`: chapter × child (only the parent's own children); a book-level assignment is a shortcut that assigns all its chapters.
+- `reading_positions`: student × chapter × last PDF page.
+- Every page, data request and file route calls one access check: parent owns it; student has an assignment; teacher passes `teacherMaySee` for the book's subject and never gets the download route.
+
+### 9.5 Technical constraints (not resolved silently)
+
+| # | Constraint | Proposed handling |
+|---|---|---|
+| TC-1 | **20 MB and whole textbooks.** Many complete textbook PDFs, especially scans, are larger than 20 MB | Keep 20 MB (A7). The error message suggests uploading the book chapter by chapter. Raising the limit would be a new decision |
+| TC-2 | **Chapter detection needs a PDF library** that reads bookmarks, page text and headings | Use a free, open-source library (PDF.js, Apache-2.0) on the server; no paid service. Package version confirmed before installing |
+| TC-3 | **Detection quality varies.** Contents pages often use printed page numbers that differ from PDF page numbers | Proposals are always shown for review; a page-number offset field lets the parent align printed and PDF numbers; nothing is saved without the parent's confirmation |
+| TC-4 | **Test-site storage** in the database is small and only for synthetic files (C-5) | Size cap on the test site; real files wait for the storage decision |
+| TC-5 | **"No download" for teachers** can be enforced only for AA Pro's own routes; a person can still photograph a screen | Explained in the teacher terms; pages are served as images with no download route for teachers and students |
+
+### 9.6 Acceptance criteria added
+
+17. A complete PDF with bookmarks shows proposed chapters with titles and page ranges; nothing is saved until the parent confirms; the parent can rename, merge, split, remove and add chapters.
+18. A PDF with no bookmarks, contents page or headings shows "No chapters found" and offers manual setup; no titles are invented.
+19. A scanned PDF is kept, has no Text view, and its chapters can be set up by page range.
+20. Chapters of a whole-book upload read the pages of the original file; no copy of the PDF is created.
+21. A chapter assigned to one child is not visible to a sibling who was not assigned it.
+22. No page or label says "verified" for textbook content; no AI Tutor or booking control appears in the reader.
+
+### 9.7 Delivery
+
+Boards R0–R8 are presented for visual review. After approval: R2-2 (database and access checks, synthetic files only) → R2-3 (Add a book, chapter review, chapter management) → R2-4 (libraries and reader) → R2-5 (parent-written study tools) → R2-6 (teacher view-only). Each step is a separate pull request with a scope summary first and a report afterwards. Storage options (C-5) are researched in parallel and presented before anything paid is connected.
