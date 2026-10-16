@@ -1,12 +1,21 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.36 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.37 · 16 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.37 changes (owner, 16 Oct 2026, 19:41 IST — the same consolidated message sent again):**
+- No new decision: the 19:41 message matches OC-79 as recorded below, so nothing is reopened.
+- Delivered for review:
+  - **Design boards** on the design canvas (version 113), each marked "awaiting your visual review — not approved":
+    - Textbooks: R0 (read me), R1–R6 (revised), R7 (check the suggested chapters) and R8 (parent books and student library).
+    - Marketplace: D0 (read me) and D1–D11 (revised for M-1 to M-10).
+  - **Draft terms:** `docs/legal/AA_Pro_Teacher_Marketplace_Draft_Teacher_Terms.md`, marked as a working draft for legal review and not in force.
+- The board 65 basic directory is built (PR #44); it was not delayed.
 
 **v1.36 changes (owner, 16 Oct 2026, 19:27 IST — consolidated Phase 2 decisions):**
 - **OC-79** records the owner's consolidated textbook, marketplace, teacher-terms and delivery decisions. Applied in P2-R2 v1.1 §9 (textbooks) and P2-R3 v1.5 §14 (marketplace).
