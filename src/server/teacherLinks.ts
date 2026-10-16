@@ -272,6 +272,72 @@ export async function addTeacher(
   });
 }
 
+export type DirectoryAddResult =
+  | { ok: true; teacherName: string }
+  | { ok: false; reason: 'choose' | 'subjects' | 'not_listed' | 'not_allowed' }
+  | { ok: false; reason: 'not_taught'; teacherName: string; teaches: string[] };
+
+/**
+ * Board 65 "Add as my teacher" (PR3; C-1 option (a), owner 16 Oct 2026). The parent picks a
+ * teacher from the directory instead of typing an email, so the email is looked up here and never
+ * reaches the parent. Only a teacher the directory lists (approved, active, not hidden) can be
+ * added this way; the link starts at once and the teacher is emailed, as for an approved teacher
+ * added by email (OC-36(6)). OC-75: only the teacher's approved subjects that the child studies.
+ */
+export async function addTeacherFromDirectory(
+  sql: Sql,
+  parentId: string,
+  teacherId: string,
+  children: ChildSubjects[],
+  now: Date = new Date(),
+): Promise<DirectoryAddResult> {
+  if (!UUID.test(parentId)) return { ok: false, reason: 'not_allowed' };
+  if (!UUID.test(teacherId)) return { ok: false, reason: 'not_listed' };
+  return sql.begin(async (tx): Promise<DirectoryAddResult> => {
+    const mine = await ownChildren(tx, parentId);
+    if (mine.size === 0) return { ok: false, reason: 'not_allowed' };
+    const problem = checkChoice(mine, children);
+    if (problem) return { ok: false, reason: problem };
+    const picked = children.filter((c) => c.subjects.length > 0);
+    const [teacher] = await tx<Array<{ email: string; name: string; teaches: string[] }>>`
+      SELECT a.email, a.display_name AS name, tp.subjects AS teaches
+      FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id
+      WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active'
+        AND tp.approval_status = 'approved' AND NOT tp.hidden_from_search
+      FOR SHARE OF a, tp`;
+    if (!teacher) {
+      await writeAudit(
+        tx,
+        { type: 'TEACHER_LINK_REFUSED', outcome: 'denied', actorId: parentId, details: { reason: 'not_listed' } },
+        now,
+      );
+      return { ok: false, reason: 'not_listed' };
+    }
+    if (!picked.every((c) => c.subjects.every((x) => teacher.teaches.includes(x)))) {
+      return { ok: false, reason: 'not_taught', teacherName: teacher.name, teaches: teacher.teaches };
+    }
+    for (const c of picked) await upsertLink(tx, parentId, teacherId, c.childId, c.subjects, 'active');
+    await queueEmail(tx, {
+      to: teacher.email,
+      template: 'teacher_linked_to_child',
+      payload: { name: teacher.name, children: picked.map((c) => mine.get(c.childId)!.name).join(', ') },
+      dedupeKey: `teacher_linked:${teacherId}:${parentId}:${now.getTime()}`,
+    });
+    await writeAudit(
+      tx,
+      {
+        type: 'TEACHER_LINKED',
+        outcome: 'success',
+        actorId: parentId,
+        subjectId: teacherId,
+        details: { children: picked.length, status: 'active', newAccount: false, from: 'directory' },
+      },
+      now,
+    );
+    return { ok: true, teacherName: teacher.name };
+  });
+}
+
 export type UpdateLinksResult =
   { ok: true; removed: boolean } | { ok: false; reason: 'subjects' | 'not_found' | 'not_allowed' };
 

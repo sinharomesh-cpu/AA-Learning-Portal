@@ -9,6 +9,7 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getViewer } from '@/server/session';
 import { getTeacherProfile } from '@/server/teacherProfile';
+import { SearchVisibilityForm } from './SearchVisibilityForm';
 import { type ProfileMode, TeacherProfileForm } from './TeacherProfileForm';
 
 export const metadata: Metadata = { title: 'Profile' };
@@ -108,6 +109,7 @@ export default async function TeacherProfilePage() {
           bio: profile.bio,
         }}
       />
+      <SearchVisibilityForm hidden={profile.hiddenFromSearch} approved={approved} />
     </div>
   );
 }

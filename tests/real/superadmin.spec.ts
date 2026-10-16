@@ -429,3 +429,106 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await tc.close();
   await fam.context.close();
 });
+
+test('board 65: a parent finds an approved teacher and adds them; hidden teachers are not listed (OC-54, C-1)', async ({
+  page,
+  browser,
+}) => {
+  // An approved teacher for Maths and Science, Grades 4–5, with a name only this test uses.
+  const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
+  const teacherName = `Teacher Dir ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.20' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('dir');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths', 'Science'], [4, 5]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.21' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for the directory');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+  await t.goto('/teacher/profile');
+  await t.getByLabel('Name shown to families').fill(teacherName);
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText('Your profile is saved.')).toBeVisible();
+
+  // OC-54: the teacher hides from search.
+  await expect(t.getByRole('heading', { name: 'Find a teacher' })).toBeVisible();
+  await t.getByRole('button', { name: 'Hide me from search' }).click();
+  await expect(t.getByText(/Hidden. Parents can no longer find you/)).toBeVisible();
+  await noSeriousA11yIssues(t);
+
+  const fam = await parentWithChild(browser, '10.200.0.22', 'Isha', ['Maths', 'English']);
+  const p = fam.page;
+  await p.goto('/parent/teachers');
+  await p.getByRole('link', { name: 'Find a teacher' }).click();
+  await expect(p.getByRole('heading', { level: 1, name: 'Find a teacher' })).toBeVisible();
+  await noSeriousA11yIssues(p);
+  const search = p.getByRole('search', { name: 'Search teachers' });
+  await search.getByLabel('Name (optional)').fill(teacherName);
+  await search.getByRole('button', { name: 'Show teachers' }).click();
+  await expect(p.getByRole('heading', { name: 'No results' })).toBeVisible();
+
+  // Visible again: listed with the OC-54 fields only.
+  await t.getByRole('button', { name: 'Show me in search' }).click();
+  await expect(t.getByText(/You are visible again/)).toBeVisible();
+  await search.getByLabel('Subject').selectOption({ label: 'Maths' });
+  await search.getByLabel('Grade').selectOption({ label: 'Grade 5' });
+  await search.getByRole('button', { name: 'Show teachers' }).click();
+  await expect(p).toHaveURL(/subject=maths&grade=5/);
+  const result = p.getByRole('article').filter({ has: p.getByRole('heading', { name: teacherName }) });
+  await expect(result.getByText('Grades 4–5 · Asia/Kolkata')).toBeVisible();
+  await expect(result.getByText('I have taught primary classes for eight years.')).toBeVisible();
+  await expect(result.getByRole('button', { name: 'See available times' })).toHaveCount(0);
+  expect(await p.content()).not.toContain(teacherEmail);
+  await noSeriousA11yIssues(p);
+
+  // Phone width: no sideways scrolling.
+  await p.setViewportSize({ width: 390, height: 844 });
+  expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await p.setViewportSize({ width: 1280, height: 900 });
+
+  // "Add as my teacher" (C-1 option (a)): only subjects both have; the link starts at once.
+  await result.getByRole('link', { name: 'Add as my teacher' }).click();
+  await expect(p.getByRole('heading', { level: 1, name: `Add ${teacherName}` })).toBeVisible();
+  await noSeriousA11yIssues(p);
+  expect(await p.content()).not.toContain(teacherEmail);
+  const subjects = p.getByRole('group', { name: 'Subjects for Isha' });
+  await expect(subjects.getByRole('checkbox', { name: 'English' })).toHaveCount(0);
+  await expect(subjects.getByRole('checkbox', { name: 'Science' })).toHaveCount(0);
+  await subjects.getByRole('checkbox', { name: 'Maths' }).check();
+  await p.getByRole('button', { name: 'Add teacher' }).click();
+  await expect(
+    p.getByText(`${teacherName} can now see the children and subjects you ticked. We've emailed them.`),
+  ).toBeVisible();
+  // Queued only (shown in the development mailbox); nothing is sent for real.
+  await p.goto('/dev/mailbox');
+  await expect(
+    p
+      .getByTestId('mail')
+      .filter({ has: p.getByTestId('mail-to').getByText(teacherEmail, { exact: true }) })
+      .filter({ has: p.getByTestId('mail-template').getByText('teacher_linked_to_child', { exact: true }) }),
+  ).toHaveCount(1);
+
+  await t.goto('/teacher/students');
+  await expect(t.getByText('Grade 5 · Subjects with you: Maths')).toBeVisible();
+
+  // Listed again as already this family's teacher.
+  await p.goto(`/parent/teachers/find?name=${encodeURIComponent(teacherName)}`);
+  await expect(p.getByRole('link', { name: 'Already your teacher · Change children' })).toBeVisible();
+
+  // Unknown or unlisted teachers can't be opened directly.
+  const missing = await p.goto('/parent/teachers/find/00000000-0000-4000-8000-000000000000');
+  expect(missing?.status()).toBe(404);
+  // A teacher cannot use the parent directory.
+  await t.goto('/parent/teachers/find');
+  await expect(t.getByRole('heading', { level: 1 })).toHaveText("You can't open this");
+
+  await tc.close();
+  await fam.context.close();
+});

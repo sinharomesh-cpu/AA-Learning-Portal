@@ -4,7 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/server/db/client';
 import { getRealSession } from '@/server/session';
-import { type SaveOutcome, saveTeacherProfile, type TeacherProfileProblem } from '@/server/teacherProfile';
+import {
+  type SaveOutcome,
+  saveTeacherProfile,
+  setHiddenFromSearch,
+  type TeacherProfileProblem,
+} from '@/server/teacherProfile';
 
 /**
  * The teacher's own profile (M-20, M-22). The teacher comes from the server-side session only;
@@ -84,4 +89,29 @@ export async function saveTeacherProfileAction(
   revalidatePath('/teacher', 'layout');
   if (r.outcome === 'submitted') redirect('/teacher/status?sent=1');
   return { notice: NOTICE[r.outcome], outcome: r.outcome, values, at: Date.now() };
+}
+
+export interface VisibilityFormState {
+  error?: string;
+  notice?: string;
+  at?: number;
+}
+
+/** OC-54 "Hide me from search": the teacher's own setting, taken from the session only. */
+export async function setSearchVisibilityAction(
+  _prev: VisibilityFormState,
+  fd: FormData,
+): Promise<VisibilityFormState> {
+  const real = await getRealSession();
+  if (!real || real.session.role !== 'teacher') redirect('/sign-in');
+  const hidden = str(fd, 'hidden') === 'yes';
+  const r = await setHiddenFromSearch(db(), real.session.accountId, hidden);
+  if (!r.ok) redirect('/teacher/status');
+  revalidatePath('/teacher/profile');
+  return {
+    notice: hidden
+      ? 'Hidden. Parents can no longer find you in Find a teacher. Families who already added you are not affected.'
+      : 'You are visible again. Parents can find you in Find a teacher once your profile is approved.',
+    at: Date.now(),
+  };
 }

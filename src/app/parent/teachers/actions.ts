@@ -6,7 +6,13 @@ import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { db } from '@/server/db/client';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getRealSession } from '@/server/session';
-import { addTeacher, type ChildSubjects, removeTeacher, updateTeacherLinks } from '@/server/teacherLinks';
+import {
+  addTeacher,
+  addTeacherFromDirectory,
+  type ChildSubjects,
+  removeTeacher,
+  updateTeacherLinks,
+} from '@/server/teacherLinks';
 
 /**
  * Parent actions on teacher links (boards 57, 58). The parent comes from the server-side session
@@ -83,6 +89,36 @@ export async function addTeacherAction(_prev: TeacherFormState, fd: FormData): P
       return { values, at, error: "We couldn't add this teacher. Check the email address, or contact support." };
     default:
       return { values, at, error: "We couldn't add this teacher. Please reload the page and try again." };
+  }
+}
+
+/** Board 65 "Add as my teacher": the teacher comes from the directory, so no email is typed or shown. */
+export async function addFromDirectoryAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
+  const parent = await parentId();
+  const teacherId = str(fd, 'teacherId');
+  const { choice, picks } = readPicks(fd);
+  const r = await addTeacherFromDirectory(db(), parent, teacherId, choice);
+  if (r.ok) {
+    revalidatePath('/parent/teachers');
+    redirect(`/parent/teachers?done=linked&who=${encodeURIComponent(r.teacherName)}`);
+  }
+  const at = Date.now();
+  switch (r.reason) {
+    case 'choose':
+    case 'subjects':
+      return { values: { picks }, at, fieldErrors: { children: CHOOSE } };
+    case 'not_taught':
+      return {
+        values: { picks },
+        at,
+        fieldErrors: {
+          children: `${r.teacherName} teaches only ${r.teaches.map((x) => SUBJECTS[x as SubjectId]?.name ?? x).join(', ')} on AA Pro. Untick the other subjects.`,
+        },
+      };
+    case 'not_listed':
+      return { at, error: 'This teacher is no longer listed. Go back to Find a teacher and search again.' };
+    default:
+      return { values: { picks }, at, error: "We couldn't add this teacher. Please reload the page and try again." };
   }
 }
 
