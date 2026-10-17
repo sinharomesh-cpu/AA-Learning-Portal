@@ -15,7 +15,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   return (
     <NotReadyYet
       title="Booking details"
-      body="Booking details, cancelling and rescheduling come with scheduling (Phase 3). The cut-off times and whether you confirm teacher-proposed lessons are still being decided (D-07, D-08)."
+      body="Booking details, accepting a teacher's proposal, cancelling and rescheduling come with scheduling (Phase 3). The rules are set: you accept or reject a lesson a teacher proposes; teacher lessons can be cancelled or moved up to 30 minutes before the start; AI lessons any time before the start."
       homeHref="/parent"
       homeLabel="Go to family home"
     />

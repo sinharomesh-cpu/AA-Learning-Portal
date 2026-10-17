@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { auditLabel } from '@/lib/auditLabels';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
-import { PendingNote } from '@/components/PendingNote';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { adminCounts, RECENT_ADMIN_ACTIONS } from '@/fixtures/admin';
 import { requireAdmin } from '@/server/authz';
@@ -54,10 +53,10 @@ export default async function AdminHomePage() {
     <div className="mx-auto flex max-w-[1040px] flex-col gap-6">
       <h1 className="text-headline-lg-mobile lg:text-headline-lg">Overview</h1>
       {demo ? (
-        <PendingNote decision="D-11b">
-          How Super Admin accounts are created. Demo data only; the second-factor step (M-26) arrives with real sign-in
-          in Phase 2.
-        </PendingNote>
+        <p className="rounded-[16px] border border-dashed border-secondary bg-warning-container px-3 py-2 text-sm leading-5 text-on-warning-container">
+          <strong>Demo:</strong> sample data only. Real Super Admin sign-in uses the owner set-up and a security code
+          (OC-37, OC-50).
+        </p>
       ) : null}
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-3">
         {tiles.map((t) => (

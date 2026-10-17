@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { LessonKindChip, LessonStatusChip } from '@/components/lessons/LessonStatus';
-import { PendingNote } from '@/components/PendingNote';
+import { LessonRules } from '@/components/lessons/LessonRules';
+import { LESSON_RULES_TEXT } from '@/lib/lessonRules';
 import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
@@ -31,7 +32,9 @@ function longWeekday(iso: string, timeZone: string) {
 }
 
 function reminderText(l: ParentLesson) {
-  if (l.kind === 'ai') return null; // D-22 pending, shown as a note
+  // OC-49 (D-22): AI reminders go to the parent by email and to the child on screen.
+  if (l.kind === 'ai') return 'Email to you · on screen for your child, 15 min before';
+  // OC-45: a teacher's proposal is not booked yet, so it has no reminder.
   return l.status === 'confirmed' ? 'Email, 15 min before' : '—';
 }
 
@@ -210,7 +213,7 @@ export default async function ParentHomePage() {
                 <td className="px-2.5 py-3">
                   <LessonStatusChip status={l.status} viewer="parent" />
                 </td>
-                <td className="px-2.5 py-3">{reminderText(l) ?? <span>Not decided yet (D-22)</span>}</td>
+                <td className="px-2.5 py-3">{reminderText(l)}</td>
                 <td className="px-2.5 py-3">
                   <LinkButton
                     href={`/parent/bookings/${l.id}`}
@@ -226,15 +229,15 @@ export default async function ParentHomePage() {
         </table>
       </Card>
 
-      <div className="flex flex-col gap-2">
-        <PendingNote decision="D-08">
-          Whether you must confirm a teacher-proposed lesson before the Zoom meeting is created.
-        </PendingNote>
-        <PendingNote decision="D-07" className="hidden lg:block">
-          Cancel and reschedule cut-offs.
-        </PendingNote>
-        <PendingNote decision="D-22">Who receives reminders for AI lessons.</PendingNote>
-      </div>
+      <LessonRules
+        items={[
+          LESSON_RULES_TEXT.teacherProposal,
+          LESSON_RULES_TEXT.teacherChanges,
+          LESSON_RULES_TEXT.aiChanges,
+          LESSON_RULES_TEXT.join,
+          'Reminders: email to you 15 minutes before each lesson; your child sees AI lesson reminders on screen. Emails are queued, not sent, until an email service is approved.',
+        ]}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-6">
         <Card aria-labelledby="content" className="flex flex-col gap-1.5 p-4 sm:p-6">

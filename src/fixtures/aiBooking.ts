@@ -1,3 +1,4 @@
+import { holdsTime } from '@/lib/lessonRules';
 import { localDayAt } from '@/lib/localTime';
 import { clockNow } from '@/lib/clock';
 import { formatClockTime, formatDayLabel } from '@/lib/time';
@@ -91,12 +92,15 @@ function quietPeriods(timeZone: string, now: Date): Period[] {
 }
 
 function lessonPeriods(studentId: string, now: Date): Period[] {
-  // Every lesson of this child on any day, including a teacher-proposed one (D-08 pending).
-  return lessonsForStudent(studentId, now).map((l) => ({
-    startIso: l.startIso,
-    endIso: l.endIso,
-    kind: 'lesson' as const,
-  }));
+  // Lessons that hold the child's time. A teacher's proposal is not booked until the parent
+  // accepts it (OC-45), so it does not block an AI lesson.
+  return lessonsForStudent(studentId, now)
+    .filter((l) => holdsTime(l.status))
+    .map((l) => ({
+      startIso: l.startIso,
+      endIso: l.endIso,
+      kind: 'lesson' as const,
+    }));
 }
 
 function overlaps(aStart: number, aEnd: number, b: Period): boolean {

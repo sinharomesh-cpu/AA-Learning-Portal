@@ -9,7 +9,7 @@ import { lessonsForTeacher } from './schedule';
 /**
  * Teacher view (P21) built from the shared synthetic data. The teacher id always comes from
  * the session; a teacher sees only their own lessons and linked students (FR-002.2).
- * How teachers are linked to students is still undecided (D-09); links here are fixtures.
+ * Teachers are linked to students by a parent (OC-36); the links here are fixtures.
  */
 
 const TEACHING: Record<string, { subjects: string; grades: string; subjectIds: SubjectId[]; gradeList: number[] }> = {

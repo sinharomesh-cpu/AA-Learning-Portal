@@ -307,7 +307,7 @@ export function AccountStatusForm({ account }: { account: { id: string; name: st
         </Button>
       </div>
       <p className="text-sm leading-5 text-on-surface-variant">
-        Not decided yet (D-07/D-09): what happens to their upcoming lessons. There are no bookings until Phase 3.
+        There are no lessons to affect yet: bookings arrive with scheduling (Phase 3).
       </p>
     </form>
   );

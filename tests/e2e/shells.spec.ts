@@ -18,7 +18,7 @@ test.describe('student shell (S1 / S9)', () => {
     await expect(today.getByText('15 min')).toBeVisible();
     await expect(page.getByLabel('AI Tutor allowance')).toContainText('One AI class a day, 15 minutes each.');
     await expect(page.getByText('4:30 pm').first()).toBeVisible();
-    await expect(page.getByText('Not decided yet (D-35):')).toBeVisible();
+    await expect(page.getByText('Not decided yet (D-35):')).toHaveCount(0); // OC-44 decided
     await expectNoSeriousAxeIssues(page);
     await expectNoHorizontalScroll(page);
   });
@@ -44,7 +44,7 @@ test.describe('student shell (S1 / S9)', () => {
   });
 
   test('primary child actions are at least 56 px tall', async ({ page }) => {
-    const join = page.getByRole('button', { name: 'Join opens before start' });
+    const join = page.getByRole('button', { name: 'Join opens 10 min before the start' });
     expect((await join.boundingBox())?.height).toBeGreaterThanOrEqual(56);
   });
 });

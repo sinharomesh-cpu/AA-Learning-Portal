@@ -13,7 +13,7 @@ export function LessonKindChip({ kind, long = false }: { kind: 'ai' | 'human'; l
 
 /**
  * Booking status as each role sees it. A teacher-proposed lesson waits for the parent; whether
- * the parent must confirm it is still undecided (D-08), so this only labels the state.
+ * the parent must accept or reject it (OC-45); until then it is not booked and has no Zoom meeting.
  */
 export function LessonStatusChip({ status, viewer }: { status: LessonStatus; viewer: 'parent' | 'teacher' }) {
   if (status === 'proposed') {

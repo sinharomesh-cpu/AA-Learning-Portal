@@ -23,7 +23,7 @@ export interface Lesson {
   startIso: string;
   endIso: string;
   durationMinutes: number;
-  /** confirmed = human lesson with a confirmed teacher; booked = AI lesson; proposed = teacher-proposed, waiting for the parent (D-08 pending). */
+  /** confirmed = human lesson with a confirmed teacher; booked = AI lesson; proposed = teacher-proposed, waiting for the parent to accept or reject it (OC-45). */
   status: LessonStatus;
   teacherId?: string;
   teacherName?: string;
