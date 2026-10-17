@@ -47,6 +47,8 @@ export const TEACHER_MENU: MenuItem[] = [
   { href: '/teacher/schedule', label: 'My schedule' },
   { href: '/teacher/availability', label: 'Availability' },
   { href: '/teacher/students', label: 'Students' },
+  // Board D5 (approved, OC-82): the teacher's public listing (PR-D2).
+  { href: '/teacher/listing', label: 'Looking for students' },
   { href: '/teacher/resources', label: 'Learning resources' },
   { href: '/teacher/profile', label: 'Profile' },
 ];

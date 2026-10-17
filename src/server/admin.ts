@@ -5,6 +5,7 @@ import { queueEmail } from './auth/outbox';
 import { revokeAllSessions } from './auth/sessions';
 import { issueSetPassword } from './auth/setPasswordLink';
 import { parentsToTellOfRejection, revalidateTeacherLinks } from './teacherLinks';
+import { syncListingWithProfile } from './teacherListings';
 import type { Db, Sql } from './db/client';
 
 /**
@@ -685,6 +686,8 @@ export async function decideProfileChange(
     if (decision === 'approved') {
       // OC-75: links lose subjects the teacher no longer teaches; parents are told.
       await revalidateTeacherLinks(tx, teacherId, { activate: false, baseUrl: input.baseUrl }, now);
+      // L-5: the listing keeps only approved subjects and grades.
+      await syncListingWithProfile(tx, teacherId, now);
     }
     await queueEmail(tx, {
       to: t.email,
