@@ -307,7 +307,8 @@ export function AccountStatusForm({ account }: { account: { id: string; name: st
         </Button>
       </div>
       <p className="text-sm leading-5 text-on-surface-variant">
-        There are no lessons to affect yet: bookings arrive with scheduling (Phase 3).
+        There are no lessons to affect yet: bookings arrive with scheduling (Phase 3). What happens to a deactivated
+        teacher’s lessons is still to be decided (D-45).
       </p>
     </form>
   );

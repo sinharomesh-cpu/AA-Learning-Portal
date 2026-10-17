@@ -40,4 +40,4 @@
 
 None for OC-44 to OC-47: no genuine conflict was found.
 
-One adjacent point is **not** covered by these decisions and is left open, not decided: what happens to a deactivated teacher's upcoming lessons. The admin screen previously referred to it as "D-07/D-09". It now only says there are no lessons yet. It will come up with Phase 3.
+One adjacent point is **not** covered by these decisions and is left open, not decided: what happens to a deactivated teacher's upcoming lessons. The admin screen previously referred to it as "D-07/D-09". It now only says there are no lessons yet. **Owner, 18 Oct 2026: deferred to Phase 3 as D-45 (Open — Owner Decision Required)**, with no policy assumed. See `docs/phase3/P3-00_Phase3_Backlog.md`.
