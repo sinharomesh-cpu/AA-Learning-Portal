@@ -42,9 +42,9 @@ test.describe('role isolation (FR-002, R-01)', () => {
     for (const forbidden of ['book a teacher', 'book teacher', 'cancel', 'reschedule', 'upload']) {
       expect(text).not.toContain(forbidden);
     }
-    // R-06 / D-35: no meeting link, ID or join time.
+    // R-06 / OC-44: no meeting link or ID; the button says it opens 10 minutes before the start.
     expect(text).not.toMatch(/zoom\.us|meeting id|passcode/);
-    await expect(page.getByRole('button', { name: 'Join opens before start' })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: 'Join opens 10 min before the start' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );

@@ -41,10 +41,13 @@ describe('one shared synthetic schedule (fixtures/schedule.ts)', () => {
     expect(parentRow.dayLabel).toBe('Today');
   });
 
-  it('blocks AI booking times that clash with any of the child’s lessons, on any day', () => {
+  it('blocks AI booking times only for booked lessons; a teacher’s proposal holds no time (OC-45)', () => {
+    const kiranToday = bookingDays('demo-student-kiran', NOW)[0]!.slots.find((s) => s.label === '4:30 pm')!;
+    expect(kiranToday.status[15]).toBe('lesson'); // confirmed teacher lesson
     const meeraDays = bookingDays('demo-student-meera', NOW);
     const friday = meeraDays[2]!.slots.find((s) => s.label === '4:30 pm')!;
-    expect(friday.status[15]).toBe('lesson'); // teacher-proposed lesson on Friday (D-08 pending)
+    // Meera's teacher-proposed lesson on Friday is not booked until her parent accepts it.
+    expect(friday.status[15]).not.toBe('lesson');
   });
 });
 

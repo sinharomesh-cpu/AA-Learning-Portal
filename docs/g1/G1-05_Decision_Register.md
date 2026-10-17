@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.48 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.49 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.49 changes (owner correction, 18 Oct 2026, 01:07 IST):**
+- **OC-44 to OC-47 (D-35, D-08, D-07, D-15) were confirmed on 14 Oct 2026 and remain unchanged.** Screens still showed "Not decided yet" for them. That was Claude's error, now corrected (report: `docs/phase2/OC-44-47_Lesson_Rules_Implementation_Report.md`). The rules now live in one shared module (`src/lib/lessonRules.ts`) with tests. One real conflict was fixed: a teacher-proposed lesson no longer blocks the child's AI booking times (OC-45).
+- Stale notices for D-09 (OC-36), D-22 (OC-49) and D-11b (OC-37/OC-50) were also removed. The remaining booking note is relabelled D-05b (minimum lead time), which is still open.
 
 **v1.48 changes (owner, 18 Oct 2026, 00:42 IST — "Test Budget and Billable Integrations: Owner Decision"):**
 - **OC-91:** the approved budget is **$0**. Seven mandatory rules on billable services. Supersedes any reading of OC-89(5) or the AI cost-controls draft as a spending authorisation. Rules and the dependency review are in `docs/deployment/Billable_Dependency_Register.md`, and CI enforces them through `src/config/paidServices.test.ts`.

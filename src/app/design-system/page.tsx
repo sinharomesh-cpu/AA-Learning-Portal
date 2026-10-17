@@ -9,7 +9,6 @@ import {
 } from '@/components/booking/BookingOutcome';
 import { Card } from '@/components/Card';
 import { JoinButton } from '@/components/JoinButton';
-import { PendingNote } from '@/components/PendingNote';
 import { SessionRow } from '@/components/SessionRow';
 import { StatusChip } from '@/components/StatusChip';
 import { SubjectCard } from '@/components/SubjectCard';
@@ -142,7 +141,6 @@ export default function DesignSystemPage() {
           </ul>
           <div className="mt-4 flex flex-col items-start gap-3">
             <JoinButton />
-            <PendingNote decision="D-35">When the Join button opens before a teacher lesson.</PendingNote>
           </div>
         </Card>
       </div>

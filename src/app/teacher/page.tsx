@@ -5,7 +5,7 @@ import { Button, LinkButton } from '@/components/Button';
 import { Icon, type SymbolName } from '@/components/icons/Icon';
 import { JoinButton } from '@/components/JoinButton';
 import { LessonStatusChip } from '@/components/lessons/LessonStatus';
-import { PendingNote } from '@/components/PendingNote';
+import { LessonRules } from '@/components/lessons/LessonRules';
 import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { SUBJECT_ICONS } from '@/config/subjectIcons';
@@ -14,6 +14,7 @@ import { clockNow } from '@/lib/clock';
 import { cx } from '@/lib/cx';
 import { describeGrades } from '@/lib/grades';
 import { greeting } from '@/lib/localTime';
+import { LESSON_RULES_TEXT } from '@/lib/lessonRules';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { getTeacherHome, type TeacherHome } from '@/server/teacherHome';
@@ -158,7 +159,8 @@ function Masthead({ home, now }: { home: TeacherHome; now: Date }) {
 
 const BAR = { confirmed: 'bg-primary', booked: 'bg-primary', proposed: 'bg-secondary-container' } as const;
 
-function Sessions({ home }: { home: TeacherHome }) {
+function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
+  const nowIso = now.toISOString();
   const today = home.lessons.filter((l) => l.dayLabel === 'Today').length;
   return (
     <section aria-labelledby="sessions" className="flex min-w-0 flex-col gap-4">
@@ -206,7 +208,7 @@ function Sessions({ home }: { home: TeacherHome }) {
                     </div>
                     <p className="text-body-md text-on-surface-variant">
                       1-on-1 teacher lesson · {l.durationMinutes} min ·{' '}
-                      {l.status === 'confirmed' ? 'on Zoom' : 'Zoom meeting not created yet'}
+                      {l.status === 'confirmed' ? 'on Zoom' : 'no Zoom meeting until the parent accepts'}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 text-label-sm text-on-surface-variant">
                       <span className="inline-flex items-center gap-1">
@@ -224,7 +226,9 @@ function Sessions({ home }: { home: TeacherHome }) {
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row md:flex-col md:items-end">
-                  {l.status === 'confirmed' ? <JoinButton label="Start opens before the lesson" size="md" /> : null}
+                  {l.status === 'confirmed' ? (
+                    <JoinButton who="teacher" size="md" lesson={{ startIso: l.startIso, endIso: l.endIso, nowIso }} />
+                  ) : null}
                   <Link
                     href="/teacher/schedule"
                     className="inline-flex min-h-12 items-center justify-center gap-1 text-label-md md:min-h-0 md:py-1"
@@ -252,10 +256,14 @@ function Sessions({ home }: { home: TeacherHome }) {
         </div>
       )}
       <div className="flex flex-col gap-2">
-        <PendingNote decision="D-35">When Start and Join open.</PendingNote>
-        <PendingNote decision="D-08">Whether the parent must confirm a lesson you propose.</PendingNote>
-        <PendingNote decision="D-07">Whether teachers may cancel.</PendingNote>
-        <PendingNote decision="D-15">Group sessions. Only 1:1 lessons are shown.</PendingNote>
+        <LessonRules
+          items={[
+            LESSON_RULES_TEXT.join.replace('Join', 'Start'),
+            'A lesson you propose is only booked when the parent accepts it. No Zoom meeting until then.',
+            'You or the parent can cancel or move a lesson up to 30 minutes before the start. Your move needs the parent’s OK, and the parent is told if you cancel.',
+            LESSON_RULES_TEXT.oneToOne,
+          ]}
+        />
       </div>
     </section>
   );
@@ -430,7 +438,7 @@ export default async function TeacherHomePage() {
     <div className="flex flex-col gap-8">
       <Masthead home={home} now={now} />
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
-        <Sessions home={home} />
+        <Sessions home={home} now={now} />
         <Availability home={home} now={now} />
       </div>
       <StudentRoster students={home.students} realAccount={home.mode === 'real'} />

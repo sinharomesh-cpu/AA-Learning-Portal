@@ -102,11 +102,32 @@ describe('TextField', () => {
   });
 });
 
-describe('JoinButton (D-35 pending)', () => {
-  it('never shows a time, link or meeting ID', () => {
+describe('JoinButton (OC-44: opens 10 minutes before, until the end)', () => {
+  const lesson = (now: string) => ({
+    startIso: '2026-10-20T10:00:00.000Z',
+    endIso: '2026-10-20T10:40:00.000Z',
+    nowIso: now,
+  });
+
+  it('says when it opens, and never shows a time, link or meeting ID', () => {
     const { container } = render(<JoinButton />);
-    expect(screen.getByRole('button', { name: 'Join opens before start' })).toHaveAttribute('aria-disabled', 'true');
-    expect(container.innerHTML).not.toMatch(/zoom|https?:|\d{3}[ -]\d{3}/i);
+    expect(screen.getByRole('button', { name: 'Join opens 10 min before the start' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(container.innerHTML).not.toMatch(/zoom\.us|https?:|\d{3}[ -]\d{3}/i);
+  });
+
+  it('inside the window it says Zoom is not connected yet; afterwards that the lesson ended', () => {
+    const { rerender } = render(<JoinButton who="teacher" lesson={lesson('2026-10-20T09:50:00.000Z')} />);
+    expect(screen.getByRole('button', { name: 'Start — Zoom not connected yet' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    rerender(<JoinButton lesson={lesson('2026-10-20T09:49:00.000Z')} />);
+    expect(screen.getByRole('button', { name: 'Join opens 10 min before the start' })).toBeInTheDocument();
+    rerender(<JoinButton lesson={lesson('2026-10-20T10:40:00.000Z')} />);
+    expect(screen.getByRole('button', { name: 'Lesson ended' })).toBeInTheDocument();
   });
 });
 
@@ -181,7 +202,7 @@ describe('accessibility (axe-core, jsdom)', () => {
         <Card>
           <h2>Card</h2>
           <StatusChip kind="ai">AI Tutor</StatusChip>
-          <PendingNote decision="D-35">When the Join button opens.</PendingNote>
+          <PendingNote decision="D-05b">How far ahead a lesson must be booked.</PendingNote>
           <SubjectCard subject="maths" detail="Maths practice book (sample)" href="/student/library" />
           <TextField label="Your username" />
           <JoinButton />

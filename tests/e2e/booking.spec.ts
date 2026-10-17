@@ -52,7 +52,7 @@ test.describe('AI booking wizard (S13, boards 7 and 8)', () => {
     await expect(
       page.getByRole('group', { name: /^Start time/ }).getByRole('radio', { name: /6:00 pm.*One AI class a day/ }),
     ).toBeDisabled();
-    await expect(page.getByText('Not decided yet (D-05):')).toBeVisible();
+    await expect(page.getByText('Not decided yet (D-05b):')).toBeVisible();
   });
 
   test('the server re-checks the choice: a tampered link gets "not an open time"', async ({ page }) => {

@@ -17,8 +17,14 @@ test.describe('parent family home (P19, boards 53 and 54)', () => {
     await expect(kids.nth(0)).toContainText('Science with Teacher A. Rao · 40 min');
     await expect(kids.nth(1)).toContainText('Meera');
     await expect(page.getByText('Proposed by teacher').first()).toBeVisible();
-    await expect(page.getByText('Not decided yet (D-08):')).toBeVisible();
-    await expect(page.getByText('Not decided yet (D-22):')).toBeVisible();
+    // OC-44 to OC-47 and OC-49 are decided: the rules are shown, not "Not decided yet" (owner, 18 Oct 2026).
+    const rules = page.getByRole('region', { name: 'Lesson rules' });
+    await expect(rules).toContainText('only booked when the parent accepts it');
+    await expect(rules).toContainText('up to 30 minutes before the start');
+    await expect(rules).toContainText('AI lessons can be cancelled or moved any time before the start');
+    for (const d of ['D-35', 'D-08', 'D-07', 'D-15', 'D-22', 'D-09']) {
+      await expect(page.getByText(`Not decided yet (${d}`)).toHaveCount(0);
+    }
     await expect(
       page.getByRole('region', { name: 'Learning content' }).getByText('From Teacher B. Iyer'),
     ).toBeVisible();
@@ -111,8 +117,8 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
     await expect(lessons.nth(0)).toContainText('Today 7:00 pm–7:40 pm');
     await expect(lessons.nth(0)).toContainText('40 min · on Zoom');
     await expect(lessons.nth(1)).toContainText('Waiting for parent');
-    await expect(lessons.nth(1)).toContainText('Zoom meeting not created yet');
-    await expect(page.getByRole('button', { name: 'Start opens before the lesson' })).toHaveAttribute(
+    await expect(lessons.nth(1)).toContainText('no Zoom meeting until the parent accepts');
+    await expect(page.getByRole('button', { name: 'Start opens 10 min before the start' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
@@ -137,9 +143,13 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
     await expect(page.locator('main img')).toHaveCount(0);
     // D-16 is decided (OC-51, OC-86), so it is no longer shown as open.
     await expect(page.getByText('Not decided yet (D-16):')).toHaveCount(0);
+    // OC-44 to OC-47 and OC-36 are decided: shown as rules, never as "Not decided yet".
     for (const d of ['D-35', 'D-08', 'D-07', 'D-15', 'D-09']) {
-      await expect(page.getByText(`Not decided yet (${d}):`)).toBeVisible();
+      await expect(page.getByText(`Not decided yet (${d}`)).toHaveCount(0);
     }
+    const rules = page.getByRole('region', { name: 'Lesson rules' });
+    await expect(rules).toContainText('Start opens 10 minutes before the start and stays open until the lesson ends.');
+    await expect(rules).toContainText('All lessons are 1:1.');
     // R-06: no meeting link, ID or passcode anywhere.
     expect((await page.locator('body').innerText()).toLowerCase()).not.toMatch(/zoom\.us|meeting id|passcode/);
     await expectNoSeriousAxeIssues(page);

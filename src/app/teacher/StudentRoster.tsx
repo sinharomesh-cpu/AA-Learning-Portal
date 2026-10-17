@@ -129,9 +129,8 @@ export function StudentRoster({ students, realAccount }: { students: HomeStudent
         </>
       )}
       {students.length ? (
-        <p className="rounded-[16px] border border-dashed border-secondary bg-warning-container px-3 py-2 text-sm leading-5 text-on-warning-container">
-          <strong>Not decided yet (D-09):</strong> How teachers are linked to students. Only students linked to you
-          appear.
+        <p className="text-sm leading-5 text-on-surface-variant">
+          Only students a parent has linked to you appear here (OC-36).
         </p>
       ) : null}
     </section>

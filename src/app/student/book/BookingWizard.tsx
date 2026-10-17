@@ -240,7 +240,7 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
             <p className="text-[15px] leading-[22px] text-on-surface-variant">
               You can have one AI class in any 24 hours, so times close to your other AI class are grey.
             </p>
-            <PendingNote decision="D-05">How far ahead a lesson must be booked.</PendingNote>
+            <PendingNote decision="D-05b">How far ahead a lesson must be booked.</PendingNote>
           </Step>
 
           <Step n={4} title="How long?" id={`${uid}-s4`}>
