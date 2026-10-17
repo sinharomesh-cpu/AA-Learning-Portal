@@ -158,7 +158,15 @@ export function LandingPage({
                 ))}
               </ul>
             </div>
-            <OrbitIllustration />
+            <div className="relative">
+              <div
+                aria-hidden="true"
+                className="pub-orbit-glow pointer-events-none absolute -inset-[14%] rounded-full"
+              />
+              <div className="relative">
+                <OrbitIllustration />
+              </div>
+            </div>
           </div>
         </section>
 
