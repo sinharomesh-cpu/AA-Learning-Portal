@@ -19,8 +19,10 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary:
     'bg-primary border-primary text-on-primary hover:bg-primary-hover hover:border-primary-hover hover:text-on-primary',
   // DV-02: secondary borders use `outline` (#707881, 4.48:1), not `outline-variant` (1.71:1).
-  secondary: 'bg-white border-outline text-on-surface hover:bg-surface-container-low hover:text-on-surface',
-  danger: 'bg-white border-error text-on-error-container hover:bg-error-container hover:text-on-error-container',
+  secondary:
+    'bg-surface-container-lowest border-outline text-on-surface hover:bg-surface-container-low hover:text-on-surface',
+  danger:
+    'bg-surface-container-lowest border-error text-on-error-container hover:bg-error-container hover:text-on-error-container',
 };
 const INACTIVE =
   'bg-surface-container border-surface-container text-on-surface-variant cursor-not-allowed hover:bg-surface-container';

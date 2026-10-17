@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { BackToHome } from '@/components/BackToHome';
 import { LinkButton } from '@/components/Button';
-import { Card } from '@/components/Card';
-import { Wordmark } from '@/components/Wordmark';
+import { Icon, type IconName } from '@/components/public/icons';
+import { BackToHomeLink, BrandMark, PUBLIC_WRAP, PublicShell } from '@/components/public/PublicShell';
+import { cx } from '@/lib/cx';
 import { ROLE_HOME } from '@/lib/roles';
 import { isDemoMode } from '@/server/demo';
 import { realAuthEnabled } from '@/server/realAuth';
@@ -13,17 +13,41 @@ import { CreateAccountForm } from './CreateAccountForm';
 export const metadata: Metadata = { title: 'Create an account' };
 
 /** Board 62 (approved, OC-55). In demo mode or without a database: accounts are not open. */
+const NEXT: Array<{ icon: IconName; title: string; body: string; tone: string }> = [
+  {
+    icon: 'mail',
+    title: '1. Check your email',
+    body: 'We send you a link to confirm your address. It works once and expires in 24 hours.',
+    tone: 'bg-primary-fixed text-on-primary-fixed-variant',
+  },
+  {
+    icon: 'family',
+    title: '2. Parents: add your children',
+    body: 'You choose each child’s username and password. Children never need an email or phone.',
+    tone: 'bg-[var(--pub-amber-bg)] text-[var(--pub-amber)]',
+  },
+  {
+    icon: 'teacher',
+    title: '2. Teachers: tell us about your teaching',
+    body: 'The AA Pro team checks every teacher before they can see any child.',
+    tone: 'bg-[var(--pub-violet-bg)] text-[var(--pub-violet)]',
+  },
+];
+
+/** Board 62 (approved, OC-55), in the ZIP 5 "Create an account" layout. Demo or no database: not open. */
 export default async function CreateAccountPage() {
   const viewer = await getViewer();
   if (viewer) redirect(ROLE_HOME[viewer.role]);
   if (!realAuthEnabled()) {
     return (
-      <>
-        <BackToHome />
-        <main className="mx-auto flex max-w-[640px] flex-col gap-6 px-4 py-12">
-          <Wordmark size={36} href="/" />
-          <Card className="flex flex-col gap-4">
-            <h1 className="text-headline-md">Create an account</h1>
+      <PublicShell>
+        <main className={cx(PUBLIC_WRAP, 'flex flex-col gap-6 py-8 md:py-12')}>
+          <BackToHomeLink />
+          <section className="pub-card flex max-w-[720px] flex-col gap-5 rounded-[40px] p-6 sm:p-10">
+            <BrandMark />
+            <h1 className="font-headline text-[34px] font-extrabold leading-[42px] tracking-[-0.02em]">
+              Create an account
+            </h1>
             <p className="text-body-lg text-on-surface-variant">
               Parent and teacher accounts are not open yet. They are being built now and will open before launch.
             </p>
@@ -38,44 +62,72 @@ export default async function CreateAccountPage() {
                 Back to home
               </LinkButton>
             </div>
-          </Card>
+          </section>
         </main>
-      </>
+      </PublicShell>
     );
   }
   return (
-    <>
-      <BackToHome />
-      <main className="mx-auto grid max-w-[1120px] items-start gap-6 px-4 py-6 sm:px-6 lg:grid-cols-2 lg:gap-10">
-        <Card className="flex flex-col gap-5 p-6 lg:p-8">
-          <Wordmark size={32} href="/" />
-          <h1 className="text-headline-lg-mobile">Create an account</h1>
-          <CreateAccountForm />
-        </Card>
-        <section className="flex flex-col gap-4" aria-labelledby="next-steps">
-          <h2 id="next-steps" className="text-headline-sm">
-            What happens next
-          </h2>
-          <Card className="flex flex-col gap-2">
-            <h3 className="text-label-lg font-bold">1. Check your email</h3>
-            <p className="text-body-md text-on-surface-variant">
-              We send you a link to confirm your address. It works once and expires in 24 hours.
-            </p>
-          </Card>
-          <Card className="flex flex-col gap-2">
-            <h3 className="text-label-lg font-bold">2. Parents: add your children</h3>
-            <p className="text-body-md text-on-surface-variant">
-              You choose each child&apos;s username and password. Children never need an email or phone.
-            </p>
-          </Card>
-          <Card className="flex flex-col gap-2">
-            <h3 className="text-label-lg font-bold">2. Teachers: tell us about your teaching</h3>
-            <p className="text-body-md text-on-surface-variant">
-              The AA Pro team checks every teacher before they can see any child.
-            </p>
-          </Card>
-        </section>
+    <PublicShell>
+      <main className={cx(PUBLIC_WRAP, 'flex flex-col gap-6 py-8 md:py-12')}>
+        <BackToHomeLink />
+        <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-12">
+          <section
+            aria-labelledby="create-title"
+            className="pub-card flex flex-col gap-6 rounded-[40px] p-6 sm:p-10 lg:col-span-7"
+          >
+            <div className="flex flex-wrap items-center gap-2.5">
+              <BrandMark />
+              <span className="rounded-full bg-[var(--pub-amber-bg)] px-2.5 py-0.5 text-label-sm text-[var(--pub-amber)]">
+                Grades 1–12
+              </span>
+            </div>
+            <h1
+              id="create-title"
+              className="font-headline text-[34px] font-extrabold leading-[42px] tracking-[-0.02em] md:text-[44px] md:leading-[52px]"
+            >
+              Create an account
+            </h1>
+            <CreateAccountForm />
+          </section>
+          <aside aria-labelledby="next-steps" className="flex flex-col gap-5 lg:col-span-5">
+            <div className="flex flex-col gap-1.5">
+              <h2
+                id="next-steps"
+                className="font-headline text-[30px] font-extrabold leading-[38px] tracking-[-0.02em] md:text-[36px] md:leading-[44px]"
+              >
+                What happens next
+              </h2>
+              <p className="text-body-md text-on-surface-variant">
+                Three short steps before your family or teaching home opens.
+              </p>
+            </div>
+            {NEXT.map((n) => (
+              <div key={n.title} className="pub-card flex items-start gap-4 rounded-[32px] p-6">
+                <span className={cx('flex size-11 flex-none items-center justify-center rounded-full', n.tone)}>
+                  <Icon name={n.icon} size={22} />
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="font-headline text-[20px] font-bold leading-7">{n.title}</h3>
+                  <p className="text-body-md text-on-surface-variant">{n.body}</p>
+                </div>
+              </div>
+            ))}
+            <div className="flex items-start gap-4 rounded-[32px] bg-surface-container p-6">
+              <span className="flex size-11 flex-none items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant">
+                <Icon name="shield" size={20} />
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <h3 className="font-headline text-[20px] font-bold leading-7">Parents stay in charge</h3>
+                <p className="text-body-md text-on-surface-variant">
+                  Children never need an email or phone. You decide which teachers can see each child, and for which
+                  subjects.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
       </main>
-    </>
+    </PublicShell>
   );
 }

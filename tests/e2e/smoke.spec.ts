@@ -61,6 +61,32 @@ test('H1/H2: "Find a teacher" reaches the teachers section, which says honestly 
   await expectNoHorizontalScroll(page);
 });
 
+test('public pages work in dark mode and remember the light/dark choice (owner, 17 Oct 2026)', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  for (const path of ['/', '/sign-in', '/sign-in/child', '/create-account']) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // Dark palette is applied to the public frame.
+    const bg = await page.locator('.aa-public').evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(bg).toBe('rgb(11, 16, 38)');
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+    const serious = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+    expect(serious, `${path} ${JSON.stringify(serious.map((v) => [v.id, v.nodes.map((n) => n.target)]))}`).toEqual([]);
+    await expectNoHorizontalScroll(page);
+  }
+  // The switch overrides the device setting and is remembered across pages.
+  await page.goto('/');
+  const toggle = page.getByRole('button', { name: 'Dark mode' });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await page.goto('/sign-in');
+  expect(await page.locator('.aa-public').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+    'rgb(250, 248, 255)',
+  );
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+});
+
 test('a signed-in user skips the landing page and goes to their own home', async ({ page }) => {
   await signInAdult(page, /Demo Parent/);
   await page.goto('/');

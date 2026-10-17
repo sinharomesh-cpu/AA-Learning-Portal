@@ -83,3 +83,24 @@
 | 66 | Admins and permissions | 15 Oct 2026 | "Design Approved, Please proceed" (OC-55) |
 | H1 | Home page with "Teachers looking for students" (desktop), update to board 63 | 16 Oct 2026 | "Approved, Please go ahead" (OC-81) |
 | H2 | Home page with "Teachers looking for students" (phone) | 16 Oct 2026 | "Approved, Please go ahead" (OC-81) |
+| R0 | Textbooks and chapter reader board R0 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R1 | Textbooks and chapter reader board R1 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R2 | Textbooks and chapter reader board R2 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R3 | Textbooks and chapter reader board R3 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R4 | Textbooks and chapter reader board R4 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R5 | Textbooks and chapter reader board R5 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R6 | Textbooks and chapter reader board R6 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R7 | Textbooks and chapter reader board R7 | 16 Oct 2026 | "All design approve" (OC-82) |
+| R8 | Textbooks and chapter reader board R8 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D0 | Teacher discovery and enquiries board D0 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D1 | Teacher discovery and enquiries board D1 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D2 | Teacher discovery and enquiries board D2 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D3 | Teacher discovery and enquiries board D3 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D4 | Teacher discovery and enquiries board D4 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D5 | Teacher discovery and enquiries board D5 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D6 | Teacher discovery and enquiries board D6 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D7 | Teacher discovery and enquiries board D7 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D8 | Teacher discovery and enquiries board D8 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D9 | Teacher discovery and enquiries board D9 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D10 | Teacher discovery and enquiries board D10 | 16 Oct 2026 | "All design approve" (OC-82) |
+| D11 | Teacher discovery and enquiries board D11 | 16 Oct 2026 | "All design approve" (OC-82) |

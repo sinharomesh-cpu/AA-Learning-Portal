@@ -47,7 +47,6 @@ describe('home page once listings and enquiries are live', () => {
     expect(screen.getByText('Can I find a new teacher on AA Pro?')).toBeInTheDocument();
     expect(screen.getByText(/publish a “Looking for students” listing/)).toBeInTheDocument();
     expect(screen.getByText(/Experience on a listing is as stated by the teacher/)).toBeInTheDocument();
-    expect(screen.getByText('Approved teachers looking for students')).toBeInTheDocument();
   });
 
   it('cards show only the public listing fields', async () => {
@@ -81,5 +80,26 @@ describe('home page once listings and enquiries are live', () => {
     render(<TeachersSection wrap={WRAP} marketplace={{ listings: true, enquiries: true }} listings={[]} />);
     expect(screen.getByText(/No teachers are listed right now/)).toBeInTheDocument();
     expect(screen.queryByText(/How connecting works/)).not.toBeInTheDocument();
+  });
+});
+
+describe('owner rule (17 Oct 2026): no unverified claims on the home page', () => {
+  it('shows no ratings, certifications, compliance badges, guarantees or invented figures', () => {
+    const { container } = render(<LandingPage marketplace={{ listings: true, enquiries: true }} />);
+    const text = container.textContent ?? '';
+    for (const claim of [
+      /COPPA|FERPA|GDPR/i,
+      /\bratings?\b|parent reviews|★|\/5\.0/i,
+      /certified|accredited|audited|vetted/i,
+      /background[- ]check/i,
+      /guarantee/i,
+      /encrypt/i,
+      /\d+(,\d{3})+\+?/, // counts such as 10,000+
+      /\d+(\.\d+)?\s?%/, // percentages such as 98%
+      /top 1/i,
+      /zero contact|contact leak/i,
+    ]) {
+      expect(text, String(claim)).not.toMatch(claim);
+    }
   });
 });
