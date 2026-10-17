@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.50 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.51 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.51 changes (18 Oct 2026):**
+- CR-07 design boards **HW0–HW9** drawn on the design canvas (page "Homework & shared resources"), **awaiting owner review**. They are named HW so they do not clash with the homepage boards H1 and H2. One proposal needs approval: a "Homework" menu item for the student, parent and teacher menus.
 
 **v1.50 changes (owner, 18 Oct 2026, 01:41 IST):**
 - **New open decision D-45**, deferred by the owner to Phase 3: upcoming lessons of a deactivated teacher. **Open — Owner Decision Required.** No cancellation, reassignment, continuation or rescheduling policy may be assumed or implemented. At Phase 3 planning, Claude presents the options and their implications for approval before implementing anything. Tracked in `docs/phase3/P3-00_Phase3_Backlog.md`.
