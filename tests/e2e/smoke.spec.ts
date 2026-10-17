@@ -7,9 +7,7 @@ test('home shows the public landing page to a signed-out visitor (OC-39, board 6
   expect(response?.status()).toBe(200);
   await expect(page).toHaveURL(/\/$/);
   await expect(page).toHaveTitle('AA Pro');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    /Learning at home with an AI Tutor and real teachers/,
-  );
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Your Universe of Learning Starts Here/);
   for (const name of [
     'Teachers looking for students',
     'Three simple paths',
@@ -106,7 +104,7 @@ test('both sign-in pages lead back to the home page (OC-52)', async ({ page }) =
     await page.goto(path);
     await page.getByRole('link', { name: 'Back to home' }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Learning at home/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Your Universe of Learning/);
   }
 });
 

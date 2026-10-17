@@ -69,7 +69,7 @@ export default async function AddChildPage() {
           <p className="text-body-lg text-on-surface-variant">
             Please read how AA Pro uses your family&apos;s information, then choose what you agree to.
           </p>
-          <div className="rounded-md border border-card-border bg-white px-4 sm:px-6">
+          <div className="rounded-md border border-card-border bg-surface-container-lowest px-4 sm:px-6">
             {SECTIONS.map(([title, body]) => (
               <section key={title} className="flex flex-col gap-1.5 border-b border-surface-container py-4">
                 <h2 className="text-[18px] font-bold leading-[26px]">{title}</h2>

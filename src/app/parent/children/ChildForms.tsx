@@ -80,7 +80,7 @@ export function AvatarIcon({ avatar, size = 26 }: { avatar: string; size?: numbe
   );
 }
 
-const SELECT = 'min-h-[52px] rounded-[16px] border-2 bg-white px-4 text-base';
+const SELECT = 'min-h-[52px] rounded-[16px] border-2 bg-surface-container-lowest px-4 text-base';
 
 function FieldError({ id, children }: { id: string; children?: string }) {
   return children ? (

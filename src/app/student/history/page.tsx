@@ -34,7 +34,7 @@ export default async function StudentHistoryPage() {
               <li key={it.id}>
                 <article
                   aria-labelledby={`h-${it.id}`}
-                  className="flex items-start gap-4 rounded-md border border-card-border bg-white p-4 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05)] sm:gap-[18px] sm:p-6"
+                  className="flex items-start gap-4 rounded-md border border-card-border bg-surface-container-lowest p-4 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05)] sm:gap-[18px] sm:p-6"
                 >
                   <span
                     aria-hidden="true"

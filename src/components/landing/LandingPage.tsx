@@ -104,7 +104,7 @@ export function LandingPage({ marketplace = MARKETPLACE }: { marketplace?: Marke
                 id="hero-title"
                 className="font-headline text-[40px] font-extrabold leading-[46px] tracking-[-0.03em] md:text-[60px] md:leading-[66px]"
               >
-                Learning at home with an {brand.tutorNameShort} and <span className="pub-accent">real teachers</span>
+                Your Universe of <span className="pub-accent">Learning</span> Starts Here
               </h1>
               <p className="max-w-[56ch] text-body-lg text-on-surface-variant">
                 {brand.productName} brings your child&apos;s AI lessons, teacher sessions and learning materials

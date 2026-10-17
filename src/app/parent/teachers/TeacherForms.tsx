@@ -79,7 +79,7 @@ function ChildSubjectPicker({
                 {k.subjects.map((s) => (
                   <label
                     key={s}
-                    className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border-2 border-outline bg-white px-3.5 text-sm font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed has-[:checked]:text-on-primary-fixed has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary"
+                    className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border-2 border-outline bg-surface-container-lowest px-3.5 text-sm font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed has-[:checked]:text-on-primary-fixed has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary"
                   >
                     <input
                       type="checkbox"
@@ -95,7 +95,7 @@ function ChildSubjectPicker({
                 <button
                   type="button"
                   onClick={() => setPicks((p) => ({ ...p, [k.id]: [...k.subjects] }))}
-                  className="inline-flex min-h-11 items-center rounded-full border-2 border-outline bg-white px-3.5 text-sm font-bold"
+                  className="inline-flex min-h-11 items-center rounded-full border-2 border-outline bg-surface-container-lowest px-3.5 text-sm font-bold"
                 >
                   Tick all
                 </button>

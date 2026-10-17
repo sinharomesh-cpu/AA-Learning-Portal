@@ -6,7 +6,7 @@ import { isTestEnvironment } from '@/config/testEnv';
 import { brand } from '@/config/brand';
 import { isHostedDemoPreview } from '@/server/demo';
 import '@/styles/globals.css';
-import { jakarta, outfit } from './fonts';
+import { inter, jakarta, outfit } from './fonts';
 
 export const metadata: Metadata = {
   title: { default: brand.productName, template: `%s · ${brand.productName}` },
@@ -30,7 +30,7 @@ const THEME_BOOTSTRAP =
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // data-theme is set by the script below before React loads, hence suppressHydrationWarning.
-    <html lang="en" className={`${outfit.variable} ${jakarta.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${outfit.variable} ${jakarta.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>

@@ -31,7 +31,7 @@ function CodeField({ label = 'Security code' }: { label?: string }) {
         pattern="[0-9 ]*"
         maxLength={7}
         required
-        className="min-h-14 w-full rounded-[16px] border-2 border-outline bg-white px-4 text-center font-mono text-[24px] font-bold tracking-[.3em]"
+        className="min-h-14 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-center font-mono text-[24px] font-bold tracking-[.3em]"
       />
     </div>
   );
@@ -42,7 +42,7 @@ export function RecoveryCodes({ codes, doneHref = '/admin' }: { codes: string[];
   return (
     <section
       aria-labelledby="recovery-codes"
-      className="flex flex-col gap-3 rounded-[20px] border border-card-border bg-white p-4 sm:p-6"
+      className="flex flex-col gap-3 rounded-[20px] border border-card-border bg-surface-container-lowest p-4 sm:p-6"
       data-testid="recovery-codes"
     >
       <span className="text-xs font-bold uppercase tracking-[.06em] text-on-warning-container">Shown once</span>
@@ -101,7 +101,7 @@ export function EnrolForm({ qrSvg, secret, uri }: { qrSvg: string; secret: strin
             <span
               role="img"
               aria-label="QR code for your authenticator app"
-              className="block h-[240px] w-[240px] max-w-full rounded-[12px] border border-card-border bg-white p-3 [&>svg]:h-full [&>svg]:w-full"
+              className="block h-[240px] w-[240px] max-w-full rounded-[12px] border border-card-border bg-surface-container-lowest p-3 [&>svg]:h-full [&>svg]:w-full"
               // The SVG is generated on our server from the set-up link; it contains no user input.
               dangerouslySetInnerHTML={{ __html: qrSvg }}
             />
@@ -116,7 +116,7 @@ export function EnrolForm({ qrSvg, secret, uri }: { qrSvg: string; secret: strin
                 Or in the app choose <strong>Enter a setup key</strong>. Account name: AA Pro. Key (time based):
               </span>
               <span
-                className="break-all rounded-[8px] bg-white px-3 py-2 font-mono text-[17px] font-bold tracking-[.06em]"
+                className="break-all rounded-[8px] bg-surface-container-lowest px-3 py-2 font-mono text-[17px] font-bold tracking-[.06em]"
                 data-testid="mfa-secret"
               >
                 {groups}

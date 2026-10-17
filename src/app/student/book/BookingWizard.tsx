@@ -37,7 +37,7 @@ const UNAVAILABLE: Record<Exclude<SlotStatus, 'open'>, string> = {
 };
 
 const TILE =
-  'relative flex min-h-[72px] cursor-pointer flex-col justify-center gap-1 rounded-[20px] border-2 border-outline bg-white px-4 py-3 text-[17px] font-bold text-on-surface ' +
+  'relative flex min-h-[72px] cursor-pointer flex-col justify-center gap-1 rounded-[20px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-[17px] font-bold text-on-surface ' +
   'has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:checked]:shadow-[inset_0_0_0_1px_var(--color-primary)] ' +
   'has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary has-[:focus-visible]:outline-solid';
 const TILE_OFF =
@@ -48,7 +48,7 @@ function Step({ n, title, children, id }: { n: number; title: string; children: 
   return (
     <section
       aria-labelledby={id}
-      className="flex flex-col gap-3.5 rounded-md border border-card-border bg-white p-4 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05)] sm:p-6"
+      className="flex flex-col gap-3.5 rounded-md border border-card-border bg-surface-container-lowest p-4 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05)] sm:p-6"
     >
       <div className="flex items-center gap-3">
         <span
@@ -139,7 +139,7 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
                   name="chapter"
                   value={chapter}
                   onChange={(e) => setChapter(e.target.value)}
-                  className="min-h-14 w-full rounded-[16px] border-2 border-outline bg-white px-4 text-[17px]"
+                  className="min-h-14 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-[17px]"
                 >
                   <option value="">Any chapter</option>
                   {subjectChapters.map((c) => (
@@ -187,7 +187,7 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
                 {PARTS.map((p) => (
                   <label
                     key={p.id}
-                    className="relative flex min-h-12 cursor-pointer items-center rounded-full border-2 border-outline bg-white px-5 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary has-[:focus-visible]:outline-solid"
+                    className="relative flex min-h-12 cursor-pointer items-center rounded-full border-2 border-outline bg-surface-container-lowest px-5 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary has-[:focus-visible]:outline-solid"
                   >
                     <input
                       type="radio"
@@ -271,7 +271,7 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
 
         <aside
           aria-labelledby={`${uid}-summary`}
-          className="flex flex-col gap-3.5 rounded-md border border-card-border bg-white p-5 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05)] lg:sticky lg:top-4"
+          className="flex flex-col gap-3.5 rounded-md border border-card-border bg-surface-container-lowest p-5 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05)] lg:sticky lg:top-4"
         >
           <h2 id={`${uid}-summary`} className="font-headline text-[22px] font-bold leading-7">
             Your lesson

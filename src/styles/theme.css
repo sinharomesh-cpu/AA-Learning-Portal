@@ -1,0 +1,136 @@
+/*
+ * AA Pro light and dark themes for the whole application (owner decision OC-83, 17 Oct 2026).
+ *
+ * Light keeps the approved AA Pro tokens (tokens.css). Dark re-points the same tokens to the
+ * Cosmic Luminary palette, so every page and shared component (portal shells, dashboards,
+ * forms, dialogs, public pages) follows the theme from one place. Contrast of each text/surface
+ * pair was checked (at least 4.5:1, most above 7:1).
+ *
+ * The visitor's choice is stored in this browser only (localStorage `aa-theme`) and set on
+ * <html data-theme> before first paint (src/app/layout.tsx). Without a choice, the device
+ * setting decides. Repeated below for the explicit choice and for the device setting.
+ */
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-background: #0b1026;
+  --color-surface: #0d1228;
+  --color-surface-bright: #333850;
+  --color-surface-container-lowest: #10173a;
+  --color-surface-container-low: #131b3d;
+  --color-surface-container: #182247;
+  --color-surface-container-high: #202b55;
+  --color-surface-container-highest: #2a3663;
+  --color-on-surface: #edf4ff;
+  --color-on-background: #edf4ff;
+  --color-on-surface-variant: #b8c6e0;
+  --color-outline: #8a9bbd;
+  --color-outline-variant: #34416a;
+  --color-card-border: #26335e;
+  --color-primary: #45d6e8;
+  --color-primary-hover: #86f0ff;
+  --color-on-primary: #00262c;
+  --color-primary-container: #0e4a5a;
+  --color-on-primary-container: #b9f6ff;
+  --color-primary-fixed: #123a52;
+  --color-primary-fixed-dim: #2a8fa6;
+  --color-on-primary-fixed: #c6f7ff;
+  --color-on-primary-fixed-variant: #9eefff;
+  --color-on-primary-panel: #003a44;
+  --color-secondary: #ffb454;
+  --color-secondary-fixed: #3d2a0a;
+  --color-on-secondary-fixed: #ffe0b8;
+  --color-on-secondary-fixed-variant: #ffd69e;
+  --color-tertiary: #4edea3;
+  --color-tertiary-fixed: #0f3b2c;
+  --color-on-tertiary-fixed: #b7f7d8;
+  --color-on-tertiary-fixed-variant: #8ff5c8;
+  --color-success-container: #0f3b2c;
+  --color-success-border: #2e7d5c;
+  --color-on-success-container: #c4f8e0;
+  --color-warning-container: #3a2808;
+  --color-warning-border: #a8701f;
+  --color-on-warning-container: #ffe0b8;
+  --color-error: #ffb4ab;
+  --color-error-container: #4f0f0f;
+  --color-error-border: #b3524a;
+  --color-on-error-container: #ffdad6;
+  --color-inverse-surface: #dde1ff;
+  --color-inverse-on-surface: #1a2140;
+  --color-human-border: #2a8fa6;
+  --color-disabled-text: #8a9bbd;
+  --color-secondary-fixed-dim: #a8701f;
+  --color-surface-dim: #0b1026;
+  --color-surface-variant: #2a3663;
+  --color-on-secondary: #2a1700;
+  --color-on-tertiary: #002113;
+  --color-on-error: #690005;
+  --color-inverse-primary: #006194;
+  --color-tertiary-fixed-dim: #2e9d74;
+  --color-surface-tint: #45d6e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --color-background: #0b1026;
+    --color-surface: #0d1228;
+    --color-surface-bright: #333850;
+    --color-surface-container-lowest: #10173a;
+    --color-surface-container-low: #131b3d;
+    --color-surface-container: #182247;
+    --color-surface-container-high: #202b55;
+    --color-surface-container-highest: #2a3663;
+    --color-on-surface: #edf4ff;
+    --color-on-background: #edf4ff;
+    --color-on-surface-variant: #b8c6e0;
+    --color-outline: #8a9bbd;
+    --color-outline-variant: #34416a;
+    --color-card-border: #26335e;
+    --color-primary: #45d6e8;
+    --color-primary-hover: #86f0ff;
+    --color-on-primary: #00262c;
+    --color-primary-container: #0e4a5a;
+    --color-on-primary-container: #b9f6ff;
+    --color-primary-fixed: #123a52;
+    --color-primary-fixed-dim: #2a8fa6;
+    --color-on-primary-fixed: #c6f7ff;
+    --color-on-primary-fixed-variant: #9eefff;
+    --color-on-primary-panel: #003a44;
+    --color-secondary: #ffb454;
+    --color-secondary-fixed: #3d2a0a;
+    --color-on-secondary-fixed: #ffe0b8;
+    --color-on-secondary-fixed-variant: #ffd69e;
+    --color-tertiary: #4edea3;
+    --color-tertiary-fixed: #0f3b2c;
+    --color-on-tertiary-fixed: #b7f7d8;
+    --color-on-tertiary-fixed-variant: #8ff5c8;
+    --color-success-container: #0f3b2c;
+    --color-success-border: #2e7d5c;
+    --color-on-success-container: #c4f8e0;
+    --color-warning-container: #3a2808;
+    --color-warning-border: #a8701f;
+    --color-on-warning-container: #ffe0b8;
+    --color-error: #ffb4ab;
+    --color-error-container: #4f0f0f;
+    --color-error-border: #b3524a;
+    --color-on-error-container: #ffdad6;
+    --color-inverse-surface: #dde1ff;
+    --color-inverse-on-surface: #1a2140;
+    --color-human-border: #2a8fa6;
+    --color-disabled-text: #8a9bbd;
+    --color-secondary-fixed-dim: #a8701f;
+    --color-surface-dim: #0b1026;
+    --color-surface-variant: #2a3663;
+    --color-on-secondary: #2a1700;
+    --color-on-tertiary: #002113;
+    --color-on-error: #690005;
+    --color-inverse-primary: #006194;
+    --color-tertiary-fixed-dim: #2e9d74;
+    --color-surface-tint: #45d6e8;
+  }
+}

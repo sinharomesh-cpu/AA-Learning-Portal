@@ -9,7 +9,7 @@ interface CardProps extends HTMLAttributes<HTMLElement> {
 }
 
 const TONES = {
-  plain: 'bg-white border-card-border',
+  plain: 'bg-surface-container-lowest border-card-border',
   tinted: 'bg-surface-container-low border-card-border',
   primary: 'bg-primary border-primary text-on-primary',
 } as const;

@@ -30,7 +30,7 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * Light / dark switch for the public pages (owner request, 17 Oct 2026). The choice is kept in
+ * Light / dark switch for every page: public pages and all portal shells (OC-83). The choice is kept in
  * this browser only (localStorage); nothing is sent to the server.
  */
 export function ThemeToggle({ className }: { className?: string }) {

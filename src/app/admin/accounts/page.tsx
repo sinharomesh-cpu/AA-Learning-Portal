@@ -88,7 +88,10 @@ export default async function AdminAccountsPage({
       {/* Phone list */}
       <ul className="m-0 flex list-none flex-col gap-3 p-0 lg:hidden">
         {ACCOUNTS.map((a) => (
-          <li key={a.email} className="flex flex-col gap-1.5 rounded-[20px] border border-card-border bg-white p-3.5">
+          <li
+            key={a.email}
+            className="flex flex-col gap-1.5 rounded-[20px] border border-card-border bg-surface-container-lowest p-3.5"
+          >
             <span className="flex items-start justify-between gap-2">
               <strong>{a.name}</strong>
               <StatusChip kind={STATUS_KIND[a.status]}>{a.status}</StatusChip>

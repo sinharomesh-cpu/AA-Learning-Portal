@@ -1,9 +1,16 @@
 # AA Pro — Design Implementation Gap Report
 
-**Version:** 1.0 · 17 Oct 2026 · **Prepared by:** Claude.
+**Version:** 1.1 · 17 Oct 2026 · **Prepared by:** Claude.
 **Requested by the owner:**
 - "Mandatory Correction of UI Implementation to Match My Supplied Designs" (17 Oct 2026, 02:41 IST).
 - "Fix the homepage design and sign in page … mode should be both Light/Dark … remove or replace claims" (17 Oct 2026, 12:01 IST).
+- "Design Review Decisions and Next Implementation Instructions" (17 Oct 2026, 13:06 IST; register OC-83).
+
+**v1.1 (increment 2, OC-83):**
+- Home headline is now "Your Universe of Learning Starts Here"; public body text uses Inter.
+- The hero planets really move (canvas animation on the approved orbits); see section 3.6.
+- Light and dark mode now cover the whole application; see section 3.7.
+- Questions Q-1 to Q-6 are answered (section 6). Dashboards (section 4) come next, after your review.
 
 **Status of this increment:**
 - The home page and the sign-in, child sign-in and create-account pages are corrected.
@@ -74,7 +81,7 @@ Status key:
 | **Light / dark** | Dark uses the Cosmic Luminary palette: midnight navy `#0B1026`, electric cyan `#45D6E8`, aurora violet, solar amber. Light uses the approved AA Pro tokens with soft blue and violet glows |
 | **Status** | D ✓ · I ✓ · T ✓ · E ✓. The textbook and teacher-listing parts are informational only (feature not built) |
 | **Files** | `src/components/landing/LandingPage.tsx`, `OrbitIllustration.tsx`, `TextbookPreview.tsx`, `TeachersSection.tsx`, `src/config/landing.ts`, `src/components/public/*`, `src/styles/public-theme.css` |
-| **Still differs from the reference** | Headline keeps the approved wording ("Learning at home with an AI Tutor and real teachers") instead of "Your Universe of Learning Starts Here" (Q-1). No search box (no public search yet). No teacher cards (no listings yet). No consultation form. Body font is Plus Jakarta Sans, not Inter (Q-3). The hero picture is an SVG drawing, not the hosted image (Q-4) |
+| **Still differs from the reference** | ~~Headline (Q-1)~~ done in v1.1. ~~Body font (Q-3)~~ Inter in v1.1. No search box or grade selector (no public search yet; OC-83 note (a)). No teacher cards (no listings yet). No consultation form. The hero is the approved orbit scene, now animated (section 3.6), not the reference's hosted image |
 
 ### 3.2 Sign in (`/sign-in`)
 
@@ -110,8 +117,32 @@ Status key:
 - **Light/dark switch:**
   - The choice is kept in the browser only (`localStorage` key `aa-theme`) and applied before first paint, so there is no flash.
   - Without a choice, the device setting decides.
-  - It applies to the public pages only. The signed-in portal is unchanged (Q-5).
+  - v1.0: public pages only. **v1.1: the whole application** (section 3.7).
 - **Secondary buttons and text fields** now use the `surface-container-lowest` token instead of plain white. This is the same white in light mode, so the portal looks the same. It lets them follow dark mode on public pages.
+
+### 3.6 Hero planets — real movement (v1.1, OC-83)
+
+| | |
+|---|---|
+| **Baseline** | The approved orbit scene (v1.0): three orbits, star dots, core glow, central AA Pro hub, six subject chips, three small planets |
+| **After** | Same orbits, stars, glow and hub, same size and place on the page. The six subjects are now planets, each with its own look (Maths ringed, Science cratered, SST land and sea, English and Hindi banded, IT a grid globe). They travel along the approved orbits: ring 140 s per turn, wide orbit 95 s, inner orbit 62 s; the small planets go the other way (120–210 s). Each planet turns, is lit from the hub (highlight and night side), has a soft atmosphere, and on the tilted orbits passes **behind** the hub on the far side (smaller and dimmer) and in front on the near side. Each subject label moves with its planet |
+| **How** | Two `<canvas>` layers (behind and in front of the hub) drawn with the browser's 2D canvas; no library, no image, no external service. Three.js was not needed (it would add roughly 150 KB of compressed script for the same result) |
+| **Opening frame** | Bodies start at the approved positions (within 7 design units; DV-66, DV-67) |
+| **Reduced motion / Save-Data** | One still frame, no movement |
+| **Fallback** | Without JavaScript or canvas: still SVG planets with labels at the approved positions |
+| **Performance** | Pauses when scrolled off screen or when the tab is hidden; pixel density capped at 2×. Measured: median frame 16.7 ms (60 fps), p95 16.8 ms at 1280 px and 390 px; no sideways scrolling |
+| **Proof it moves** | Browser test `tests/e2e/planets.spec.ts` (labels change position over 2.5 s; canvas is painted; frame time; reduced motion stays still), plus a screen recording |
+| **Files** | `src/components/landing/OrbitIllustration.tsx`, `planets.ts`, `planetPainter.ts`, `planets.test.ts` |
+| **Known limits** | Near the left and right edges a label stays inside the scene while its planet passes (DV-68). The English label briefly passes over the "AA Pro" pill when its planet is in front of the hub |
+
+### 3.7 Light and dark mode across the application (v1.1, OC-83)
+
+| | |
+|---|---|
+| **After** | Dark colour tokens moved from the public pages to the whole app (`src/styles/theme.css`), so every page, card, form, chip, dialog and menu follows the theme from one place. Switch added to: the adult portal header (desktop), the phone Menu (a "Dark mode" row), the student header, and the standalone pages (forgot/reset password, confirm email, teacher terms, setup). 41 hard-coded white backgrounds now use the surface token; the role chip uses tokens |
+| **Light mode** | Pixel-compared with the screens before the change: identical except for the new switch in the header |
+| **Dark mode** | Parent, student, teacher and Super Admin pages pass the automated accessibility scan (including colour contrast) on desktop and phone (`tests/e2e/theme.spec.ts`) |
+| **Not covered yet** | Textbook reader and AI classroom (not built; they will use the same tokens). The Super Admin second-factor page and developer tools follow the stored choice but have no switch of their own |
 
 ## 4. Screen-by-screen: signed-in portal (audit only, not changed in this increment)
 
@@ -129,7 +160,7 @@ These ZIP 5 screens are the same files as in ZIPs 8 and 9. Phase 1 implemented t
 | `child_dashboard_*`, `multi_child_*` | Parent/child views | Superseded by S19 and the multi-child decisions (G1-01); reference only | — | 4 |
 | `parent_mode_book_human_teacher` (S20) | Book a human teacher (Phase 3) | Booking not built; design only | — | 4 |
 
-The portal shell (sidebar, top bar) uses the approved light tokens. Dark mode for the portal is not requested yet (Q-5).
+v1.1: the portal shells now have the light/dark switch (section 3.7). The visual gaps above are unchanged and come next, after the owner reviews this increment (OC-83).
 
 ## 5. Tests and checks run for this increment
 
@@ -147,15 +178,15 @@ Before and after screenshots, desktop 1280 px and phone 390 px, light and dark, 
 
 | # | Question | Default used until you decide |
 |---|---|---|
-| Q-1 | Hero headline: keep the approved "Learning at home with an AI Tutor and real teachers", or use the reference's "Your Universe of Learning Starts Here"? | Approved wording kept |
-| Q-2 | ZIP 5 contains an "AA" logo tile. Should it become the official AA Pro mark (header, favicon) in place of the book-in-a-ring mark from the cosmic page? | Book-in-a-ring mark from the cosmic reference |
-| Q-3 | Body font: Cosmic Luminary names Inter; the app and the light references use Plus Jakarta Sans. Switch? | Plus Jakarta Sans (one font family across public and portal) |
-| Q-4 | The reference hero uses a hosted planet image. If you want that exact picture, please attach the image file with permission to use it | SVG orbit drawing |
-| Q-5 | Should the signed-in portal also get the light/dark switch? | Public pages only |
-| Q-6 | Default when a visitor has never chosen: follow the device setting (current) or always start dark like the cosmic reference? | Follow the device setting |
+| Q-1 | Hero headline | **Answered (OC-83):** "Your Universe of Learning Starts Here" — done |
+| Q-2 | Official mark | **Answered (OC-83):** keep the book-in-a-ring mark |
+| Q-3 | Body font | **Answered (OC-83):** Inter on the public pages — done. Portal keeps Plus Jakarta Sans (OC-83 note (c)) |
+| Q-4 | Hosted hero image | **Superseded (OC-83):** keep the approved orbit scene and animate it — done |
+| Q-5 | Portal light/dark switch | **Answered (OC-83):** yes, across the application — done |
+| Q-6 | First-visit default | **Answered (OC-83):** follow the device setting — kept |
 
 ## 7. Recommended next increments
 
-1. Student home (S1/S9) and family home (S19) visual correction, with before/after screenshots.
+1. After owner review of v1.1: student home (S1/S9) and family home (S19) visual correction, with before/after screenshots in both themes.
 2. Teacher home (S21) and the AI booking and schedule screens (S11–S14).
 3. Design-only versions of the AI classroom and textbook screens, with controls disabled until their phases are built.

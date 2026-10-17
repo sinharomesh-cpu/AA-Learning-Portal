@@ -57,7 +57,7 @@ function OutcomeCard({ tone, title, live, headingLevel = 1, children }: ShellPro
     <section
       role={live}
       className={cx(
-        'flex flex-col gap-3.5 rounded-md border bg-white p-5 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05),0_2px_6px_-1px_rgba(19,27,46,0.03)] sm:p-6',
+        'flex flex-col gap-3.5 rounded-md border bg-surface-container-lowest p-5 shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05),0_2px_6px_-1px_rgba(19,27,46,0.03)] sm:p-6',
         t.ring,
       )}
     >
