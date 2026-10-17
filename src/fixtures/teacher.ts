@@ -2,6 +2,7 @@ import { localDayAt, relativeDayLabel } from '@/lib/localTime';
 import { clockNow } from '@/lib/clock';
 import { formatClockTime } from '@/lib/time';
 import { findPersona } from './personas';
+import type { SubjectId } from './subjects';
 import type { Lesson } from './schedule';
 import { lessonsForTeacher } from './schedule';
 
@@ -11,8 +12,8 @@ import { lessonsForTeacher } from './schedule';
  * How teachers are linked to students is still undecided (D-09); links here are fixtures.
  */
 
-const TEACHING: Record<string, { subjects: string; grades: string }> = {
-  'demo-teacher-rao': { subjects: 'Science', grades: 'Grades 4–5' },
+const TEACHING: Record<string, { subjects: string; grades: string; subjectIds: SubjectId[]; gradeList: number[] }> = {
+  'demo-teacher-rao': { subjects: 'Science', grades: 'Grades 4–5', subjectIds: ['science'], gradeList: [4, 5] },
 };
 
 const LINKED_STUDENTS: Record<string, Array<{ id: string; subject: string; completed: number }>> = {
@@ -49,6 +50,8 @@ export interface TeacherLesson extends Lesson {
 }
 
 export interface AvailabilityDay {
+  /** Local days from today (0 = today). */
+  dayOffset: number;
   dayLabel: string;
   from: string;
   to: string;
@@ -63,6 +66,8 @@ export interface TeacherDashboard {
   timeZone: string;
   subjects: string;
   grades: string;
+  subjectIds: SubjectId[];
+  gradeList: number[];
   lessons: TeacherLesson[];
   availability: AvailabilityDay[];
   students: Array<{ id: string; name: string; grade: number; subject: string; completed: number }>;
@@ -108,6 +113,7 @@ export function getTeacherDashboard(teacherId: string, now: Date = clockNow()): 
     const booked = slots.filter((s) => at(s)?.status === 'confirmed').length;
     const waiting = slots.filter((s) => at(s)?.status === 'proposed').length;
     return {
+      dayOffset: w.day,
       dayLabel: relativeDayLabel(start, tz, now),
       from: formatClockTime(start, { timeZone: tz }),
       to: formatClockTime(end, { timeZone: tz }),
@@ -123,6 +129,8 @@ export function getTeacherDashboard(teacherId: string, now: Date = clockNow()): 
     timeZone: tz,
     subjects: TEACHING[teacherId]?.subjects ?? '',
     grades: TEACHING[teacherId]?.grades ?? '',
+    subjectIds: TEACHING[teacherId]?.subjectIds ?? [],
+    gradeList: TEACHING[teacherId]?.gradeList ?? [],
     lessons,
     availability,
     students: (LINKED_STUDENTS[teacherId] ?? []).map((s) => {

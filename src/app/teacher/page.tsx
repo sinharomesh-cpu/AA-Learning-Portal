@@ -1,201 +1,443 @@
 import type { Metadata } from 'next';
-import { clockNow } from '@/lib/clock';
 import Link from 'next/link';
-import { LinkButton } from '@/components/Button';
-import { Card } from '@/components/Card';
+import type { ReactNode } from 'react';
+import { Button, LinkButton } from '@/components/Button';
+import { Icon, type SymbolName } from '@/components/icons/Icon';
 import { JoinButton } from '@/components/JoinButton';
 import { LessonStatusChip } from '@/components/lessons/LessonStatus';
 import { PendingNote } from '@/components/PendingNote';
 import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
-import { EmptyState } from '@/components/states/States';
-import { getTeacherDashboard, TEACHER_SLOT_MINUTES } from '@/fixtures/teacher';
+import { SUBJECT_ICONS } from '@/config/subjectIcons';
+import { SUBJECTS } from '@/fixtures/subjects';
+import { clockNow } from '@/lib/clock';
 import { cx } from '@/lib/cx';
+import { describeGrades } from '@/lib/grades';
 import { greeting } from '@/lib/localTime';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
+import { getTeacherHome, type TeacherHome } from '@/server/teacherHome';
+import { StudentRoster } from './StudentRoster';
 
 export const metadata: Metadata = { title: 'Dashboard' };
+export const dynamic = 'force-dynamic';
 
-function availabilityText(d: { booked: number; waiting: number; open: number }) {
-  const parts = [];
-  if (d.booked) parts.push(`${d.booked} booked`);
-  if (d.waiting) parts.push(`${d.waiting} waiting`);
-  parts.push(`${d.open} open`);
-  return parts.join(' · ');
+/** The large rounded panel of the S21 reference (3rem corners from 640 px up). */
+const PANEL =
+  'rounded-lg border border-card-border bg-surface-container-lowest shadow-[0_4px_12px_-2px_rgba(19,27,46,0.05),0_2px_6px_-1px_rgba(19,27,46,0.03)] sm:rounded-xl';
+
+function SectionHeading({
+  id,
+  eyebrow,
+  eyebrowClass = 'text-primary',
+  children,
+}: {
+  id: string;
+  eyebrow: string;
+  eyebrowClass?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col">
+      <span className={cx('text-label-sm uppercase tracking-wider', eyebrowClass)}>{eyebrow}</span>
+      <h2 id={id} className="font-headline text-headline-sm font-bold sm:text-headline-md">
+        {children}
+      </h2>
+    </div>
+  );
 }
 
-/** Teacher dashboard: P21 (board 55 desktop, board 56 phone). Synthetic data only. */
-export default async function TeacherHomePage() {
-  const access = await requireRole('teacher');
-  if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
-  // The teacher id comes from the session only: own lessons and linked students (FR-002.2).
-  const now = clockNow();
-  const data = getTeacherDashboard(access.viewer.id, now);
-  if (!data) return <AccessDenied viewerRole="teacher" />;
-  const tz = data.timeZone;
-
+function Masthead({ home, now }: { home: TeacherHome; now: Date }) {
+  const zone = `${formatZoneName(now.toISOString(), { timeZone: home.timeZone })}, ${home.timeZone}`;
+  const claims = [
+    home.experienceYears !== null
+      ? `${home.experienceYears} ${home.experienceYears === 1 ? 'year' : 'years'} teaching`
+      : null,
+    home.curricula.length ? home.curricula.join(', ') : null,
+  ].filter(Boolean);
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-headline-lg-mobile lg:text-headline-lg">
-            {greeting(tz, now)}, {data.name}
-          </h1>
-          <p className="text-sm leading-5 text-on-surface-variant">
-            {data.subjects} · {data.grades} · times are shown in your time zone (
-            {formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
-          </p>
-        </div>
-        <LinkButton href="/teacher/propose">Propose a meeting</LinkButton>
-      </div>
-
-      <Card aria-labelledby="lessons" className="flex flex-col gap-1 p-4 sm:p-6">
-        <h2 id="lessons" className="mb-1.5 text-[22px] font-bold leading-7">
-          Upcoming lessons
-        </h2>
-        {data.lessons.length ? (
-          <ul className="m-0 list-none p-0">
-            {data.lessons.map((l, i) => (
-              <li
-                key={l.id}
-                className={cx(
-                  'flex flex-col gap-3 py-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4',
-                  i < data.lessons.length - 1 && 'border-b border-surface-container',
-                )}
+    <section aria-labelledby="teacher-name" className={cx(PANEL, 'relative overflow-hidden')}>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-20 -top-24 h-80 w-80 rounded-full bg-primary-fixed/40 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 right-40 h-56 w-56 rounded-full bg-tertiary-fixed/25 blur-2xl"
+      />
+      <div className="relative flex flex-col justify-between gap-6 p-5 sm:p-8 lg:flex-row lg:items-center">
+        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+          <div className="relative shrink-0">
+            {home.photoId ? (
+              // eslint-disable-next-line @next/next/no-img-element -- private, uncached photo route
+              <img
+                src={`/teacher-photo/${home.photoId}`}
+                alt=""
+                width={112}
+                height={112}
+                className="h-24 w-24 rounded-lg object-cover shadow-md sm:h-28 sm:w-28"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex h-24 w-24 items-center justify-center rounded-lg bg-primary-fixed font-headline text-[44px] font-bold text-on-primary-fixed-variant shadow-md sm:h-28 sm:w-28"
               >
-                <article aria-labelledby={`lesson-${l.id}`} className="flex flex-col gap-1.5">
-                  <div className="flex flex-wrap gap-2">
-                    <StatusChip kind="human">Teacher lesson</StatusChip>
-                    <LessonStatusChip status={l.status} viewer="teacher" />
-                  </div>
-                  <h3 id={`lesson-${l.id}`} className="font-headline text-[20px] font-bold leading-7">
-                    {l.subject} · {l.studentName} (Grade {l.studentGrade})
-                  </h3>
-                  <p className="text-[15px]">
-                    {l.dayLabel} {l.timeLabel}–{l.endLabel} · {l.durationMinutes} min ·{' '}
-                    {l.status === 'confirmed' ? 'on Zoom' : 'Zoom meeting not created yet'}
-                  </p>
-                  {l.status === 'confirmed' ? (
-                    <p className="text-sm text-on-surface-variant">
-                      Reminder: email to you and the parent, 15 min before
+                {home.initial}
+              </span>
+            )}
+            <span className="absolute -bottom-2 -right-2 flex items-center gap-1 rounded-full bg-tertiary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-on-tertiary shadow-sm">
+              <Icon name="verified_fill" size={14} />
+              Approved
+            </span>
+          </div>
+          <div className="flex max-w-xl flex-col gap-1.5">
+            <p className="text-label-md text-on-surface-variant">{greeting(home.timeZone, now)}</p>
+            <h1 id="teacher-name" className="font-headline text-headline-md sm:text-headline-lg">
+              {home.name}
+            </h1>
+            <p className="text-body-md text-on-surface-variant">
+              {claims.length ? `${claims.join(' · ')} · ` : ''}Times are shown in your time zone ({zone}).
+            </p>
+            <ul aria-label="What you teach" className="m-0 flex list-none flex-wrap items-center gap-2 p-0 pt-1">
+              {home.subjectIds.map((s) => (
+                <li
+                  key={s}
+                  className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-on-surface"
+                >
+                  <Icon name={SUBJECT_ICONS[s]} size={16} className="text-primary" />
+                  {SUBJECTS[s].name}
+                </li>
+              ))}
+              {home.grades.length ? (
+                <li className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-label-sm text-on-surface-variant">
+                  <Icon name="school" size={16} />
+                  {describeGrades(home.grades)}
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        </div>
+        <div className="flex min-w-[260px] flex-col gap-3 rounded-lg bg-surface-container-low p-5">
+          <h2 className="text-label-sm uppercase tracking-wider text-on-surface-variant">This week</h2>
+          <dl className="m-0 flex flex-col gap-2">
+            {home.summary.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between gap-4 rounded-md bg-surface-container-lowest px-3 py-2"
+              >
+                <dt className="text-body-sm text-on-surface-variant">{row.label}</dt>
+                <dd className="m-0 text-right text-label-md text-on-surface">
+                  {row.href ? (
+                    <Link href={row.href} aria-label={`${row.label}: ${row.value}`} className="font-bold">
+                      {row.value}
+                    </Link>
+                  ) : (
+                    row.value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+      <div className="relative flex flex-col justify-between gap-2 bg-surface-container-high/60 px-5 py-3 sm:px-8 md:flex-row md:items-center">
+        <p className="flex items-center gap-2 text-label-sm text-on-surface-variant">
+          <Icon name="security" size={18} className="text-primary" />
+          Private to you: you see only your own lessons and the students linked to you.
+        </p>
+        {home.mode === 'demo' ? (
+          <p className="flex items-center gap-1.5 self-start text-label-sm text-secondary md:self-auto">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-secondary-container" />
+            Demo: sample data only
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+const BAR = { confirmed: 'bg-primary', booked: 'bg-primary', proposed: 'bg-secondary-container' } as const;
+
+function Sessions({ home }: { home: TeacherHome }) {
+  const today = home.lessons.filter((l) => l.dayLabel === 'Today').length;
+  return (
+    <section aria-labelledby="sessions" className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <SectionHeading id="sessions" eyebrow="Upcoming lessons">
+          Scheduled teaching sessions
+        </SectionHeading>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-on-surface-variant">
+            Today: {today} {today === 1 ? 'lesson' : 'lessons'}
+          </span>
+          <LinkButton href="/teacher/propose" variant="secondary">
+            <Icon name="add" size={18} />
+            Propose a meeting
+          </LinkButton>
+        </div>
+      </div>
+      {home.lessons.length ? (
+        <ul className="m-0 flex list-none flex-col gap-4 p-0">
+          {home.lessons.map((l) => (
+            <li key={l.id} className={cx(PANEL, 'relative overflow-hidden transition-shadow hover:shadow-md')}>
+              <span aria-hidden="true" className={cx('absolute bottom-0 left-0 top-0 w-2', BAR[l.status])} />
+              <article
+                aria-labelledby={`lesson-${l.id}`}
+                className="flex flex-col justify-between gap-4 py-5 pl-6 pr-5 sm:pr-6 md:flex-row md:items-center"
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
+                      SUBJECTS[l.subjectId].tile,
+                    )}
+                  >
+                    <Icon name={SUBJECT_ICONS[l.subjectId]} size={26} />
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 id={`lesson-${l.id}`} className="font-headline text-headline-sm">
+                        {l.subject} with {l.studentName}
+                      </h3>
+                      <span className="rounded-full bg-surface-container px-2 py-0.5 text-label-sm text-primary">
+                        {l.subject} · Grade {l.studentGrade}
+                      </span>
+                    </div>
+                    <p className="text-body-md text-on-surface-variant">
+                      1-on-1 teacher lesson · {l.durationMinutes} min ·{' '}
+                      {l.status === 'confirmed' ? 'on Zoom' : 'Zoom meeting not created yet'}
                     </p>
-                  ) : null}
-                </article>
-                <div className="flex flex-col items-stretch gap-2 sm:items-start">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 text-label-sm text-on-surface-variant">
+                      <span className="inline-flex items-center gap-1">
+                        <Icon name="schedule" size={16} className="text-primary" />
+                        {l.dayLabel} {l.timeLabel}–{l.endLabel}
+                      </span>
+                      <LessonStatusChip status={l.status} viewer="teacher" />
+                      {l.status === 'confirmed' ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="notifications" size={16} />
+                          Email reminder to you and the parent, 15 min before
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row md:flex-col md:items-end">
                   {l.status === 'confirmed' ? <JoinButton label="Start opens before the lesson" size="md" /> : null}
-                  <Link href="/teacher/schedule" className="font-bold">
+                  <Link
+                    href="/teacher/schedule"
+                    className="inline-flex min-h-12 items-center justify-center gap-1 text-label-md md:min-h-0 md:py-1"
+                  >
+                    <Icon name={l.status === 'confirmed' ? 'description' : 'edit_calendar'} size={18} />
                     View details
                     <span className="sr-only">
                       : {l.subject} with {l.studentName}
                     </span>
                   </Link>
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState title="No lessons coming up">When families book you, the lessons appear here.</EmptyState>
-        )}
-        <div className="mt-2 flex flex-col gap-2">
-          <PendingNote decision="D-35">When Start and Join open.</PendingNote>
-          <PendingNote decision="D-08">Whether the parent must confirm a lesson you propose.</PendingNote>
-          <PendingNote decision="D-07">Whether teachers may cancel.</PendingNote>
-          <PendingNote decision="D-15">Group sessions. Only 1:1 lessons are shown.</PendingNote>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-        <Card aria-labelledby="availability" className="flex flex-col gap-2.5 p-4 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <h2 id="availability" className="text-[22px] font-bold leading-7">
-              My availability this week
-            </h2>
-            <LinkButton href="/teacher/availability" variant="secondary">
-              Edit availability
-            </LinkButton>
-          </div>
-          <ul className="m-0 list-none p-0">
-            {data.availability.map((d, i) => (
-              <li
-                key={`${d.dayLabel}-${d.from}`}
-                className={cx(
-                  'flex flex-wrap items-center justify-between gap-3 py-3.5',
-                  i < data.availability.length - 1 && 'border-b border-surface-container',
-                )}
-              >
-                <span>
-                  <strong>{d.dayLabel}</strong> {d.from}–{d.to}
-                </span>
-                <StatusChip kind={d.booked || d.waiting ? 'warning' : 'success'}>{availabilityText(d)}</StatusChip>
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm text-on-surface-variant">
-            Slots are {TEACHER_SLOT_MINUTES} minutes. Families see these times in their own time zone.
+              </article>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className={cx(PANEL, 'flex flex-col items-start gap-2 p-6')}>
+          <Icon name="event_available" size={32} className="text-primary" />
+          <h3 className="font-headline text-headline-sm">No lessons coming up</h3>
+          <p className="text-body-md text-on-surface-variant">
+            {home.mode === 'real'
+              ? 'Booking lessons opens with scheduling in a later phase. Until then, families can send you enquiries from your listing.'
+              : 'When families book you, the lessons appear here.'}
           </p>
-        </Card>
+        </div>
+      )}
+      <div className="flex flex-col gap-2">
+        <PendingNote decision="D-35">When Start and Join open.</PendingNote>
+        <PendingNote decision="D-08">Whether the parent must confirm a lesson you propose.</PendingNote>
+        <PendingNote decision="D-07">Whether teachers may cancel.</PendingNote>
+        <PendingNote decision="D-15">Group sessions. Only 1:1 lessons are shown.</PendingNote>
+      </div>
+    </section>
+  );
+}
 
-        <Card aria-labelledby="students" className="flex flex-col gap-1.5 p-4 sm:p-6">
-          <h2 id="students" className="text-[22px] font-bold leading-7">
-            My students
-          </h2>
-          <ul className="m-0 list-none p-0">
-            {data.students.map((s, i) => (
-              <li
-                key={s.id}
-                className={cx(
-                  'flex flex-wrap items-center justify-between gap-3 py-3.5',
-                  i < data.students.length - 1 && 'border-b border-surface-container',
-                )}
+const PILL = {
+  open: 'bg-surface-container-high text-primary',
+  full: 'bg-surface-container text-on-surface-variant',
+  none: 'text-on-surface-variant',
+} as const;
+const DOT = { open: 'bg-primary', full: 'bg-secondary', none: 'bg-transparent' } as const;
+const ROW_DOT = {
+  success: 'bg-tertiary',
+  warning: 'bg-secondary',
+  neutral: 'bg-outline',
+  human: 'bg-primary',
+} as const;
+
+function Availability({ home, now }: { home: TeacherHome; now: Date }) {
+  return (
+    <section aria-labelledby="availability" className="flex flex-col gap-4">
+      <div className="flex items-end justify-between gap-3">
+        <SectionHeading id="availability" eyebrow="This week" eyebrowClass="text-tertiary">
+          Availability
+        </SectionHeading>
+        <Link
+          href="/teacher/availability"
+          className="inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-full bg-tertiary px-3 text-label-sm text-on-tertiary no-underline shadow-sm hover:bg-tertiary-container hover:text-on-tertiary"
+        >
+          <Icon name="add" size={16} />
+          {home.mode === 'real' ? 'Edit times' : 'Edit availability'}
+        </Link>
+      </div>
+      <div className={cx(PANEL, 'flex flex-col gap-4 p-5')}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2 text-label-md text-on-surface">
+            <Icon name="calendar_view_week" className="text-primary" />
+            Next 7 days
+          </span>
+          <span className="text-label-sm text-on-surface-variant">
+            {formatZoneName(now.toISOString(), { timeZone: home.timeZone })}
+          </span>
+        </div>
+        <ol aria-label="Next 7 days" className="m-0 grid list-none grid-cols-7 gap-1 p-0 text-center">
+          {home.week.map((d) => (
+            <li
+              key={`${d.short}-${d.date}`}
+              className={cx(
+                'flex flex-col items-center rounded-lg px-0.5 py-1.5',
+                PILL[d.state],
+                d.isToday && 'ring-2 ring-primary',
+              )}
+            >
+              <span className="sr-only">{d.summary}</span>
+              <span aria-hidden="true" className="text-[10px] font-bold uppercase">
+                {d.short}
+              </span>
+              <span
+                aria-hidden="true"
+                className="mt-1 font-headline text-[18px] font-bold leading-none sm:text-headline-sm"
               >
-                <span>
-                  <strong>{s.name}</strong>
-                  <br />
-                  <span className="text-sm text-on-surface-variant">
-                    Grade {s.grade} · {s.subject} · {s.completed} {s.completed === 1 ? 'lesson' : 'lessons'} completed
+                {d.date}
+              </span>
+              <span aria-hidden="true" className={cx('mt-1 h-1.5 w-1.5 rounded-full', DOT[d.state])} />
+            </li>
+          ))}
+        </ol>
+        {home.weekRows.length ? (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {home.weekRows.map((r) => (
+              <li
+                key={`${r.dayOffset}-${r.from}`}
+                className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-low px-3 py-2.5"
+              >
+                <span className="flex items-center gap-2">
+                  <span aria-hidden="true" className={cx('h-2 w-2 shrink-0 rounded-full', ROW_DOT[r.chip.kind])} />
+                  <span className="flex flex-col">
+                    <span className="whitespace-nowrap text-label-md text-on-surface">
+                      {r.dayLabel} · {r.from}–{r.to}
+                    </span>
+                    <span className="text-[13px] leading-[18px] text-on-surface-variant">{r.detail}</span>
                   </span>
                 </span>
-                <LinkButton href={`/teacher/students/${s.id}`} variant="secondary" aria-label={`View ${s.name}`}>
-                  View
-                </LinkButton>
-              </li>
-            ))}
-          </ul>
-          <PendingNote decision="D-09">
-            How teachers are linked to students. Only students linked to you appear.
-          </PendingNote>
-        </Card>
-      </div>
-
-      <Card aria-labelledby="shared" className="flex flex-col gap-1.5 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <h2 id="shared" className="text-[22px] font-bold leading-7">
-            Recently shared
-          </h2>
-          <LinkButton href="/teacher/resources" variant="secondary">
-            Share a resource
-          </LinkButton>
-        </div>
-        {data.shared.length ? (
-          <ul className="m-0 list-none p-0">
-            {data.shared.map((r) => (
-              <li key={r.title} className="py-3.5">
-                <strong>{r.title}</strong>
-                <br />
-                <span className="text-sm text-on-surface-variant">
-                  Shared with {r.studentName} · {r.subject}
-                </span>
+                <StatusChip kind={r.chip.kind}>{r.chip.text}</StatusChip>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-[15px] text-on-surface-variant">Nothing shared yet.</p>
+          <p className="text-body-sm text-on-surface-variant">
+            No usual times yet. Add the times you are usually free so families can see them on your listing.
+          </p>
         )}
+        {home.weekRows.length ? <p className="text-body-sm text-on-surface-variant">{home.weekNote}</p> : null}
+      </div>
+    </section>
+  );
+}
+
+const FILE_ICON: SymbolName = 'description';
+
+function Resources({ home }: { home: TeacherHome }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <section aria-labelledby="share" className={cx(PANEL, 'flex flex-col gap-4 p-5 sm:p-8 lg:col-span-2')}>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <SectionHeading id="share" eyebrow="Learning resources">
+            Share learning resources
+          </SectionHeading>
+          <span className="inline-flex items-center gap-1 text-label-sm text-on-surface-variant">
+            <Icon name="lock" size={16} />
+            Opens in a later phase
+          </span>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-outline-variant bg-surface-container-low/50 p-6 text-center sm:p-8">
+          <span
+            aria-hidden="true"
+            className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary-fixed text-primary"
+          >
+            <Icon name="cloud_upload" size={32} />
+          </span>
+          <h3 className="font-headline text-headline-sm">Revision sheets, notes and slides</h3>
+          <p className="mt-1 max-w-md text-body-md text-on-surface-variant">
+            Sharing files with your students is not open yet. It opens once it is decided who sees teacher-shared
+            resources.
+          </p>
+          <Button inactive className="mt-3">
+            <Icon name="upload_file" size={18} />
+            Choose files (not open yet)
+          </Button>
+        </div>
         <PendingNote decision="D-16">
           Who sees teacher-shared resources, and whether parents approve sharing.
         </PendingNote>
-      </Card>
+      </section>
+      <section aria-labelledby="shared" className={cx(PANEL, 'flex flex-col gap-4 p-5')}>
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="shared" className="font-headline text-headline-sm">
+            Recently shared
+          </h2>
+          <span className="text-label-sm text-primary">
+            {home.shared.length} {home.shared.length === 1 ? 'file' : 'files'}
+          </span>
+        </div>
+        {home.shared.length ? (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {home.shared.map((r) => (
+              <li key={r.title} className="flex items-center gap-2 rounded-lg bg-surface-container-low p-2.5">
+                <Icon name={FILE_ICON} size={24} className="text-primary" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-label-md text-on-surface">{r.title}</span>
+                  <span className="text-[12px] leading-4 text-on-surface-variant">
+                    Shared with {r.studentName} · {r.subject}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-body-sm text-on-surface-variant">Nothing shared yet.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** Teacher dashboard: S21 reference (boards 55, 56). Sample data in demo mode; real accounts show their own. */
+export default async function TeacherHomePage() {
+  const access = await requireRole('teacher');
+  if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
+  const now = clockNow();
+  const home = await getTeacherHome(access.viewer, now);
+  if (!home) return <AccessDenied viewerRole="teacher" />;
+
+  return (
+    <div className="flex flex-col gap-8">
+      <Masthead home={home} now={now} />
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+        <Sessions home={home} />
+        <Availability home={home} now={now} />
+      </div>
+      <StudentRoster students={home.students} realAccount={home.mode === 'real'} />
+      <Resources home={home} />
     </div>
   );
 }
