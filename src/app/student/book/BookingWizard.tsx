@@ -34,6 +34,7 @@ const PARTS: Array<{ id: DayPart; label: string }> = [
 const UNAVAILABLE: Record<Exclude<SlotStatus, 'open'>, string> = {
   lesson: 'You have a lesson',
   quiet: 'Family quiet time',
+  daily_limit: 'One AI class a day',
 };
 
 const TILE =
@@ -72,7 +73,7 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
   const [subject, setSubject] = useState<SubjectId | undefined>(initialSubject);
   const [chapter, setChapter] = useState('');
   const [dayKey, setDayKey] = useState(days[0]?.key ?? '');
-  const [length, setLength] = useState<AiLessonLength>(30);
+  const length: AiLessonLength = lengths[0] ?? 15;
   const [start, setStart] = useState<string | undefined>(undefined);
 
   const day = days.find((d) => d.key === dayKey) ?? days[0];
@@ -89,13 +90,6 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
   const subjectName = subjects.find((s) => s.id === subject)?.name;
   const subjectChapters = subject ? (chapters[subject] ?? []) : [];
   const ready = Boolean(subject && start);
-
-  function pickLength(next: AiLessonLength) {
-    setLength(next);
-    // A 30-minute lesson may clash where a 15-minute one fits: drop a choice that no longer fits.
-    const slot = days.flatMap((d) => d.slots).find((s) => s.startIso === start);
-    if (slot && slot.status[next] !== 'open') setStart(undefined);
-  }
 
   return (
     <form action="/student/book/result" method="get" className="flex flex-col gap-5">
@@ -222,7 +216,6 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
                           disabled={!open}
                           onChange={() => {
                             setStart(s.startIso);
-                            // Keep this part of the day in view if the length changes later.
                             setPartChoice({ day: dayKey, part: s.part });
                           }}
                           className={HIDDEN_RADIO}
@@ -244,28 +237,18 @@ export function BookingWizard({ subjects, chapters, days, zoneName, lengths, ini
             <p className="text-[15px] leading-[22px] text-on-surface-variant">
               Times are in your time zone ({zoneName}). Grey times are not open.
             </p>
-            <PendingNote decision="D-05">Any daily limit, or how far ahead a lesson must be booked.</PendingNote>
+            <p className="text-[15px] leading-[22px] text-on-surface-variant">
+              You can have one AI class in any 24 hours, so times close to your other AI class are grey.
+            </p>
+            <PendingNote decision="D-05">How far ahead a lesson must be booked.</PendingNote>
           </Step>
 
           <Step n={4} title="How long?" id={`${uid}-s4`}>
-            <fieldset className="m-0 min-w-0 border-0 p-0">
-              <legend className="sr-only">Lesson length</legend>
-              <div className="flex flex-wrap gap-2.5">
-                {lengths.map((l) => (
-                  <label key={l} className={cx(TILE, 'min-w-[160px]')}>
-                    <input
-                      type="radio"
-                      name="length"
-                      value={l}
-                      checked={length === l}
-                      onChange={() => pickLength(l)}
-                      className={HIDDEN_RADIO}
-                    />
-                    {l} minutes
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            <input type="hidden" name="length" value={length} />
+            <p className="text-[17px] font-bold">{length} minutes</p>
+            <p className="text-[15px] leading-[22px] text-on-surface-variant">
+              Every AI class is {length} minutes: first the AI Tutor explains, then you ask your questions.
+            </p>
           </Step>
         </div>
 

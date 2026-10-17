@@ -8,6 +8,10 @@ import { EmptyState } from '@/components/states/States';
 import { cx } from '@/lib/cx';
 import { requireRole } from '@/server/authz';
 import { familyChildren } from '@/server/family';
+import { AI_RULE_TEXT, describeAllowance } from '@/lib/aiAllowance';
+import { getAiAllowance } from '@/server/aiSessions';
+import { db } from '@/server/db/client';
+import { isDemoMode } from '@/server/demo';
 import { StatusChip } from '@/components/StatusChip';
 
 export const metadata: Metadata = { title: 'Children' };
@@ -20,6 +24,14 @@ export default async function ChildrenPage() {
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   const now = clockNow();
   const kids = await familyChildren(access.viewer, now);
+  // OC-89(4): each child's AI Tutor allowance, from the server's own record (real accounts).
+  const allowances = isDemoMode()
+    ? new Map()
+    : new Map(
+        await Promise.all(
+          kids.map(async (k) => [k.id, await getAiAllowance(db(), access.viewer.id, k.id, now)] as const),
+        ),
+      );
 
   return (
     <div className="flex flex-col gap-6">
@@ -62,6 +74,14 @@ export default async function ChildrenPage() {
                       ) : null}
                     </div>
                   </div>
+                  <p className="text-sm leading-5">
+                    <strong>AI Tutor:</strong> {AI_RULE_TEXT}{' '}
+                    {allowances.get(k.id) ? (
+                      <span className="font-bold text-primary">
+                        {describeAllowance(allowances.get(k.id)!, k.timeZone, now)}
+                      </span>
+                    ) : null}
+                  </p>
                   <dl className="m-0 hidden grid-cols-2 gap-x-4 gap-y-2.5 text-sm md:grid">
                     <div>
                       <dt className="text-xs font-bold uppercase tracking-[.04em] text-on-surface-variant">

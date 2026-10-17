@@ -68,9 +68,8 @@ test('the booking wizard can be completed with the keyboard alone', async ({ pag
   await page.getByRole('radio', { name: /Maths/ }).focus();
   await page.keyboard.press('Space');
   await page.getByRole('group', { name: 'Day' }).getByRole('radio').first().focus();
-  await page.keyboard.press('ArrowRight'); // tomorrow
-  await page.getByRole('group', { name: 'Lesson length' }).getByRole('radio', { name: '15 minutes' }).focus();
-  await page.keyboard.press('Space');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight'); // the day after tomorrow: outside the one-a-day window (OC-89)
   await page.getByRole('group', { name: 'Part of the day' }).getByRole('radio', { name: 'Afternoon' }).focus();
   await page.keyboard.press('Space');
   await page

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BookingWizard } from '@/app/student/book/BookingWizard';
 import type { BookingDay } from '@/fixtures/aiBooking';
@@ -49,23 +49,27 @@ const DAYS: BookingDay[] = [
         startIso: '2026-10-14T10:45:00.000Z',
         label: '4:15 pm',
         part: 'afternoon',
-        status: { 15: 'open', 30: 'lesson' },
+        status: { 15: 'open' },
       },
       {
         startIso: '2026-10-14T11:00:00.000Z',
         label: '4:30 pm',
         part: 'afternoon',
-        status: { 15: 'lesson', 30: 'lesson' },
+        status: { 15: 'lesson' },
       },
-      { startIso: '2026-10-14T12:30:00.000Z', label: '6:00 pm', part: 'evening', status: { 15: 'open', 30: 'open' } },
+      { startIso: '2026-10-14T12:30:00.000Z', label: '6:00 pm', part: 'evening', status: { 15: 'open' } },
+      {
+        startIso: '2026-10-14T12:45:00.000Z',
+        label: '6:15 pm',
+        part: 'evening',
+        status: { 15: 'daily_limit' },
+      },
     ],
   },
   {
     key: '2026-10-15',
     label: 'Thu 15 Oct',
-    slots: [
-      { startIso: '2026-10-15T01:30:00.000Z', label: '7:00 am', part: 'morning', status: { 15: 'open', 30: 'open' } },
-    ],
+    slots: [{ startIso: '2026-10-15T01:30:00.000Z', label: '7:00 am', part: 'morning', status: { 15: 'open' } }],
   },
 ];
 
@@ -79,7 +83,7 @@ function renderWizard() {
       chapters={{ maths: ['Chapter 6 — Maths practice book (sample)'], science: [] }}
       days={DAYS}
       zoneName="IST"
-      lengths={[15, 30]}
+      lengths={[15]}
     />,
   );
 }
@@ -91,23 +95,16 @@ describe('S13 booking wizard (demo)', () => {
     const book = screen.getByRole('button', { name: 'Book this lesson' });
     expect(book).toHaveAttribute('aria-disabled', 'true');
     await user.click(screen.getByRole('radio', { name: /Maths/ }));
-    await user.click(screen.getByRole('radio', { name: /15 minutes/ }));
     await user.click(screen.getByRole('radio', { name: /4:15 pm/ }));
     expect(book).not.toHaveAttribute('aria-disabled');
     expect(screen.getByText('Today, 4:15 pm (IST)')).toBeInTheDocument();
   });
 
-  it('offers only 15 and 30 minutes, and drops a time that no longer fits a longer lesson (OC-22)', async () => {
-    const user = userEvent.setup();
+  it('has one lesson length, 15 minutes, with no length choice (OC-89)', () => {
     renderWizard();
-    const lengths = within(screen.getByRole('group', { name: 'Lesson length' })).getAllByRole('radio');
-    expect(lengths.map((r) => (r as HTMLInputElement).value)).toEqual(['15', '30']);
-    await user.click(screen.getByRole('radio', { name: /15 minutes/ }));
-    await user.click(screen.getByRole('radio', { name: /4:15 pm/ }));
-    await user.click(screen.getByRole('radio', { name: /30 minutes/ }));
-    expect(screen.getByRole('radio', { name: /4:15 pm/ })).toBeDisabled();
-    expect(screen.getByRole('radio', { name: /4:15 pm/ })).not.toBeChecked();
-    expect(screen.getByText('When').nextElementSibling).toHaveTextContent('Not chosen yet');
+    expect(screen.queryByRole('group', { name: 'Lesson length' })).toBeNull();
+    expect(screen.getByText('Length').nextElementSibling).toHaveTextContent('15 minutes');
+    expect(document.querySelector('input[name="length"]')).toHaveValue('15');
   });
 
   it('shows why a time is not open, in child words', async () => {
@@ -115,6 +112,8 @@ describe('S13 booking wizard (demo)', () => {
     renderWizard();
     await user.click(screen.getByRole('radio', { name: 'Afternoon' }));
     expect(screen.getByRole('radio', { name: /4:30 pm.*You have a lesson/ })).toBeDisabled();
+    await user.click(screen.getByRole('radio', { name: 'Evening' }));
+    expect(screen.getByRole('radio', { name: /6:15 pm.*One AI class a day/ })).toBeDisabled();
   });
 
   it('only shows chapters that were shared, and says so when there are none', async () => {

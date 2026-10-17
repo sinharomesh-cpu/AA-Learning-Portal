@@ -9,7 +9,7 @@ import { SUBJECTS } from './subjects';
  * The single synthetic family schedule (Phase 1). The student, parent and teacher views all
  * read from here, so one lesson looks the same to everyone, each in their own time zone (FR-019).
  *
- * Owner-approved rules reflected: human lessons ≤ 40 min (OC-06); AI lessons 15 or 30 min,
+ * Owner-approved rules reflected: human lessons ≤ 40 min (OC-06); AI lessons 15 min (OC-89),
  * one at a time per child (OC-22). Lesson times are set in the family's zone (Asia/Kolkata).
  */
 export type LessonStatus = 'confirmed' | 'booked' | 'proposed';
@@ -69,7 +69,7 @@ const SEEDS: Seed[] = [
     day: 0,
     hour: 17,
     minute: 15,
-    minutes: 30,
+    minutes: 15,
     status: 'booked',
     chapter: 'Chapter 6 (sample)',
     topic: 'fractions',

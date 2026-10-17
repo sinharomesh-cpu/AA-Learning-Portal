@@ -2,7 +2,8 @@ import { bookingDays, chaptersFor, checkDemoBooking, nextOpenTimes, SLOT_STEP_MI
 import { getStudentHistory } from './history';
 
 // 14 Oct 2026, 14:30 in Asia/Kolkata (UTC+05:30). Kiran's synthetic lessons today:
-// Teacher 16:30–17:10 and AI Tutor 17:15–17:45 (IST). Family quiet time 20:00–07:00.
+// Teacher 16:30–17:10 and AI Tutor 17:15–17:30 (IST). Family quiet time 20:00–07:00.
+// One AI lesson in any 24 hours (OC-89): the next AI start is tomorrow 17:15 at the earliest.
 const NOW = new Date('2026-10-14T09:00:00.000Z');
 const KIRAN = 'demo-student-kiran';
 const ist = (hhmm: string, day = 14) => {
@@ -15,7 +16,7 @@ const slotAt = (iso: string) =>
     .flatMap((d) => d.slots)
     .find((s) => s.startIso === iso);
 
-describe('demo AI booking times (OC-05, OC-22) — WP-8, nothing is stored', () => {
+describe('demo AI booking times (OC-05, OC-22, OC-89) — WP-8, nothing is stored', () => {
   it('offers five days in the student’s own time zone, starting today', () => {
     const days = bookingDays(KIRAN, NOW);
     expect(days[0]!.label).toBe('Today');
@@ -39,17 +40,24 @@ describe('demo AI booking times (OC-05, OC-22) — WP-8, nothing is stored', () 
     expect(tomorrow.at(-1)!.label).toBe('8:45 pm');
   });
 
-  it('never offers a time that overlaps another lesson: one lesson at a time (OC-22)', () => {
-    expect(slotAt(ist('16:15'))!.status).toEqual({ 15: 'open', 30: 'lesson' });
-    expect(slotAt(ist('16:30'))!.status).toEqual({ 15: 'lesson', 30: 'lesson' });
+  it('never offers a time that overlaps another lesson: one lesson at a time', () => {
+    expect(slotAt(ist('16:30'))!.status).toEqual({ 15: 'lesson' });
     expect(slotAt(ist('17:00'))!.status[15]).toBe('lesson'); // teacher lesson runs to 17:10
-    expect(slotAt(ist('17:30'))!.status[15]).toBe('lesson'); // AI lesson runs to 17:45
-    expect(slotAt(ist('17:45'))!.status).toEqual({ 15: 'open', 30: 'open' });
+    expect(slotAt(ist('17:15'))!.status[15]).toBe('lesson'); // the AI lesson itself
+  });
+
+  it('allows one AI lesson in any rolling 24 hours (OC-89)', () => {
+    expect(slotAt(ist('16:15'))!.status[15]).toBe('daily_limit');
+    expect(slotAt(ist('17:30'))!.status[15]).toBe('daily_limit');
+    expect(slotAt(ist('19:45'))!.status[15]).toBe('daily_limit');
+    expect(slotAt(ist('17:00', 15))!.status[15]).toBe('daily_limit');
+    expect(slotAt(ist('17:15', 15))!.status[15]).toBe('open'); // exactly 24 hours later
+    expect(today().slots.every((s) => s.status[15] !== 'open')).toBe(true);
   });
 
   it('respects the family quiet time as a blocked period (OC-05)', () => {
-    expect(slotAt(ist('19:45'))!.status).toEqual({ 15: 'open', 30: 'quiet' });
-    expect(slotAt(ist('20:00'))!.status).toEqual({ 15: 'quiet', 30: 'quiet' });
+    expect(slotAt(ist('19:45', 15))!.status).toEqual({ 15: 'open' });
+    expect(slotAt(ist('20:00', 15))!.status).toEqual({ 15: 'quiet' });
   });
 
   it('only offers chapters from shared books', () => {
@@ -59,30 +67,31 @@ describe('demo AI booking times (OC-05, OC-22) — WP-8, nothing is stored', () 
   });
 
   it('suggests the next open times after a taken one', () => {
-    expect(nextOpenTimes(KIRAN, ist('16:00'), 30, NOW).map((s) => s.label)).toEqual(['5:45 pm', '6:00 pm', '6:15 pm']);
+    expect(nextOpenTimes(KIRAN, ist('16:00'), 15, NOW).map((s) => s.label)).toEqual(['5:15 pm', '5:30 pm', '5:45 pm']);
   });
 });
 
 describe('server re-check of a wizard choice (FR-006.2 pattern, demo)', () => {
-  const ok = { subject: 'maths', start: ist('18:00'), length: '30' };
+  const ok = { subject: 'maths', start: ist('18:00', 15), length: '15' };
 
   it('accepts an open time for the signed-in student', () => {
     const r = checkDemoBooking(KIRAN, { ...ok, chapter: 'Chapter 6 — Maths practice book (sample)' }, NOW);
     expect(r.ok && r.booking).toMatchObject({
       subjectName: 'Maths',
-      length: 30,
-      dayLabel: 'Today',
+      length: 15,
       timeLabel: '6:00 pm',
     });
   });
 
   it.each([
-    ['a length other than 15 or 30', { ...ok, length: '45' }],
+    ['a length other than 15', { ...ok, length: '30' }],
+    ['any other length', { ...ok, length: '45' }],
+    ['a second AI lesson within 24 hours', { ...ok, start: ist('18:00') }],
     ['a subject the parent has not enabled', { ...ok, subject: 'it' }],
     ['an unknown subject', { ...ok, subject: 'spanish' }],
     ['a chapter that was not shared', { ...ok, chapter: 'Chapter 99 (invented)' }],
-    ['a start off the 15-minute grid', { ...ok, start: ist('18:05') }],
-    ['a start overlapping another lesson', { ...ok, start: ist('16:15') }],
+    ['a start off the 15-minute grid', { ...ok, start: ist('18:05', 15) }],
+    ['a start overlapping another lesson', { ...ok, start: ist('16:30') }],
     ['a start in the quiet time', { ...ok, start: ist('21:00') }],
     ['a start in the past', { ...ok, start: ist('10:00') }],
     ['a start beyond the booking window', { ...ok, start: ist('18:00', 25) }],
@@ -112,7 +121,7 @@ describe('demo learning history (M-16, FR-016)', () => {
     const english = getStudentHistory(KIRAN, NOW)!.find((h) => h.id === 'h-k3')!;
     expect(english.minutes).toBe(12);
     for (const h of getStudentHistory(KIRAN, NOW)!) {
-      expect(h.minutes).toBeLessThanOrEqual(h.kind === 'human' ? 40 : 30);
+      expect(h.minutes).toBeLessThanOrEqual(h.kind === 'human' ? 40 : 15);
     }
   });
 });

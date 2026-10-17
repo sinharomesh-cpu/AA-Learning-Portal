@@ -15,7 +15,8 @@ test.describe('student shell (S1 / S9)', () => {
     await expect(today.getByText('AI Tutor')).toBeVisible();
     await expect(today.getByText('Teacher', { exact: true })).toBeVisible();
     await expect(today.getByText('40 min')).toBeVisible();
-    await expect(today.getByText('30 min')).toBeVisible();
+    await expect(today.getByText('15 min')).toBeVisible();
+    await expect(page.getByLabel('AI Tutor allowance')).toContainText('One AI class a day, 15 minutes each.');
     await expect(page.getByText('4:30 pm').first()).toBeVisible();
     await expect(page.getByText('Not decided yet (D-35):')).toBeVisible();
     await expectNoSeriousAxeIssues(page);

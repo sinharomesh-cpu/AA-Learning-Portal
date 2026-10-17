@@ -4,6 +4,8 @@ import {
   type AiBooking,
   type Clock,
   type EndReason,
+  type HintResult,
+  MAX_HINTS_PER_SESSION,
   type OpenResult,
   PHASE_PLAN,
   type Phase,
@@ -69,6 +71,9 @@ export class AiSessionController {
   private resumeHandle: string | undefined;
   private deferred: string[] = [];
   private blockedTurns = 0;
+  private hintsUsed = 0;
+  /** The next tutor turn answers a hint request. */
+  private hintTurnPending = false;
   private endReason: EndReason | null = null;
   private cancelled = false;
 
@@ -173,11 +178,30 @@ export class AiSessionController {
     return { status: 'sent' };
   }
 
+  /**
+   * "Give Me a Hint" (OC-89(2)): student-initiated only, during Q&A, a few times per lesson.
+   * There is no "Next Question" action at all: the tutor never starts a question sequence.
+   */
+  async requestHint(): Promise<HintResult> {
+    await this.tick();
+    if (this.phase === 'ended') return { status: 'rejected', reason: 'ended' };
+    if (this.phase === 'not_started') return { status: 'rejected', reason: 'not_started' };
+    if (this.phase === 'explanation') return { status: 'rejected', reason: 'explanation' };
+    if (this.hintsUsed >= MAX_HINTS_PER_SESSION) return { status: 'rejected', reason: 'limit' };
+    if (!this.connected) return { status: 'rejected', reason: 'not_connected' };
+    this.hintsUsed += 1;
+    this.hintTurnPending = true;
+    await this.provider.sendHintRequest();
+    return { status: 'sent', hintsLeft: MAX_HINTS_PER_SESSION - this.hintsUsed };
+  }
+
   /** Check one outgoing tutor turn (text or output transcript). Blocks quizzes and Q&A questions. */
   async reviewTutorTurn(text: string): Promise<TurnReview> {
     await this.tick();
     if (this.phase !== 'explanation' && this.phase !== 'qa') return { allowed: false, reason: 'session_closed' };
-    const review = reviewTutorTurn(text, this.phase);
+    const hint = this.hintTurnPending;
+    this.hintTurnPending = false;
+    const review = reviewTutorTurn(text, this.phase, { hint });
     if (!review.allowed) {
       this.blockedTurns += 1;
       if (this.connected) await this.provider.interruptOutput();

@@ -1,5 +1,13 @@
 # AA Pro AI Teacher — Proof of Concept and Acceptance Checklist
 
+> **Update — OC-89 (owner, 17 Oct 2026, 23:41 IST).** These decisions supersede this document where it differs:
+> - **Session length:** a single 15-minute session (10 minutes of explanation + 5 of Q&A), at most one per child in any rolling 24 hours. The 30-minute option is withdrawn.
+> - **Classroom controls:** "Next Question" is removed; "Give Me a Hint" is kept, student-initiated.
+> - **Gemini:** approved in principle **for evaluation only**. Provider eligibility for a children's service is a **release-blocking dependency** (see `AI_Provider_Eligibility_and_Legal_Review.md`).
+> - **Test budget:** not yet approved; see `AI_Test_Environment_Cost_Controls.md`.
+> - **Session rules:** see `AI_Teacher_Session_Rules.md`.
+
+
 | | |
 |---|---|
 | Version | 1.0 (draft) · 17 Oct 2026 |
@@ -72,3 +80,16 @@ These do not test Gemini itself. AC-1 to AC-12 above remain **Not tested** until
 ## 4. Exit decision
 
 The owner decides **go / change / stop** from the PoC report. "Go" leads to Phase B of the implementation plan. No production use, real child data or deployment without separate approval.
+
+## Additions for OC-89 (acceptance and regression)
+
+| # | Criterion | Automated test |
+|---|---|---|
+| S-1 | Only 15-minute sessions are offered and accepted (booking page, server re-check, database) | `aiBooking.test.ts`, `booking.test.tsx`, `booking.spec.ts`, `aiSessions.test.ts` (length) |
+| S-2 | One session start per child in any rolling 24 hours, whatever the subject | `aiSessions.test.ts` (24-hour window, exact boundary, database trigger) |
+| S-3 | No duplicates from a refresh, a second tab, a second browser or simultaneous requests | `aiSessions.test.ts` (same key, rejoin, 10 at once) |
+| S-4 | Interrupted, abandoned, ended-early and no-service sessions follow the documented rule | `aiSessions.test.ts` |
+| S-5 | Duration and next availability are shown to the child and the parent | `aiAllowance.test.ts`, `shells.spec.ts` |
+| S-6 | No "Next Question" action; hints are started by the student, Q&A only, at most 5 | `controller.test.ts` (hint suite) |
+| S-7 | No quiz or tutor-started question during Q&A, except one guiding question inside a hint | `controller.test.ts` (policy) |
+| S-8 | No real child data and no production access until R-AI-1 is cleared | Manual gate: `AI_TEACHER_ENABLED` off; legal checklist L-1 to L-10 |

@@ -6,14 +6,16 @@ import 'server-only';
  * See docs/ai-teacher/AI_Teacher_Provider_Feasibility.md.
  */
 
-/** Booked AI lesson lengths (OC-22): 15 or 30 minutes. */
-export type SessionLength = 15 | 30;
+/** One AI lesson length only (OC-89(4), replacing 15 or 30 of OC-22). */
+export type SessionLength = 15;
 
-/** Owner rule (Oct 2026): 15 = 10 explanation + 5 Q&A; 30 = 20 explanation + 10 Q&A. */
+/** Owner rule: 15 minutes = 10 minutes of explanation + 5 minutes of Q&A. */
 export const PHASE_PLAN: Record<SessionLength, { explanationMinutes: number; qaMinutes: number }> = {
   15: { explanationMinutes: 10, qaMinutes: 5 },
-  30: { explanationMinutes: 20, qaMinutes: 10 },
 };
+
+/** Most "Give Me a Hint" requests in one lesson (proposed, OC-89(2)); limits cost and repetition. */
+export const MAX_HINTS_PER_SESSION = 5;
 
 export type Phase = 'not_started' | 'explanation' | 'qa' | 'ended';
 
@@ -72,6 +74,11 @@ export interface TutorProvider {
   setPhase(phase: 'explanation' | 'qa'): Promise<void>;
   /** Pass a student question to the tutor (Q&A phase only). */
   sendStudentQuestion(text: string): Promise<void>;
+  /**
+   * The student pressed "Give Me a Hint" (OC-89(2)). The adapter asks the tutor for one short
+   * hint about the current question, concept or chapter — never a new question or a quiz.
+   */
+  sendHintRequest(): Promise<void>;
   /** Stop the tutor's current output immediately (policy block). */
   interruptOutput(): Promise<void>;
   /** Close the provider connection. */
@@ -91,6 +98,10 @@ export type QuestionResult =
   | { status: 'deferred'; position: number }
   | { status: 'sent' }
   | { status: 'rejected'; reason: 'ended' | 'not_started' | 'invalid' | 'queue_full' | 'not_connected' };
+
+export type HintResult =
+  | { status: 'sent'; hintsLeft: number }
+  | { status: 'rejected'; reason: 'ended' | 'not_started' | 'explanation' | 'limit' | 'not_connected' };
 
 export type TurnReview = { allowed: true } | { allowed: false; reason: 'quiz' | 'ai_question' | 'session_closed' };
 

@@ -34,9 +34,18 @@ function asksAQuestion(text: string): boolean {
   return /\?\s*(["')\]]\s*)?$/.test(text) || /\?\s+\S/.test(text);
 }
 
-export function reviewTutorTurn(text: string, phase: 'explanation' | 'qa'): TurnReview {
+/**
+ * `hint`: the turn answers the student's own "Give Me a Hint" (OC-89(2)). One guiding question
+ * is acceptable inside a hint ("What happens if you double both numbers?"), so the Q&A
+ * question check is skipped for that one turn; quiz wording is still blocked.
+ */
+export function reviewTutorTurn(
+  text: string,
+  phase: 'explanation' | 'qa',
+  options: { hint?: boolean } = {},
+): TurnReview {
   const t = normalise(text);
   if (QUIZ_PATTERNS.some((p) => p.test(t))) return { allowed: false, reason: 'quiz' };
-  if (phase === 'qa' && asksAQuestion(t)) return { allowed: false, reason: 'ai_question' };
+  if (phase === 'qa' && !options.hint && asksAQuestion(t)) return { allowed: false, reason: 'ai_question' };
   return { allowed: true };
 }

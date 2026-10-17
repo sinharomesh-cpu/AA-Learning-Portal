@@ -1,5 +1,13 @@
 # AA Pro AI Teacher — Operating Cost Estimate
 
+> **Update — OC-89 (owner, 17 Oct 2026, 23:41 IST).** These decisions supersede this document where it differs:
+> - **Session length:** a single 15-minute session (10 minutes of explanation + 5 of Q&A), at most one per child in any rolling 24 hours. The 30-minute option is withdrawn.
+> - **Classroom controls:** "Next Question" is removed; "Give Me a Hint" is kept, student-initiated.
+> - **Gemini:** approved in principle **for evaluation only**. Provider eligibility for a children's service is a **release-blocking dependency** (see `AI_Provider_Eligibility_and_Legal_Review.md`).
+> - **Test budget:** not yet approved; see `AI_Test_Environment_Cost_Controls.md`.
+> - **Session rules:** see `AI_Teacher_Session_Rules.md`.
+
+
 | | |
 |---|---|
 | Version | 1.0 (draft) · 17 Oct 2026 |

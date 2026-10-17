@@ -1,5 +1,6 @@
 import { AiSessionController, canOpenSession, MAX_DEFERRED_QUESTIONS, phaseAt, sessionTimes } from './controller';
 import { reviewTutorTurn } from './policy';
+import { MAX_HINTS_PER_SESSION, PHASE_PLAN } from './types';
 import type { AiBooking, Clock, LessonContext, SessionLength, SessionViewer, TutorProvider } from './types';
 
 /**
@@ -24,6 +25,7 @@ type Call =
   | { kind: 'open'; context: LessonContext; resumeHandle?: string }
   | { kind: 'setPhase'; phase: string }
   | { kind: 'question'; text: string }
+  | { kind: 'hint' }
   | { kind: 'interrupt' }
   | { kind: 'close'; reason: string };
 
@@ -50,6 +52,9 @@ class FakeProvider implements TutorProvider {
   }
   async sendStudentQuestion(text: string) {
     this.calls.push({ kind: 'question', text });
+  }
+  async sendHintRequest() {
+    this.calls.push({ kind: 'hint' });
   }
   async interruptOutput() {
     this.calls.push({ kind: 'interrupt' });
@@ -92,13 +97,11 @@ function setup(length: SessionLength, at = START, overrides: Partial<AiBooking> 
 }
 
 describe('phase plan', () => {
-  it.each([
-    [15, 10, 15],
-    [30, 20, 30],
-  ] as const)('%i-minute lesson: explanation ends at +%i min, lesson ends at +%i min', (len, expl, end) => {
-    const t = sessionTimes(booking(len));
-    expect(t.explanationEndMs - START).toBe(expl * MIN);
-    expect(t.endMs - START).toBe(end * MIN);
+  it('the only lesson is 15 minutes: explanation ends at +10 min, lesson ends at +15 min (OC-89)', () => {
+    const t = sessionTimes(booking(15));
+    expect(t.explanationEndMs - START).toBe(10 * MIN);
+    expect(t.endMs - START).toBe(15 * MIN);
+    expect(Object.keys(PHASE_PLAN)).toEqual(['15']);
   });
 
   it('derives the phase from the clock only', () => {
@@ -117,7 +120,8 @@ describe('phase plan', () => {
 });
 
 describe('phase transitions', () => {
-  it.each([15, 30] as const)('%i-minute lesson runs explanation → Q&A → ended', async (len) => {
+  it('a 15-minute lesson runs explanation → Q&A → ended', async () => {
+    const len = 15;
     const { clock, provider, controller } = setup(len);
     const opened = await controller.open(STUDENT);
     expect(opened).toMatchObject({ ok: true, phase: 'explanation' });
@@ -127,7 +131,7 @@ describe('phase transitions', () => {
       endsAtMs: START + len * MIN,
     });
 
-    const plan = len === 15 ? { expl: 10, qa: 5 } : { expl: 20, qa: 10 };
+    const plan = { expl: 10, qa: 5 };
     clock.advance(plan.expl * MIN - 1);
     expect(await controller.tick()).toBe('explanation');
     clock.advance(1);
@@ -151,15 +155,15 @@ describe('phase transitions', () => {
   });
 
   it('reports the time to the next boundary for the host timer', async () => {
-    const { clock, controller } = setup(30, START - 2 * MIN);
+    const { clock, controller } = setup(15, START - 2 * MIN);
     expect(controller.msUntilNextBoundary()).toBe(2 * MIN);
     clock.advance(2 * MIN);
     await controller.open(STUDENT);
-    expect(controller.msUntilNextBoundary()).toBe(20 * MIN);
-    clock.advance(25 * MIN);
+    expect(controller.msUntilNextBoundary()).toBe(10 * MIN);
+    clock.advance(12 * MIN);
     await controller.tick();
-    expect(controller.msUntilNextBoundary()).toBe(5 * MIN);
-    clock.advance(5 * MIN);
+    expect(controller.msUntilNextBoundary()).toBe(3 * MIN);
+    clock.advance(3 * MIN);
     await controller.tick();
     expect(controller.msUntilNextBoundary()).toBeNull();
   });
@@ -172,8 +176,8 @@ describe('phase transitions', () => {
   });
 
   it('joining during the Q&A window opens straight into Q&A', async () => {
-    const { controller } = setup(30, START + 25 * MIN);
-    expect(await controller.open(STUDENT)).toMatchObject({ ok: true, phase: 'qa', remainingMs: 5 * MIN });
+    const { controller } = setup(15, START + 12 * MIN);
+    expect(await controller.open(STUDENT)).toMatchObject({ ok: true, phase: 'qa', remainingMs: 3 * MIN });
   });
 });
 
@@ -203,7 +207,7 @@ describe('student questions during the explanation are deferred', () => {
   });
 
   it('limits the queue and validates question text', async () => {
-    const { controller } = setup(30);
+    const { controller } = setup(15);
     await controller.open(STUDENT);
     for (let i = 0; i < MAX_DEFERRED_QUESTIONS; i += 1) await controller.studentQuestion(`Question ${i}`);
     expect(await controller.studentQuestion('One too many')).toEqual({ status: 'rejected', reason: 'queue_full' });
@@ -253,10 +257,10 @@ describe('Q&A behaviour', () => {
   });
 
   it('blocks quizzes in both phases', async () => {
-    const { clock, controller } = setup(30);
+    const { clock, controller } = setup(15);
     await controller.open(STUDENT);
     expect(await controller.reviewTutorTurn("Let's do a quick quiz.")).toEqual({ allowed: false, reason: 'quiz' });
-    clock.advance(21 * MIN);
+    clock.advance(11 * MIN);
     expect(await controller.reviewTutorTurn('True or false: 9 is a prime number.')).toEqual({
       allowed: false,
       reason: 'quiz',
@@ -293,7 +297,7 @@ describe('session cutoff at the booked end', () => {
   });
 
   it('cannot be opened after the end', async () => {
-    const { controller, provider } = setup(30, START + 30 * MIN);
+    const { controller, provider } = setup(15, START + 15 * MIN);
     expect(await controller.open(STUDENT)).toEqual({ ok: false, reason: 'ended', retryable: false });
     expect(provider.of('open')).toHaveLength(0);
   });
@@ -382,15 +386,15 @@ describe('access control', () => {
 
 describe('failure recovery', () => {
   it('a reconnect inside the window resumes the correct phase with the remaining time', async () => {
-    const { clock, provider, controller } = setup(30);
+    const { clock, provider, controller } = setup(15);
     await controller.open(STUDENT);
     controller.connectionLost();
-    clock.advance(22 * MIN); // the drop lasted into the Q&A window
+    clock.advance(12 * MIN); // the drop lasted into the Q&A window
     const result = await controller.open(STUDENT);
-    expect(result).toEqual({ ok: true, phase: 'qa', remainingMs: 8 * MIN, phaseRemainingMs: 8 * MIN });
+    expect(result).toEqual({ ok: true, phase: 'qa', remainingMs: 3 * MIN, phaseRemainingMs: 3 * MIN });
     const opens = provider.of('open');
     expect(opens[1]?.resumeHandle).toBe('resume-1');
-    expect(opens[1]?.context).toMatchObject({ phase: 'qa', endsAtMs: START + 30 * MIN });
+    expect(opens[1]?.context).toMatchObject({ phase: 'qa', endsAtMs: START + 15 * MIN });
   });
 
   it('never extends the lesson: time lost to a drop is not given back', async () => {
@@ -443,16 +447,68 @@ describe('failure recovery', () => {
     expect(controller.snapshot().connected).toBe(true);
   });
 
-  it('survives the provider’s ~10-minute connection limit across a 30-minute lesson', async () => {
-    const { clock, provider, controller } = setup(30);
+  it('survives a provider connection limit of about 10 minutes inside the 15-minute lesson', async () => {
+    const { clock, provider, controller } = setup(15);
     await controller.open(STUDENT);
-    for (let i = 0; i < 2; i += 1) {
-      clock.advance(10 * MIN);
-      controller.connectionLost(); // provider GoAway at its connection limit
-      expect((await controller.open(STUDENT)).ok).toBe(true);
-    }
-    expect(provider.of('open').map((o) => o.resumeHandle)).toEqual([undefined, 'resume-1', 'resume-2']);
     clock.advance(10 * MIN);
+    controller.connectionLost(); // provider GoAway at its connection limit
+    expect((await controller.open(STUDENT)).ok).toBe(true);
+    expect(provider.of('open').map((o) => o.resumeHandle)).toEqual([undefined, 'resume-1']);
+    clock.advance(5 * MIN);
     expect(await controller.tick()).toBe('ended');
+  });
+});
+
+describe('Give Me a Hint, with no Next Question (OC-89(2))', () => {
+  it('has no way to ask the tutor for a new question or a quiz', () => {
+    const methods = Object.getOwnPropertyNames(AiSessionController.prototype);
+    expect(methods.some((m) => /(next|new)question|quiz|assess/i.test(m))).toBe(false);
+    expect(methods).toContain('requestHint');
+  });
+
+  it('a hint is only available during Q&A and only when the student asks', async () => {
+    const { clock, provider, controller } = setup(15);
+    await controller.open(STUDENT);
+    expect(await controller.requestHint()).toEqual({ status: 'rejected', reason: 'explanation' });
+    clock.advance(10 * MIN);
+    expect(await controller.requestHint()).toEqual({ status: 'sent', hintsLeft: MAX_HINTS_PER_SESSION - 1 });
+    expect(provider.of('hint')).toHaveLength(1);
+    clock.advance(5 * MIN);
+    expect(await controller.requestHint()).toEqual({ status: 'rejected', reason: 'ended' });
+  });
+
+  it('a hint may carry one guiding question, but never a quiz; the next turn is checked normally', async () => {
+    const { clock, controller } = setup(15);
+    await controller.open(STUDENT);
+    clock.advance(10 * MIN);
+    await controller.requestHint();
+    expect(await controller.reviewTutorTurn('Hint: what happens if you double both numbers?')).toEqual({
+      allowed: true,
+    });
+    expect(await controller.reviewTutorTurn('And what is 6 times 7?')).toEqual({
+      allowed: false,
+      reason: 'ai_question',
+    });
+    await controller.requestHint();
+    expect(await controller.reviewTutorTurn("Let's do a quick quiz instead.")).toEqual({
+      allowed: false,
+      reason: 'quiz',
+    });
+  });
+
+  it('limits hints per lesson', async () => {
+    const { clock, controller } = setup(15);
+    await controller.open(STUDENT);
+    clock.advance(10 * MIN);
+    for (let i = 0; i < MAX_HINTS_PER_SESSION; i += 1) expect((await controller.requestHint()).status).toBe('sent');
+    expect(await controller.requestHint()).toEqual({ status: 'rejected', reason: 'limit' });
+  });
+
+  it('cannot send a hint while disconnected', async () => {
+    const { clock, controller } = setup(15);
+    await controller.open(STUDENT);
+    clock.advance(11 * MIN);
+    controller.connectionLost();
+    expect(await controller.requestHint()).toEqual({ status: 'rejected', reason: 'not_connected' });
   });
 });

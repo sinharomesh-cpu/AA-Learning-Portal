@@ -16,6 +16,10 @@ import { greeting } from '@/lib/localTime';
 import { formatClockTime } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { isDemoMode } from '@/server/demo';
+import { AI_RULE_TEXT, describeAllowance } from '@/lib/aiAllowance';
+import { clockNow } from '@/lib/clock';
+import { getAiAllowance } from '@/server/aiSessions';
+import { db } from '@/server/db/client';
 import type { Persona } from '@/fixtures/personas';
 import type { StudentDashboard } from '@/fixtures/student';
 
@@ -46,6 +50,9 @@ export default async function StudentHomePage() {
   if (!data) return <AccessDenied viewerRole="student" />;
 
   const tz = data.timeZone;
+  const now = clockNow();
+  // OC-89(4): the allowance comes from the server's own record (real accounts only).
+  const allowance = isDemoMode() ? null : await getAiAllowance(db(), access.viewer.id, access.viewer.id, now);
   const nextHuman = data.today.find((s) => s.kind === 'human');
   const nextAi = data.today.find((s) => s.kind === 'ai');
 
@@ -92,6 +99,14 @@ export default async function StudentHomePage() {
       >
         Book an AI class <span aria-hidden="true">›</span>
       </Link>
+
+      <p
+        aria-label="AI Tutor allowance"
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[16px] bg-surface-container-low px-4 py-2.5 text-[15px] leading-[22px]"
+      >
+        <strong>AI Tutor:</strong> {AI_RULE_TEXT}
+        {allowance ? <span className="font-bold text-primary">{describeAllowance(allowance, tz, now)}</span> : null}
+      </p>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <div className="contents lg:flex lg:flex-col lg:gap-6">

@@ -38,7 +38,7 @@ const SEEDS: Record<string, Seed[]> = {
       subject: 'maths',
       title: 'Maths — Chapter 6',
       daysAgo: 1,
-      minutes: 30,
+      minutes: 15,
       text: 'You practised adding fractions. You used two hints. Next time: mixed numbers.',
     },
     {

@@ -9,11 +9,11 @@ describe('synthetic fixtures (OC-04)', () => {
     for (const e of emails) expect(e).toMatch(/@example\.com$/);
   });
 
-  it('respect session-length rules: human ≤ 40 min (OC-06), AI 15 or 30 min (OC-22)', () => {
+  it('respect session-length rules: human ≤ 40 min (OC-06), AI 15 min (OC-89)', () => {
     for (const id of ['demo-student-kiran', 'demo-student-meera']) {
       for (const s of getStudentDashboard(id)!.today) {
         if (s.kind === 'human') expect(s.durationMinutes).toBeLessThanOrEqual(40);
-        else expect([15, 30]).toContain(s.durationMinutes);
+        else expect([15]).toContain(s.durationMinutes);
       }
     }
   });

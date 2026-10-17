@@ -12,14 +12,17 @@ import { SUBJECTS } from './subjects';
  *
  * Rules applied, all owner-approved:
  * - AI is available at any time except blocked periods and the child's existing lessons (OC-05).
- * - Lessons are 15 or 30 minutes and start on 15-minute boundaries; one AI lesson at a
- *   time per child, so a time that overlaps another lesson is not offered (OC-22).
+ * - Every AI lesson is 15 minutes (OC-89(4), replacing the 15/30 choice of OC-22) and starts on
+ *   a 15-minute boundary; a time that overlaps another lesson is not offered.
+ * - At most one AI lesson per child in any rolling 24 hours (OC-89(4)): a start within 24 hours
+ *   of another AI lesson of this child is not offered. The real check is on the server
+ *   (`server/aiSessions.ts`).
  *
- * Rules NOT applied because they are undecided: daily limits and minimum lead time (D-05).
+ * Rule NOT applied because it is undecided: minimum lead time (D-05).
  * The real slot engine, with server-side conflict checks, is Phase 3.
  */
 
-export const AI_LESSON_LENGTHS = [15, 30] as const;
+export const AI_LESSON_LENGTHS = [15] as const;
 export type AiLessonLength = (typeof AI_LESSON_LENGTHS)[number];
 export const SLOT_STEP_MINUTES = 15;
 /** Days offered in the wizard: today and the next four (board 7 shows five days). */
@@ -29,14 +32,17 @@ export const BOOKING_DAYS = 5;
 const FIRST_SLOT = { hour: 7, minute: 0 };
 const LAST_SLOT = { hour: 20, minute: 45 };
 
-export type SlotStatus = 'open' | 'lesson' | 'quiet';
+export type SlotStatus = 'open' | 'lesson' | 'quiet' | 'daily_limit';
+
+/** One AI lesson per child in any rolling 24 hours (OC-89(4)). */
+export const AI_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
 export type DayPart = 'morning' | 'afternoon' | 'evening';
 
 export interface Slot {
   startIso: string;
   label: string;
   part: DayPart;
-  /** Status for each lesson length: a 30-minute lesson may clash where a 15-minute one fits. */
+  /** Status for the (single) lesson length. */
   status: Record<AiLessonLength, SlotStatus>;
 }
 
@@ -97,12 +103,13 @@ function overlaps(aStart: number, aEnd: number, b: Period): boolean {
   return aStart < Date.parse(b.endIso) && Date.parse(b.startIso) < aEnd;
 }
 
-function statusFor(startIso: string, length: AiLessonLength, periods: Period[]): SlotStatus {
+function statusFor(startIso: string, length: AiLessonLength, periods: Period[], aiStarts: number[]): SlotStatus {
   const start = Date.parse(startIso);
   const end = start + length * 60_000;
   const clashes = periods.filter((p) => overlaps(start, end, p));
   if (clashes.some((p) => p.kind === 'lesson')) return 'lesson';
   if (clashes.some((p) => p.kind === 'quiet')) return 'quiet';
+  if (aiStarts.some((t) => Math.abs(t - start) < AI_DAILY_WINDOW_MS)) return 'daily_limit';
   return 'open';
 }
 
@@ -118,6 +125,9 @@ export function bookingDays(studentId: string, now: Date = clockNow()): BookingD
   if (!persona || persona.role !== 'student') return [];
   const tz = persona.timeZone;
   const periods = [...quietPeriods(tz, now), ...lessonPeriods(studentId, now)];
+  const aiStarts = lessonsForStudent(studentId, now)
+    .filter((l) => l.kind === 'ai')
+    .map((l) => Date.parse(l.startIso));
   const days: BookingDay[] = [];
   for (let day = 0; day < BOOKING_DAYS; day += 1) {
     const slots: Slot[] = [];
@@ -131,7 +141,7 @@ export function bookingDays(studentId: string, now: Date = clockNow()): BookingD
           startIso,
           label: formatClockTime(startIso, { timeZone: tz }),
           part: partOfDay(h),
-          status: { 15: statusFor(startIso, 15, periods), 30: statusFor(startIso, 30, periods) },
+          status: { 15: statusFor(startIso, 15, periods, aiStarts) },
         });
       }
     }
