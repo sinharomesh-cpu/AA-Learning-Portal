@@ -591,3 +591,48 @@ test('PR-D1b: a teacher sends a photo; only the teacher and the AA Pro team can 
   await expect(card.getByText('Your photo is removed. Your initial is shown instead.')).toBeVisible();
   await tc.close();
 });
+
+test('PR-D1c: an approved teacher sets their usual weekly times (boards D5, D9)', async ({ page, browser }) => {
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.40' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('times');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths'], [5]);
+  // Not before approval: the page sends a waiting teacher back to the status page.
+  await t.goto('/teacher/availability');
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.41' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for usual times');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+
+  await t.goto('/teacher/availability');
+  const times = t.getByRole('region', { name: 'Your usual weekly times' });
+  await expect(times).toBeVisible();
+  await times.getByLabel('Day 1', { exact: true }).selectOption({ label: 'Monday' });
+  await times.getByRole('button', { name: 'Add a time' }).click();
+  await times.getByLabel('Day 2', { exact: true }).selectOption({ label: 'Monday' });
+  await times.getByLabel('From (time 2)').selectOption({ label: '5:00 pm' });
+  await times.getByLabel('To (time 2)').selectOption({ label: '7:00 pm' });
+  await times.getByRole('button', { name: 'Save times' }).click();
+  await expect(times.getByText(/Two times on the same day overlap/)).toBeVisible();
+
+  await times.getByLabel('Day 2', { exact: true }).selectOption({ label: 'Saturday' });
+  await times.getByLabel('From (time 2)').selectOption({ label: '10:00 am' });
+  await times.getByLabel('To (time 2)').selectOption({ label: '12:00 pm' });
+  await times.getByRole('button', { name: 'Save times' }).click();
+  await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
+  await t.reload();
+  await expect(times.getByText('Now: Mon 4:00–6:00 pm · Sat 10:00 am–12:00 pm')).toBeVisible();
+  await noSeriousA11yIssues(t);
+  await t.setViewportSize({ width: 390, height: 844 });
+  expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await tc.close();
+});
