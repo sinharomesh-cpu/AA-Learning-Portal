@@ -214,19 +214,19 @@ assignment_events        -- status history (acceptance 11); also mirrored to aud
 
 ## 6. Dashboard and screen changes
 
-These need designs first, for approval, before building (OC-79: "document sharing: designs first"). The proposed boards are H1 to H9.
+These need designs first, for approval, before building (OC-79: "document sharing: designs first"). The proposed boards are HW1 to HW9.
 
 | Board | Role | Screen | Notes |
 |---|---|---|---|
-| H1 | Teacher | Dashboard (S21) | The "Share learning resources" panel and "Recently shared" become real (DV-84 is removed). New "Homework to review" panel: submitted, under review and overdue counts per student card |
-| H2 | Teacher | Resources: upload and share | File, title, subject (linked subjects only), chapter, students (linked in that subject) |
-| H3 | Teacher | Assignment builder | Kind (exercise / handwritten), details, questions (6 types), scoring, release mode, students, preview as student |
-| H4 | Teacher | Review queue and marking | Filters: needs review, overdue, late. Exercise marking per question; handwritten page viewer (zoom, rotate) with a feedback box; release; ask for revision |
-| H5 | Student | Dashboard: "My homework" and "From my teachers" | Child-friendly cards: due date in words, status chip with text, teacher's name; resources by subject → chapter → teacher |
-| H6 | Student | Exercise player | One question per screen on phone, all on desktop; 56 px targets; saves as you go; Submit with confirmation |
-| H7 | Student | Results and feedback | Shown only after release; correct answers shown only if the teacher chose to |
-| H8 | Parent | Family home and child page: homework | Per-child list, status, due dates, "Upload handwritten work", history, released feedback |
-| H9 | Parent | Upload handwritten work | Choose child → assignment (prefilled from the item), add photos or PDF, reorder, check, Submit; clear errors for wrong type or size |
+| HW1 | Teacher | Dashboard (S21) | The "Share learning resources" panel and "Recently shared" become real (DV-84 is removed). New "Homework to review" panel: submitted, under review and overdue counts per student card |
+| HW2 | Teacher | Resources: upload and share | File, title, subject (linked subjects only), chapter, students (linked in that subject) |
+| HW3 | Teacher | Assignment builder | Kind (exercise / handwritten), details, questions (6 types), scoring, release mode, students, preview as student |
+| HW4 | Teacher | Review queue and marking | Filters: needs review, overdue, late. Exercise marking per question; handwritten page viewer (zoom, rotate) with a feedback box; release; ask for revision |
+| HW5 | Student | Dashboard: "My homework" and "From my teachers" | Child-friendly cards: due date in words, status chip with text, teacher's name; resources by subject → chapter → teacher |
+| HW6 | Student | Exercise player | One question per screen on phone, all on desktop; 56 px targets; saves as you go; Submit with confirmation |
+| HW7 | Student | Results and feedback | Shown only after release; correct answers shown only if the teacher chose to |
+| HW8 | Parent | Family home and child page: homework | Per-child list, status, due dates, "Upload handwritten work", history, released feedback |
+| HW9 | Parent | Upload handwritten work | Choose child → assignment (prefilled from the item), add photos or PDF, reorder, check, Submit; clear errors for wrong type or size |
 
 **Status chips always show text** (AX-07):
 | Status | Colour |
@@ -358,7 +358,7 @@ All tests use synthetic accounts and small generated files only.
 | K-4 | **Retention** | D-28 (data retention) and D-24 (summaries) are still open | OC-90 Q-6: 12 months for homework | **Resolved for homework** (FR-027.4, FR-027.5); D-28 stays open for everything else |
 | K-5 | **After unlinking** | OC-41(4): access ends at once for the teacher | "Access to that child's resources and learning records must be removed" | **Resolved (OC-87 Q-5):** the teacher loses access; the child and parent keep the child's own records and already-shared resources |
 | K-6 | **Notifications** | OC-65: real email is disabled; WhatsApp is not approved | "Receive configurable notifications" | Queued only, with honest wording (FR-026.2) |
-| K-7 | **Designs first** | OC-79 / P2 plan: document sharing needs designs approved before building | Implementation requested | Boards H1 to H9 for approval first; the back end can be built in parallel |
+| K-7 | **Designs first** | OC-79 / P2 plan: document sharing needs designs approved before building | Implementation requested | Boards HW1 to HW9 for approval first; the back end can be built in parallel |
 | K-8 | **Teacher dashboard copy** | The dashboard (PR-T1) said "Not decided yet (D-16)" | D-16 was closed by OC-51 and is now extended | Fixed in this PR: the panel now says sharing arrives with CR-07 |
 | K-9 | **Quizzes** | The AI Teacher feasibility proposes "no quizzes" for the **AI** tutor's Q&A | Teachers set exercises | No conflict: the rule applies to the AI tutor only. Teacher homework is allowed |
 | K-10 | **Student uploads** | Master instruction: students cannot upload | Parents upload handwritten work | No conflict: only parents and guardians upload (FR-023.9) |
@@ -388,11 +388,11 @@ Each step is one pull request with its own tests. Only synthetic data is used; n
 
 | PR | Content |
 |---|---|
-| H-0 | Boards H1 to H9 (designs for approval) |
+| H-0 | Boards HW0 to HW9 (designs for approval), drawn 18 Oct 2026 on the design canvas page "Homework & shared resources" (named HW to avoid clashing with homepage boards H1, H2) |
 | H-1 | Private file store (`stored_files`, the file route, type and size checks, photo re-encoding). It also serves textbooks later |
 | H-2 | Teacher resources: share, unshare, archive, plus the student and parent views |
 | H-3 | Assignments and the lifecycle engine, exercises with auto-marking, and the student player |
 | H-4 | Handwritten homework: parent upload, teacher review, release and revision |
-| H-5 | Dashboards (H1, H5, H8), queued notifications and the unlink behaviour |
+| H-5 | Dashboards (HW1, HW5, HW8), queued notifications and the unlink behaviour |
 
 The marketplace step D4b (contact exchange, Report, payments question, shortlist) is still pending. Claude proposes building H-1 to H-5 first, because the owner has now described this as an end-to-end learning workflow; D4b follows unless the owner prefers otherwise.
