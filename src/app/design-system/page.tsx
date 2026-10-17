@@ -18,9 +18,41 @@ import { Wordmark } from '@/components/Wordmark';
 import { OfflineBanner } from '@/components/states/OfflineBanner';
 import { EmptyState, ErrorState, LoadingState, SuccessMessage } from '@/components/states/States';
 import { isDemoMode } from '@/server/demo';
+import { TeachersSection } from '@/components/landing/TeachersSection';
 import { DialogDemo } from './DialogDemo';
 
 export const metadata: Metadata = { title: 'Design system' };
+
+/** Synthetic listings for reviewing the card design (never shown on the home page). */
+const SAMPLE_LISTINGS = [
+  {
+    id: 'sample-a',
+    name: 'Sample Teacher A',
+    subjects: ['Maths', 'Science'],
+    grades: [6, 7, 8],
+    curricula: ['CBSE'],
+    experienceYears: 9,
+    prices: ['₹600 per hour', '₹2,200 a week', '₹8,000 a month'],
+  },
+  {
+    id: 'sample-b',
+    name: 'Sample Teacher B',
+    subjects: ['English', 'SST'],
+    grades: [1, 2, 3, 4, 5],
+    curricula: ['ICSE', 'State board'],
+    experienceYears: 4,
+    prices: ['₹500 per hour', '₹1,800 a week'],
+  },
+  {
+    id: 'sample-c',
+    name: 'Sample Teacher C',
+    subjects: ['Hindi', 'IT'],
+    grades: [9, 10, 11, 12],
+    curricula: [],
+    experienceYears: null,
+    prices: [],
+  },
+];
 
 /** Review page for WP-1/WP-2 components. Exists only in demo mode (OC-27). */
 export default function DesignSystemPage() {
@@ -187,6 +219,14 @@ export default function DesignSystemPage() {
         </h2>
         <DialogDemo />
       </Card>
+
+      <div className="aa-public rounded-md border border-card-border px-4 sm:px-6">
+        <p className="mt-6 rounded-[14px] border border-warning-border bg-warning-container px-4 py-3 text-[15px] font-bold text-on-warning-container">
+          Sample listings for design review only — not real teachers. The home page shows listing cards only once
+          teachers can publish listings (OC-84).
+        </p>
+        <TeachersSection wrap="" marketplace={{ listings: true, enquiries: false }} listings={SAMPLE_LISTINGS} />
+      </div>
     </main>
   );
 }

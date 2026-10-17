@@ -124,7 +124,7 @@ export const FAQ: readonly FaqItem[] = [
   },
   {
     q: 'Can I find a new teacher on AA Pro?',
-    a: 'Yes. Browse “Teachers looking for students” without signing in. To contact a teacher, sign in or create a parent account and send a short enquiry. The teacher sees your first name and your child’s grade, curriculum and subjects, never your child’s name.',
+    a: 'Yes. Browse “Meet Our Subject Specialists” without signing in. To contact a teacher, sign in or create a parent account and send a short enquiry. The teacher sees your first name and your child’s grade, curriculum and subjects, never your child’s name.',
     needs: 'enquiries',
   },
   {
