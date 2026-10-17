@@ -110,14 +110,23 @@ test('a recovery code works once instead of the phone', async ({ page }) => {
   await noSeriousA11yIssues(page);
 });
 
-// Later sign-ins use the remaining recovery codes, so no security code is ever reused.
+// Later sign-ins use the remaining recovery codes, so no security code is ever reused. Once
+// they run out, later tests reuse the last verified owner session (its cookies), as a browser would.
 let nextRecovery = 1;
+let ownerCookies: Awaited<ReturnType<ReturnType<Page['context']>['cookies']>> | null = null;
 async function ownerSignedIn(page: Page) {
+  if (nextRecovery >= recovery.length - 1 && ownerCookies) {
+    await page.context().addCookies(ownerCookies);
+    await page.goto('/admin/security');
+    await expect(page).toHaveURL(/\/admin\/security/);
+    return;
+  }
   await passwordStep(page);
   await page.getByRole('button', { name: 'Lost your phone? Use a recovery code' }).click();
   await page.getByLabel('Recovery code').fill(recovery[nextRecovery++]!);
   await page.getByRole('button', { name: 'Use recovery code' }).click();
   await expect(page).toHaveURL(/\/admin\/security/);
+  ownerCookies = await page.context().cookies();
 }
 
 const ADMIN = 'helper.admin@example.com';
