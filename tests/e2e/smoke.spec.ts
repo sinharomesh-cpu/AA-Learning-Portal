@@ -9,7 +9,7 @@ test('home shows the public landing page to a signed-out visitor (OC-39, board 6
   await expect(page).toHaveTitle('AA Pro');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Your Universe of Learning Starts Here/);
   for (const name of [
-    'Teachers looking for students',
+    'Meet Our Subject Specialists',
     'Three simple paths',
     'Teach with AA Pro',
     'Built for children, run by parents',

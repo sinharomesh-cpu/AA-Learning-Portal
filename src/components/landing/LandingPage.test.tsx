@@ -4,7 +4,7 @@ import { MARKETPLACE } from '@/config/landing';
 import { LandingPage } from './LandingPage';
 import { TeachersSection } from './TeachersSection';
 
-/** Boards H1/H2 (approved 16 Oct 2026): the home page with "Teachers looking for students". */
+/** Boards H1/H2 (approved 16 Oct 2026): the home page teachers section, now "Meet Our Subject Specialists" (OC-84). */
 
 const WRAP = 'mx-auto';
 
@@ -18,11 +18,12 @@ describe('home page while listings and enquiries are not built', () => {
     const nav = screen.getByRole('navigation', { name: 'Main' });
     expect(within(nav).getAllByRole('link', { name: 'Find a teacher' })[0]).toHaveAttribute('href', '#teachers');
     expect(screen.getAllByRole('link', { name: 'Find a teacher' }).length).toBeGreaterThanOrEqual(3);
-    expect(screen.getByRole('heading', { level: 2, name: 'Teachers looking for students' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Meet Our Subject Specialists' })).toBeInTheDocument();
     expect(screen.getByText(/No teachers are listed right now/)).toBeInTheDocument();
-    expect(
-      screen.getByText('Parents with an account can already search approved teachers after signing in.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Parents with an account can already search approved teachers/)).toBeInTheDocument();
+    // No search or filter controls while there is nothing to search (owner, OC-84).
+    expect(within(container.querySelector('#teachers')!).queryAllByRole('searchbox')).toHaveLength(0);
+    expect(within(container.querySelector('#teachers')!).queryAllByRole('combobox')).toHaveLength(0);
     expect(await axeViolations(container)).toEqual([]);
   });
 
@@ -68,8 +69,12 @@ describe('home page once listings and enquiries are live', () => {
       />,
     );
     const card = screen.getByRole('article', { name: 'Teacher K. Menon' });
-    expect(within(card).getByText(/Grades 4–6 · CBSE, ICSE/)).toBeInTheDocument();
-    expect(within(card).getByText(/8 years \(as stated by the teacher\) · Online/)).toBeInTheDocument();
+    expect(within(card).getByText('Grades 4–6')).toBeInTheDocument();
+    expect(within(card).getByText('CBSE')).toBeInTheDocument();
+    expect(within(card).getByText('Online')).toBeInTheDocument();
+    expect(within(card).getByText('Maths · Science')).toBeInTheDocument();
+    expect(within(card).getByText('(as stated by the teacher)')).toBeInTheDocument();
+    expect(card.textContent).toMatch(/8 years teaching/);
     expect(within(card).getByText('₹600 per hour · 40-minute sessions')).toBeInTheDocument();
     expect(screen.getByText(/How connecting works/)).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/@|rating|review/i);

@@ -1,10 +1,12 @@
 # AA Pro — Design Implementation Gap Report
 
-**Version:** 1.1 · 17 Oct 2026 · **Prepared by:** Claude.
+**Version:** 1.2 · 17 Oct 2026 · **Prepared by:** Claude.
 **Requested by the owner:**
 - "Mandatory Correction of UI Implementation to Match My Supplied Designs" (17 Oct 2026, 02:41 IST).
 - "Fix the homepage design and sign in page … mode should be both Light/Dark … remove or replace claims" (17 Oct 2026, 12:01 IST).
 - "Design Review Decisions and Next Implementation Instructions" (17 Oct 2026, 13:06 IST; register OC-83).
+
+**v1.2 (OC-84):** the homepage teachers section is now "Meet Our Subject Specialists", restyled to the cosmic reference; see section 3.8.
 
 **v1.1 (increment 2, OC-83):**
 - Home headline is now "Your Universe of Learning Starts Here"; public body text uses Inter.
@@ -143,6 +145,18 @@ Status key:
 | **Light mode** | Pixel-compared with the screens before the change: identical except for the new switch in the header |
 | **Dark mode** | Parent, student, teacher and Super Admin pages pass the automated accessibility scan (including colour contrast) on desktop and phone (`tests/e2e/theme.spec.ts`) |
 | **Not covered yet** | Textbook reader and AI classroom (not built; they will use the same tokens). The Super Admin second-factor page and developer tools follow the stored choice but have no switch of their own |
+
+### 3.8 Meet Our Subject Specialists (v1.2, OC-84)
+
+| | |
+|---|---|
+| **Reference** | ZIP 5 cosmic home page, "Meet Our Certified Subject Specialists" |
+| **Position** | Unchanged and as asked: after Subjects and Textbooks, before How it works |
+| **Now (live)** | New heading; restyled empty state ("No teachers are listed right now", what will appear, Create an account). No search or filter controls, because there are no listings to search |
+| **Once listings exist** | The owner's introduction, a privacy note, and cards with initials, subjects, experience "as stated by the teacher", grades, curricula, Online and up to 3 asking prices; 1, 2 or 3 columns on phone, tablet and desktop. Reviewable now with labelled sample cards on the demo-only design page (`/design-system`) |
+| **Not taken from the reference** | Ratings and reviews, "certified", "verified", "Top 1%", "ChildSafe", "background-checked", "Accredited Educator Roster", direct booking, "Top Rated" sort (DV-70) |
+| **Needs building (approved order)** | PR-D1 curriculum, experience (and optional photo, OC-84); PR-D2 listings with consent, prices and expiry; PR-D3 public search and filters (name, subject, grade, curriculum, experience); PR-D4 Connect with teacher and enquiries |
+| **Files** | `src/components/landing/TeachersSection.tsx`, `src/app/design-system/page.tsx`, `src/config/landing.ts` |
 
 ## 4. Screen-by-screen: signed-in portal (audit only, not changed in this increment)
 
