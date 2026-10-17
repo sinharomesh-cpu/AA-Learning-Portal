@@ -54,7 +54,7 @@ export function AccountMenu({ displayName, initial, roleLabel, child = false }: 
       <div
         id={panelId}
         hidden={!open}
-        className="absolute right-0 z-20 mt-2 w-64 rounded-[16px] border border-card-border bg-white p-4 shadow-lg"
+        className="absolute right-0 z-20 mt-2 w-64 rounded-[16px] border border-card-border bg-surface-container-lowest p-4 shadow-lg"
       >
         <p className={cx('font-bold', child ? 'text-lg' : 'text-base')}>{displayName}</p>
         <p className="mb-3 text-sm text-on-surface-variant">{roleLabel}</p>
@@ -62,7 +62,7 @@ export function AccountMenu({ displayName, initial, roleLabel, child = false }: 
           <button
             type="submit"
             className={cx(
-              'w-full rounded-full border-2 border-outline bg-white font-bold text-on-surface hover:bg-surface-container-low',
+              'w-full rounded-full border-2 border-outline bg-surface-container-lowest font-bold text-on-surface hover:bg-surface-container-low',
               child ? 'min-h-14 text-[17px]' : 'min-h-12 text-[15px]',
             )}
           >

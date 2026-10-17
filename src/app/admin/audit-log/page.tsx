@@ -13,7 +13,7 @@ import { isDemoMode } from '@/server/demo';
 export const metadata: Metadata = { title: 'Audit log' };
 export const dynamic = 'force-dynamic';
 
-const SELECT = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-white px-3.5 text-[15px]';
+const SELECT = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-3.5 text-[15px]';
 const OUTCOME_KIND = { success: 'success', failure: 'warning', denied: 'error' } as const;
 
 function parseDay(v: string | undefined): Date | undefined {
@@ -100,7 +100,7 @@ export default async function AdminAuditLogPage({
         </div>
         <button
           type="submit"
-          className="min-h-12 rounded-full border-2 border-outline bg-white px-5 text-[15px] font-bold hover:bg-surface-container-low"
+          className="min-h-12 rounded-full border-2 border-outline bg-surface-container-lowest px-5 text-[15px] font-bold hover:bg-surface-container-low"
         >
           Show
         </button>

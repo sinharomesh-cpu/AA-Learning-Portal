@@ -48,7 +48,7 @@ function TextArea({ label, name, error, hint }: { label: string; name: string; e
         aria-invalid={error ? true : undefined}
         aria-describedby={[error ? `${id}-e` : '', hint ? `${id}-h` : ''].filter(Boolean).join(' ') || undefined}
         className={cx(
-          'min-h-24 w-full rounded-[16px] border-2 bg-white px-4 py-3 text-base',
+          'min-h-24 w-full rounded-[16px] border-2 bg-surface-container-lowest px-4 py-3 text-base',
           error ? 'border-error' : 'border-outline',
         )}
       />

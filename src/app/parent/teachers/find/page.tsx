@@ -15,7 +15,7 @@ import { cleanDirectoryQuery, DIRECTORY_LIMIT, NAME_QUERY_MAX, searchTeachers } 
 export const metadata: Metadata = { title: 'Find a teacher' };
 export const dynamic = 'force-dynamic';
 
-const FIELD = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-white px-3.5 text-[15px]';
+const FIELD = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-3.5 text-[15px]';
 const subjectName = (s: string) => SUBJECTS[s as keyof typeof SUBJECTS]?.name ?? s;
 
 /**

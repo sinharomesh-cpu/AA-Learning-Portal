@@ -21,7 +21,11 @@ export default async function DevMailboxPage() {
       <p className="text-body-md text-on-surface-variant">Nothing here was sent. Newest first.</p>
       <ul className="flex flex-col gap-3">
         {rows.map((r) => (
-          <li key={r.id} data-testid="mail" className="rounded-md border border-card-border bg-white p-4">
+          <li
+            key={r.id}
+            data-testid="mail"
+            className="rounded-md border border-card-border bg-surface-container-lowest p-4"
+          >
             <p>
               <strong data-testid="mail-to">{r.to_address}</strong> ·{' '}
               <span data-testid="mail-template">{r.template}</span>

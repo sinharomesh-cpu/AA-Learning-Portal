@@ -29,7 +29,7 @@ export function MobileMenu({ label, children }: { label: string; children: React
         aria-controls={id}
         aria-label={`Open ${label.toLowerCase()}`}
         onClick={() => setOpen((v) => !v)}
-        className="min-h-12 min-w-12 rounded-full border-2 border-outline bg-white px-3 text-[14px] font-bold text-on-surface"
+        className="min-h-12 min-w-12 rounded-full border-2 border-outline bg-surface-container-lowest px-3 text-[14px] font-bold text-on-surface"
       >
         Menu
       </button>
@@ -37,7 +37,7 @@ export function MobileMenu({ label, children }: { label: string; children: React
         id={id}
         aria-label={label}
         hidden={!open}
-        className="absolute inset-x-0 top-full z-20 flex flex-col gap-1 border-b border-card-border bg-white px-4 py-3 shadow-lg"
+        className="absolute inset-x-0 top-full z-20 flex flex-col gap-1 border-b border-card-border bg-surface-container-lowest px-4 py-3 shadow-lg"
       >
         {children}
       </nav>

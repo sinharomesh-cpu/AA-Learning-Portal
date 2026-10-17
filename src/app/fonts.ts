@@ -15,3 +15,11 @@ export const jakarta = localFont({
   weight: '200 800',
   display: 'swap',
 });
+
+// Inter: body text on the public pages (Cosmic Luminary design system; owner decision OC-83).
+export const inter = localFont({
+  src: '../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2',
+  variable: '--font-inter',
+  weight: '100 900',
+  display: 'swap',
+});

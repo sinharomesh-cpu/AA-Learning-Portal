@@ -28,7 +28,7 @@ export type ProfileMode = 'draft' | 'changes_requested' | 'submitted' | 'approve
 
 const CHOICE =
   'flex min-h-12 cursor-pointer items-center gap-2.5 rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary';
-const SELECT = 'min-h-[52px] rounded-[16px] border-2 bg-white px-4 text-base';
+const SELECT = 'min-h-[52px] rounded-[16px] border-2 bg-surface-container-lowest px-4 text-base';
 const BIO_MAX = 1000;
 
 function FieldError({ id, children }: { id: string; children?: string }) {
@@ -180,7 +180,7 @@ export function TeacherProfileForm({
             aria-invalid={e.bio ? true : undefined}
             aria-describedby={['tp-bio-hint', e.bio ? 'tp-bio-error' : ''].filter(Boolean).join(' ')}
             className={cx(
-              'min-h-[120px] w-full rounded-[16px] border-2 bg-white px-4 py-3 text-base',
+              'min-h-[120px] w-full rounded-[16px] border-2 bg-surface-container-lowest px-4 py-3 text-base',
               e.bio ? 'border-error' : 'border-outline',
             )}
           />

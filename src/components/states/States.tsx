@@ -22,7 +22,7 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, children, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-md border border-dashed border-outline bg-white p-6">
+    <div className="flex flex-col items-start gap-3 rounded-md border border-dashed border-outline bg-surface-container-lowest p-6">
       <h3 className="text-[20px] font-semibold leading-7">{title}</h3>
       <p className="text-[15px] leading-[22px] text-on-surface-variant">{children}</p>
       {action}
@@ -54,7 +54,10 @@ export function ErrorState({
         {audience === 'adult' && reference ? (
           <>
             {' '}
-            Reference: <span className="rounded-[8px] bg-white px-2 py-0.5 font-mono text-[13px]">{reference}</span>
+            Reference:{' '}
+            <span className="rounded-[8px] bg-surface-container-lowest px-2 py-0.5 font-mono text-[13px]">
+              {reference}
+            </span>
           </>
         ) : null}
       </span>

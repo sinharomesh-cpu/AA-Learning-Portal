@@ -19,7 +19,7 @@ export function SubjectCard({ subject, detail, href }: SubjectCardProps) {
   return (
     <Link
       href={href}
-      className="flex min-h-[72px] flex-col justify-center gap-1 rounded-[20px] border border-card-border bg-white p-3 text-on-surface no-underline hover:border-primary hover:text-on-surface lg:justify-start lg:gap-2.5 lg:rounded-md lg:p-[18px]"
+      className="flex min-h-[72px] flex-col justify-center gap-1 rounded-[20px] border border-card-border bg-surface-container-lowest p-3 text-on-surface no-underline hover:border-primary hover:text-on-surface lg:justify-start lg:gap-2.5 lg:rounded-md lg:p-[18px]"
     >
       <span
         aria-hidden="true"

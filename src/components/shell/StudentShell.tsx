@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/Wordmark';
+import { ThemeToggle } from '@/components/public/ThemeToggle';
 import { OfflineBanner } from '@/components/states/OfflineBanner';
 import { AccountMenu } from './AccountMenu';
 import { NavLink } from './NavLink';
@@ -29,11 +30,11 @@ export function StudentShell({
     <div className="flex min-h-dvh flex-col bg-background pb-24 lg:pb-0">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-full focus:bg-white focus:px-4 focus:py-2"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-full focus:bg-surface-container-lowest focus:px-4 focus:py-2"
       >
         Skip to main content
       </a>
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-card-border bg-white px-4 py-3 sm:px-8 lg:py-4">
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-card-border bg-surface-container-lowest px-4 py-3 sm:px-8 lg:py-4">
         <Wordmark href="/student" size={28} />
         <nav aria-label="Student menu" className="hidden flex-wrap gap-1.5 lg:flex">
           {ITEMS.map((item) => (
@@ -49,7 +50,10 @@ export function StudentShell({
             </NavLink>
           ))}
         </nav>
-        <AccountMenu displayName={displayName} initial={initial} roleLabel="Student" child />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <AccountMenu displayName={displayName} initial={initial} roleLabel="Student" child />
+        </div>
       </header>
       <div className="mx-auto w-full max-w-[1240px] px-4 pt-4 sm:px-6">
         <OfflineBanner />
@@ -59,7 +63,7 @@ export function StudentShell({
       </main>
       <nav
         aria-label="Student menu"
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-center border-t border-card-border bg-white px-1 pb-2.5 pt-1.5 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-center border-t border-card-border bg-surface-container-lowest px-1 pb-2.5 pt-1.5 lg:hidden"
       >
         {ITEMS.map((item) =>
           'fab' in item ? (

@@ -19,7 +19,7 @@ const day = (d: Date | null, tz: string) =>
     ? new Intl.DateTimeFormat('en-GB', { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric' }).format(d)
     : '—';
 
-const SELECT = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-white px-3.5 text-[15px]';
+const SELECT = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-3.5 text-[15px]';
 
 export async function RealAccounts({
   actorId,
@@ -69,7 +69,7 @@ export async function RealAccounts({
         </div>
         <button
           type="submit"
-          className="min-h-12 rounded-full border-2 border-outline bg-white px-5 text-[15px] font-bold hover:bg-surface-container-low"
+          className="min-h-12 rounded-full border-2 border-outline bg-surface-container-lowest px-5 text-[15px] font-bold hover:bg-surface-container-low"
         >
           Show
         </button>
@@ -134,7 +134,7 @@ export async function RealAccounts({
               return (
                 <li
                   key={a.id}
-                  className="flex flex-col gap-1.5 rounded-[20px] border border-card-border bg-white p-3.5"
+                  className="flex flex-col gap-1.5 rounded-[20px] border border-card-border bg-surface-container-lowest p-3.5"
                 >
                   <span className="flex items-start justify-between gap-2">
                     <strong>{a.name}</strong>

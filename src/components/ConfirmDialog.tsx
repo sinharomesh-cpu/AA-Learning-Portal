@@ -49,7 +49,7 @@ export function ConfirmDialog({
         event.preventDefault();
         onCancel();
       }}
-      className="m-auto w-[min(480px,calc(100vw-32px))] rounded-md border border-card-border bg-white p-6 text-on-surface backdrop:bg-on-surface/40"
+      className="m-auto w-[min(480px,calc(100vw-32px))] rounded-md border border-card-border bg-surface-container-lowest p-6 text-on-surface backdrop:bg-on-surface/40"
     >
       <h2 id={titleId} className="text-[22px] font-bold leading-7">
         {title}

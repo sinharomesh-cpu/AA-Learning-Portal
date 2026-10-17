@@ -1,9 +1,10 @@
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/public/ThemeToggle';
 
-/** "Back to home" link for pages reached from the landing page (owner request, OC-52). */
+/** "Back to home" link (OC-52) and the light/dark switch (OC-83) for the standalone pages. */
 export function BackToHome() {
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-4 pt-4 sm:px-6">
+    <div className="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-3 px-4 pt-4 sm:px-6">
       <Link
         href="/"
         className="inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[15px] font-bold text-primary no-underline hover:bg-surface-container-low"
@@ -23,6 +24,7 @@ export function BackToHome() {
         </svg>
         Back to home
       </Link>
+      <ThemeToggle />
     </div>
   );
 }
