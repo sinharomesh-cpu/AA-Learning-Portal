@@ -15,10 +15,10 @@ import { getTeacherDashboard, teacherLinkedTo } from './teacher';
 const NOW = new Date('2026-10-14T09:00:00.000Z');
 
 describe('one shared synthetic schedule (fixtures/schedule.ts)', () => {
-  it('respects the session-length rules: human ≤ 40 min (OC-06), AI 15 or 30 min (OC-22)', () => {
+  it('respects the session-length rules: human ≤ 40 min (OC-06), AI 15 min (OC-89)', () => {
     for (const l of allLessons(NOW)) {
       if (l.kind === 'human') expect(l.durationMinutes).toBeLessThanOrEqual(40);
-      else expect([15, 30]).toContain(l.durationMinutes);
+      else expect([15]).toContain(l.durationMinutes);
     }
   });
 

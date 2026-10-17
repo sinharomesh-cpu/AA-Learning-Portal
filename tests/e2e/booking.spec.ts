@@ -4,9 +4,8 @@ import { expectNoHorizontalScroll, expectNoSeriousAxeIssues, signInAdult, signIn
 /** WP-8: S13 booking wizard, M-17 outcomes and M-16 history. Demo only — nothing is booked. */
 
 async function chooseOpenTimeTomorrow(page: Page) {
-  await page.getByRole('group', { name: 'Lesson length' }).getByRole('radio', { name: '15 minutes' }).check();
-  // Tomorrow, so the test does not depend on what time of day it runs.
-  await page.getByRole('group', { name: 'Day' }).getByRole('radio').nth(1).check();
+  // The day after tomorrow: tomorrow before 5:15 pm is within 24 hours of today's AI lesson (OC-89).
+  await page.getByRole('group', { name: 'Day' }).getByRole('radio').nth(2).check();
   await page.getByRole('group', { name: 'Part of the day' }).getByRole('radio', { name: 'Afternoon' }).check();
   const time = page
     .getByRole('group', { name: /^Start time/ })
@@ -43,19 +42,24 @@ test.describe('AI booking wizard (S13, boards 7 and 8)', () => {
     await expectNoHorizontalScroll(page);
   });
 
-  test('only the parent-enabled subjects and 15/30-minute lengths are offered', async ({ page }) => {
+  test('only the parent-enabled subjects, one 15-minute length and one AI class a day (OC-89)', async ({ page }) => {
     const subjects = page.getByRole('group', { name: 'Subject' }).getByRole('radio');
     await expect(subjects).toHaveCount(5); // IT is not enabled for Kiran
-    const lengths = page.getByRole('group', { name: 'Lesson length' }).getByRole('radio');
-    await expect(lengths).toHaveCount(2);
+    await expect(page.getByRole('group', { name: 'Lesson length' })).toHaveCount(0);
+    await expect(page.getByText('Every AI class is 15 minutes')).toBeVisible();
+    // Kiran has an AI lesson today at 5:15 pm, so today's later times are one-a-day blocked.
+    await page.getByRole('group', { name: 'Part of the day' }).getByRole('radio', { name: 'Evening' }).check();
+    await expect(
+      page.getByRole('group', { name: /^Start time/ }).getByRole('radio', { name: /6:00 pm.*One AI class a day/ }),
+    ).toBeDisabled();
     await expect(page.getByText('Not decided yet (D-05):')).toBeVisible();
   });
 
   test('the server re-checks the choice: a tampered link gets "not an open time"', async ({ page }) => {
     const tampered = [
-      'subject=it&length=30&start=2030-01-01T10:00:00.000Z', // subject not enabled, outside window
-      'subject=maths&length=45&start=2030-01-01T10:00:00.000Z', // length not allowed
-      'subject=maths&length=30&start=yesterday',
+      'subject=it&length=15&start=2030-01-01T10:00:00.000Z', // subject not enabled, outside window
+      'subject=maths&length=30&start=2030-01-01T10:00:00.000Z', // 30 minutes is no longer offered (OC-89)
+      'subject=maths&length=15&start=yesterday',
     ];
     for (const q of tampered) {
       await page.goto(`/student/book/result?${q}`);
