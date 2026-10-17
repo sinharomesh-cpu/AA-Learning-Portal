@@ -636,3 +636,89 @@ test('PR-D1c: an approved teacher sets their usual weekly times (boards D5, D9)'
   expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await tc.close();
 });
+
+test('PR-D2: an approved teacher publishes a listing after agreeing to the previewed details (board D5)', async ({
+  page,
+  browser,
+}) => {
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.50' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('listing');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths', 'Science'], [4, 5]);
+  await t.goto('/teacher/listing');
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.51' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for listings');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+
+  await t.goto('/teacher');
+  await t.getByRole('navigation', { name: 'Teacher menu' }).getByRole('link', { name: 'Looking for students' }).click();
+  await expect(t.getByRole('heading', { level: 1, name: /Looking for students/ })).toBeVisible();
+  await expect(t.getByText('Not started', { exact: true }).first()).toBeVisible();
+  // Only the approved subjects are offered.
+  const offer = t.getByRole('region', { name: 'What you offer' });
+  await expect(offer.getByRole('checkbox', { name: 'English' })).toHaveCount(0);
+  await offer.getByRole('checkbox', { name: 'Science', exact: true }).uncheck();
+  await offer.getByRole('checkbox', { name: 'Grade 5', exact: true }).uncheck();
+  await offer.getByRole('checkbox', { name: 'CBSE', exact: true }).check();
+  await offer.getByLabel('Years of teaching (optional)').fill('8');
+
+  const prices = t.getByRole('region', { name: 'Asking prices (up to 3, optional)' });
+  await prices.getByRole('button', { name: 'Add a price' }).click();
+  await prices.getByLabel('Amount per hour (price 1)').fill('600');
+  await prices.getByRole('button', { name: 'Add a price' }).click();
+  await prices.getByLabel('Plan (price 2)').selectOption({ label: 'Monthly' });
+  await prices.getByLabel('Amount per plan (price 2)').fill('4000');
+  await prices.getByLabel('Sessions in the plan (price 2)').fill('8');
+
+  // The live preview shows exactly what will be public.
+  const preview = t.getByRole('region', { name: 'What parents see' });
+  await expect(preview.getByText('Maths', { exact: true })).toBeVisible();
+  await expect(preview.getByText('Grade 4', { exact: true })).toBeVisible();
+  await expect(preview.getByText('₹600 per hour · 40-minute sessions')).toBeVisible();
+  await expect(preview.getByText('₹4,000 a month · 8 sessions × 40 min')).toBeVisible();
+  await expect(preview.getByText('(as stated by the teacher)')).toBeVisible();
+  expect(await preview.innerText()).not.toContain(teacherEmail);
+
+  // Publishing needs agreement.
+  await t.getByRole('button', { name: 'Publish' }).click();
+  await expect(t.getByText('Please tick to agree before your listing is shown publicly.')).toBeVisible();
+  await t.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+  await t.getByRole('button', { name: 'Publish' }).click();
+  await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
+  await t.reload();
+  await expect(t.getByText(/Published · shown until/)).toBeVisible();
+  // What was published is exactly what was previewed, even after a refused first attempt.
+  await expect(offer.getByRole('checkbox', { name: 'Science', exact: true })).not.toBeChecked();
+  await expect(offer.getByRole('checkbox', { name: 'Grade 5', exact: true })).not.toBeChecked();
+  await expect(offer.getByRole('checkbox', { name: 'CBSE', exact: true })).toBeChecked();
+  await expect(prices.getByRole('combobox', { name: 'Plan (price 2)' })).toHaveValue('monthly');
+  await expect(preview.getByText('Maths', { exact: true })).toBeVisible();
+  await expect(preview.getByText('Grade 4', { exact: true })).toBeVisible();
+  await expect(preview.getByText('CBSE')).toBeVisible();
+  await expect(preview.getByText('₹4,000 a month · 8 sessions × 40 min')).toBeVisible();
+  await expect(t.getByText(/Your public listing shows the details you agreed to earlier/)).toHaveCount(0);
+  await noSeriousA11yIssues(t);
+
+  // Pause hides it; withdraw closes it.
+  await t.getByRole('button', { name: 'Pause' }).click();
+  await expect(t.getByText(/Paused. Parents no longer see your listing/)).toBeVisible();
+  await t.reload();
+  await expect(t.getByText('Paused · hidden')).toBeVisible();
+  await t.getByRole('button', { name: 'Withdraw' }).click();
+  await expect(t.getByText(/Withdrawn. Your listing is closed/)).toBeVisible();
+
+  await t.setViewportSize({ width: 390, height: 844 });
+  await t.reload();
+  expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await tc.close();
+});

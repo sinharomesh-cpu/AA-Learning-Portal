@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
+import { keepValuesOnSubmit } from '@/lib/keepValuesOnSubmit';
 import { formatMinute, USUAL_TIMES_MAX, WEEKDAYS } from '@/lib/usualTimes';
 import { saveUsualTimesAction, type UsualTimesFormState } from './actions';
 
@@ -45,7 +46,7 @@ export function UsualTimesForm({
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
 
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form action={action} onSubmit={keepValuesOnSubmit(action)} className="flex flex-col gap-4" noValidate>
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       {state.notice ? <FormMessage tone="success">{state.notice}</FormMessage> : null}
       <p className="text-[15px] leading-[22px] text-on-surface-variant">

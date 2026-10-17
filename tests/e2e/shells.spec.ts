@@ -114,6 +114,7 @@ test.describe('parent and teacher shells (P19 / P21)', () => {
       'My schedule',
       'Availability',
       'Students',
+      'Looking for students',
       'Learning resources',
       'Profile',
     ]);
