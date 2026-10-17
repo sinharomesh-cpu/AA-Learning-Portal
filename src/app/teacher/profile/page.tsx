@@ -10,6 +10,8 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getViewer } from '@/server/session';
 import { getTeacherProfile } from '@/server/teacherProfile';
+import { ownPhotoState } from '@/server/teacherPhotos';
+import { PhotoForm } from './PhotoForm';
 import { SearchVisibilityForm } from './SearchVisibilityForm';
 import { type ProfileMode, TeacherProfileForm } from './TeacherProfileForm';
 
@@ -42,6 +44,7 @@ export default async function TeacherProfilePage() {
   }
   const profile = await getTeacherProfile(db(), viewer.id);
   if (!profile || profile.approvalStatus === 'rejected') redirect('/teacher/status');
+  const photo = await ownPhotoState(db(), viewer.id);
   const mode: ProfileMode = profile.approvalStatus;
   const approved = mode === 'approved';
   const change = profile.pendingChange;
@@ -112,6 +115,12 @@ export default async function TeacherProfilePage() {
           curricula: profile.curricula,
           experienceYears: profile.experienceYears,
         }}
+      />
+      <PhotoForm
+        initial={[...profile.name.replace(/^(Teacher|Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')][0]?.toUpperCase() ?? '?'}
+        approvedId={photo.approvedId}
+        pending={photo.pending ? { id: photo.pending.id, since: day(photo.pending.uploadedAt) } : null}
+        declined={photo.declined ? { note: photo.declined.note, on: day(photo.declined.decidedAt) } : null}
       />
       <SearchVisibilityForm hidden={profile.hiddenFromSearch} approved={approved} />
     </div>

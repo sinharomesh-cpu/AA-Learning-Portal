@@ -8,7 +8,8 @@ import { listPendingTeachers, listProfileChanges } from '@/server/admin';
 import { requireAdmin } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { DecisionForm, ProfileChangeForm } from '../AdminForms';
+import { listPendingPhotos } from '@/server/teacherPhotos';
+import { DecisionForm, PhotoDecisionForm, ProfileChangeForm } from '../AdminForms';
 
 export const metadata: Metadata = { title: 'Teacher approvals' };
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,8 @@ const DONE: Record<string, string> = {
   changes: 'Changes requested. The teacher sees your note when they sign in.',
   change_approve: 'Change accepted. The teacher’s new subjects and grades are in force and they were emailed.',
   change_decline: 'Change declined. The teacher keeps their approved subjects and grades and was emailed.',
+  photo_approve: 'Photo approved. It replaces the teacher’s previous photo.',
+  photo_decline: 'Photo declined. The picture was deleted; the teacher sees your note.',
 };
 
 export default async function AdminApprovalsPage({ searchParams }: { searchParams: Promise<{ done?: string }> }) {
@@ -43,7 +46,9 @@ export default async function AdminApprovalsPage({ searchParams }: { searchParam
   }
   const teachers = (await listPendingTeachers(db(), access.viewer.id)) ?? [];
   const changes = (await listProfileChanges(db(), access.viewer.id)) ?? [];
-  const waiting = teachers.filter((t) => t.approvalStatus === 'submitted' || t.canApprove).length + changes.length;
+  const photos = (await listPendingPhotos(db(), access.viewer.id)) ?? [];
+  const waiting =
+    teachers.filter((t) => t.approvalStatus === 'submitted' || t.canApprove).length + changes.length + photos.length;
   const { done } = await searchParams;
   const tz = access.viewer.timeZone;
   const day = (d: Date) =>
@@ -138,6 +143,48 @@ export default async function AdminApprovalsPage({ searchParams }: { searchParam
             </div>
           </dl>
           <ProfileChangeForm teacherId={c.id} name={c.name} />
+        </Card>
+      ))}
+      {photos.length ? <h2 className="text-headline-sm">Teacher photos</h2> : null}
+      {photos.map((p) => (
+        <Card as="article" key={p.id} aria-labelledby={`p-${p.id}`} className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <h3 id={`p-${p.id}`} className="flex flex-wrap items-center gap-2.5 text-[22px] font-bold leading-7">
+              {p.name} <StatusChip kind="neutral">New photo</StatusChip>
+            </h3>
+            <span className="text-sm text-on-surface-variant">Sent {day(p.uploadedAt)}</span>
+          </div>
+          <div className="flex flex-wrap gap-6">
+            <figure className="m-0 flex flex-col gap-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- private, uncached image from our own route */}
+              <img
+                src={`/teacher-photo/${p.id}`}
+                alt={`New photo sent by ${p.name}`}
+                width={160}
+                height={160}
+                className="size-40 rounded-[22px] border border-card-border object-cover"
+              />
+              <figcaption className="text-sm text-on-surface-variant">New photo</figcaption>
+            </figure>
+            {p.approvedId ? (
+              <figure className="m-0 flex flex-col gap-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element -- private, uncached image from our own route */}
+                <img
+                  src={`/teacher-photo/${p.approvedId}`}
+                  alt={`Current approved photo of ${p.name}`}
+                  width={160}
+                  height={160}
+                  className="size-40 rounded-[22px] border border-card-border object-cover"
+                />
+                <figcaption className="text-sm text-on-surface-variant">Approved now</figcaption>
+              </figure>
+            ) : null}
+          </div>
+          <p className="text-[15px] leading-[22px] text-on-surface-variant">
+            Approve only a clear photo of the teacher alone: no children or other people, no text, logos or contact
+            details.
+          </p>
+          <PhotoDecisionForm photoId={p.id} name={p.name} />
         </Card>
       ))}
       <p className="text-sm leading-5 text-on-surface-variant">

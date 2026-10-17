@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/server/db/client';
 import { getRealSession } from '@/server/session';
+import { PHOTO_MAX_BYTES, type PhotoProblem, removeTeacherPhoto, uploadTeacherPhoto } from '@/server/teacherPhotos';
 import {
   type SaveOutcome,
   saveTeacherProfile,
@@ -127,4 +128,46 @@ export async function setSearchVisibilityAction(
       : 'You are visible again. Parents can find you in Find a teacher once your profile is approved.',
     at: Date.now(),
   };
+}
+
+export interface PhotoFormState {
+  error?: string;
+  notice?: string;
+  at?: number;
+}
+
+const PHOTO_PROBLEM: Record<PhotoProblem, string> = {
+  empty: 'Choose a photo first.',
+  too_big: 'This photo is too large. Please choose a smaller one.',
+  type: 'Please choose a JPG, PNG or WebP photo.',
+  unreadable: 'We could not read this photo. Please try another one.',
+  too_small: 'This photo is too small. Please choose one at least 200 × 200 pixels.',
+};
+
+/** PR-D1b: the teacher uploads a photo for review (OC-85). The teacher comes from the session only. */
+export async function uploadPhotoAction(_prev: PhotoFormState, fd: FormData): Promise<PhotoFormState> {
+  const real = await getRealSession();
+  if (!real || real.session.role !== 'teacher') redirect('/sign-in');
+  const file = fd.get('photo');
+  if (!(file instanceof File) || file.size === 0) return { error: PHOTO_PROBLEM.empty, at: Date.now() };
+  if (file.size > PHOTO_MAX_BYTES) return { error: PHOTO_PROBLEM.too_big, at: Date.now() };
+  const r = await uploadTeacherPhoto(db(), real.session.accountId, new Uint8Array(await file.arrayBuffer()));
+  if (!r.ok) {
+    if (r.reason === 'not_allowed') redirect('/teacher/status');
+    return { error: PHOTO_PROBLEM[r.reason], at: Date.now() };
+  }
+  revalidatePath('/teacher/profile');
+  return {
+    notice: 'Photo sent. The AA Pro team checks it before families can see it; until then your initial is shown.',
+    at: Date.now(),
+  };
+}
+
+export async function removePhotoAction(): Promise<PhotoFormState> {
+  const real = await getRealSession();
+  if (!real || real.session.role !== 'teacher') redirect('/sign-in');
+  const r = await removeTeacherPhoto(db(), real.session.accountId);
+  if (!r.ok) redirect('/teacher/status');
+  revalidatePath('/teacher/profile');
+  return { notice: 'Your photo is removed. Your initial is shown instead.', at: Date.now() };
 }

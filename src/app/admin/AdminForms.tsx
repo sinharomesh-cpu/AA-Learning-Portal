@@ -10,6 +10,7 @@ import {
   createAccountAction,
   createAdminAction,
   decideProfileChangeAction,
+  decidePhotoAction,
   decideTeacherAction,
   setAccountActiveAction,
   updateAccountAction,
@@ -392,6 +393,44 @@ export function ProfileChangeForm({ teacherId, name }: { teacherId: string; name
           aria-label={`Decline the change for ${name}`}
         >
           Decline change
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** PR-D1b: approve or decline a teacher photo (OC-85). */
+export function PhotoDecisionForm({ photoId, name }: { photoId: string; name: string }) {
+  const [state, action, pending] = useActionState<AdminFormState, FormData>(decidePhotoAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-3" noValidate>
+      <input type="hidden" name="photoId" value={photoId} />
+      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      <TextArea
+        label="Note for the teacher (required to decline)"
+        name="note"
+        error={state.fieldErrors?.note}
+        hint="The teacher sees it on their profile page. Stored with the decision."
+      />
+      <div className="flex flex-wrap gap-2.5">
+        <Button
+          type="submit"
+          name="decision"
+          value="approve"
+          inactive={pending}
+          aria-label={`Approve the photo of ${name}`}
+        >
+          Approve photo
+        </Button>
+        <Button
+          type="submit"
+          name="decision"
+          value="decline"
+          variant="secondary"
+          inactive={pending}
+          aria-label={`Decline the photo of ${name}`}
+        >
+          Decline photo
         </Button>
       </div>
     </form>

@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, test, type Page } from '@playwright/test';
 import { generate } from 'otplib';
+import sharp from 'sharp';
 import {
   confirmFromMailbox,
   createAccount,
@@ -531,4 +532,62 @@ test('board 65: a parent finds an approved teacher and adds them; hidden teacher
 
   await tc.close();
   await fam.context.close();
+});
+
+test('PR-D1b: a teacher sends a photo; only the teacher and the AA Pro team can see it until approved (OC-85)', async ({
+  page,
+  browser,
+}) => {
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.30' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('photo');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths'], [5]);
+
+  // A synthetic picture (a plain coloured square), made here; no real person.
+  const picture = await sharp({ create: { width: 900, height: 700, channels: 3, background: '#2a8fa6' } })
+    .jpeg()
+    .toBuffer();
+  await t.goto('/teacher/profile');
+  const card = t.getByRole('region', { name: 'Profile photo (optional)' });
+  await expect(card.getByText('No photo. Families see your initial.')).toBeVisible();
+  await card.getByLabel('Choose a photo (JPG, PNG or WebP)').setInputFiles({
+    name: 'me.jpg',
+    mimeType: 'image/jpeg',
+    buffer: picture,
+  });
+  await card.getByRole('button', { name: 'Send photo for review' }).click();
+  await expect(card.getByText(/Photo sent. The AA Pro team checks it/)).toBeVisible();
+  const img = card.getByRole('img', { name: 'Your new photo, waiting for review' });
+  await expect(img).toBeVisible();
+  await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(400);
+  await noSeriousA11yIssues(t);
+  const src = (await img.getAttribute('src'))!;
+
+  // Signed-out visitors cannot open it.
+  const anon = await browser.newContext();
+  expect((await anon.request.get(src)).status()).toBe(404);
+  await anon.close();
+
+  // The Super Admin sees it in the queue; a decline needs a note; then approves it.
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.31' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  await expect(page.getByRole('heading', { level: 2, name: 'Teacher photos' })).toBeVisible();
+  const review = page.getByRole('article').filter({ has: page.locator(`img[src="${src}"]`) });
+  await review.getByRole('button', { name: /Decline the photo/ }).click();
+  await expect(review.getByText('Tell the teacher why, so they can choose another photo.')).toBeVisible();
+  await noSeriousA11yIssues(page);
+  await review.getByRole('button', { name: /Approve the photo/ }).click();
+  await expect(page.getByText('Photo approved. It replaces the teacher’s previous photo.')).toBeVisible();
+
+  await t.reload();
+  await expect(card.getByText('Approved by the AA Pro team.')).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Your profile photo' })).toBeVisible();
+  await card.getByRole('button', { name: 'Remove my photo' }).click();
+  await expect(card.getByText('Your photo is removed. Your initial is shown instead.')).toBeVisible();
+  await tc.close();
 });
