@@ -201,6 +201,13 @@ test('the Super Admin approves a teacher and manages accounts', async ({ page, b
 
   await t.goto('/teacher');
   await expect(t).toHaveURL(/\/teacher$/);
+  // The dashboard (S21) shows the real teacher's own profile, not sample data.
+  await expect(t.getByRole('heading', { level: 1, name: 'Test Teacher' })).toBeVisible();
+  await expect(t.getByText('Demo: sample data only')).toHaveCount(0);
+  await expect(t.getByRole('link', { name: 'Your listing: Not started' })).toBeVisible();
+  await expect(t.getByRole('heading', { name: 'No lessons coming up' })).toBeVisible();
+  await expect(t.getByRole('heading', { name: 'No students linked yet' })).toBeVisible();
+  await noSeriousA11yIssues(t);
 
   // M-22: after approval a subject change waits for review; the teacher keeps their access (OC-73).
   await t.goto('/teacher/profile');

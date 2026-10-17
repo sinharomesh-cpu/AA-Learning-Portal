@@ -100,24 +100,41 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
   });
 
   test('shows own lessons in the teacher’s time zone, availability, students and sharing', async ({ page }) => {
-    await expect(
-      page.getByText(/Science · Grades 4–5 · times are shown in your time zone \(GMT\+8, Asia\/Singapore\)/),
-    ).toBeVisible();
-    const lessons = page.getByRole('region', { name: 'Upcoming lessons' }).getByRole('article');
+    await expect(page.getByRole('heading', { level: 1, name: 'Teacher A. Rao' })).toBeVisible();
+    await expect(page.getByText(/Times are shown in your time zone \(GMT\+8, Asia\/Singapore\)/)).toBeVisible();
+    await expect(page.getByRole('list', { name: 'What you teach' })).toContainText('Science');
+    await expect(page.getByRole('list', { name: 'What you teach' })).toContainText('Grades 4–5');
+    await expect(page.getByText('Demo: sample data only')).toBeVisible();
+    const lessons = page.getByRole('region', { name: 'Scheduled teaching sessions' }).getByRole('article');
     await expect(lessons).toHaveCount(2);
     // Kiran's lesson is 4:30 pm in Kolkata, which is 7:00 pm in Singapore (FR-019).
-    await expect(lessons.nth(0)).toContainText('Today 7:00 pm–7:40 pm · 40 min · on Zoom');
+    await expect(lessons.nth(0)).toContainText('Today 7:00 pm–7:40 pm');
+    await expect(lessons.nth(0)).toContainText('40 min · on Zoom');
     await expect(lessons.nth(1)).toContainText('Waiting for parent');
     await expect(lessons.nth(1)).toContainText('Zoom meeting not created yet');
     await expect(page.getByRole('button', { name: 'Start opens before the lesson' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
-    const availability = page.getByRole('region', { name: 'My availability this week' });
-    await expect(availability.getByRole('listitem')).toHaveCount(3);
+    const availability = page.getByRole('region', { name: 'Availability' });
+    await expect(availability.getByRole('list', { name: 'Next 7 days' }).getByRole('listitem')).toHaveCount(7);
+    await expect(availability.getByRole('list', { name: 'Next 7 days' })).toContainText(/: 2 times open, 1 taken/);
     await expect(availability).toContainText('1 booked · 2 open');
     await expect(availability).toContainText('1 waiting · 2 open');
-    await expect(page.getByRole('region', { name: 'My students' }).getByRole('listitem')).toHaveCount(2);
+    const students = page.getByRole('region', { name: 'My students' });
+    await expect(students.getByRole('heading', { level: 3 })).toHaveCount(2);
+    await students.getByLabel('Filter by student or grade').fill('grade 4');
+    await expect(students.getByRole('heading', { level: 3 })).toHaveText(['Meera']);
+    await students.getByLabel('Filter by student or grade').fill('');
+    // Sharing is not open yet: the upload control is shown as unavailable, never as a working button.
+    await expect(page.getByRole('button', { name: /Choose files \(not open yet\)/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    // No unverified claims, rankings or child photos from the reference (S21 deviations).
+    const text = (await page.locator('main').innerText()).toLowerCase();
+    expect(text).not.toMatch(/accredited|faculty id|top 10%|rising star|mastery|safe environment|dispatched/);
+    await expect(page.locator('main img')).toHaveCount(0);
     for (const d of ['D-35', 'D-08', 'D-07', 'D-15', 'D-09', 'D-16']) {
       await expect(page.getByText(`Not decided yet (${d}):`)).toBeVisible();
     }

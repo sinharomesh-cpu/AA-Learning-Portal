@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/Wordmark';
+import { Icon, type SymbolName } from '@/components/icons/Icon';
 import { ThemeToggle } from '@/components/public/ThemeToggle';
 import { OfflineBanner } from '@/components/states/OfflineBanner';
 import { ROLE_LABEL, type Role } from '@/lib/roles';
@@ -13,6 +14,8 @@ export interface MenuItem {
   exact?: boolean;
   /** Shown greyed out and not a link (M-20: pages that open after approval). */
   disabled?: boolean;
+  /** The item's icon from the design's outlined set, the same for that page in every menu. */
+  icon?: SymbolName;
 }
 
 interface AdultShellProps {
@@ -38,8 +41,9 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
         <span
           key={item.href}
           aria-disabled="true"
-          className="flex min-h-12 cursor-not-allowed items-center gap-2 rounded-full px-4 text-[15px] font-medium text-on-surface-variant"
+          className="flex min-h-12 cursor-not-allowed items-center gap-3 rounded-full px-4 text-[15px] font-medium text-on-surface-variant"
         >
+          {item.icon ? <Icon name={item.icon} /> : null}
           {item.label}
         </span>
       ) : (
@@ -47,7 +51,7 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
           key={item.href}
           href={item.href}
           exact={item.exact}
-          className="flex min-h-12 items-center rounded-full px-4 text-[15px] font-bold no-underline"
+          className="flex min-h-12 items-center gap-3 rounded-full px-4 text-[15px] font-bold no-underline"
           activeClassName="bg-primary text-on-primary hover:text-on-primary"
           inactiveClassName={
             layout === 'side'
@@ -55,6 +59,7 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
               : 'text-on-surface hover:bg-surface-container-low'
           }
         >
+          {item.icon ? <Icon name={item.icon} /> : null}
           {item.label}
         </NavLink>
       ),

@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/Wordmark';
+import { Icon } from '@/components/icons/Icon';
 import { ThemeToggle } from '@/components/public/ThemeToggle';
 import { OfflineBanner } from '@/components/states/OfflineBanner';
 import { AccountMenu } from './AccountMenu';
 import { NavLink } from './NavLink';
 
 const ITEMS = [
-  { href: '/student', label: 'Home', exact: true },
-  { href: '/student/schedule', label: 'My schedule', short: 'Schedule' },
-  { href: '/student/book', label: 'Book AI class', short: 'AI', fab: true },
-  { href: '/student/library', label: 'Library' },
-  { href: '/student/history', label: 'History' },
+  { href: '/student', label: 'Home', icon: 'home', exact: true },
+  { href: '/student/schedule', label: 'My schedule', icon: 'event_available', short: 'Schedule' },
+  { href: '/student/book', label: 'Book AI class', icon: 'smart_toy', short: 'AI', fab: true },
+  { href: '/student/library', label: 'Library', icon: 'library_books' },
+  { href: '/student/history', label: 'History', icon: 'history_edu' },
 ] as const;
 
 /**
@@ -42,10 +43,11 @@ export function StudentShell({
               key={item.href}
               href={item.href}
               exact={'exact' in item}
-              className="flex min-h-12 items-center rounded-full px-[18px] text-[15px] font-bold no-underline"
+              className="flex min-h-12 items-center gap-2 rounded-full px-[18px] text-[15px] font-bold no-underline"
               activeClassName="bg-primary text-on-primary hover:text-on-primary"
               inactiveClassName="text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
             >
+              <Icon name={item.icon} />
               {item.label}
             </NavLink>
           ))}
@@ -75,17 +77,18 @@ export function StudentShell({
               activeClassName="bg-primary-hover text-on-primary hover:text-on-primary"
               inactiveClassName="bg-primary text-on-primary hover:text-on-primary"
             >
-              {item.short}
+              <Icon name={item.icon} size={28} />
             </NavLink>
           ) : (
             <NavLink
               key={item.href}
               href={item.href}
               exact={'exact' in item}
-              className="flex min-h-14 items-center justify-center text-[12px] font-bold no-underline"
+              className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[12px] font-bold no-underline"
               activeClassName="text-primary"
               inactiveClassName="text-on-surface-variant"
             >
+              <Icon name={item.icon} size={24} />
               {'short' in item ? item.short : item.label}
             </NavLink>
           ),

@@ -108,7 +108,7 @@ test.describe('parent and teacher shells (P19 / P21)', () => {
     ]);
     await page.context().clearCookies();
     await signInAdult(page, /Teacher A\. Rao/);
-    await expect(page.getByRole('heading', { level: 1, name: /, Teacher A\. Rao$/ })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Teacher A. Rao' })).toBeVisible();
     if (phone) await page.getByRole('button', { name: /open teacher menu/i }).click();
     await expect(page.getByRole('navigation', { name: 'Teacher menu' }).getByRole('link')).toHaveText([
       'Dashboard',

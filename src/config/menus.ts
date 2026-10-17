@@ -2,12 +2,12 @@ import type { MenuItem } from '@/components/shell/AdultShell';
 
 /** Super Admin menu (OC-21, board 66). Integration Health is deferred and absent (OC-19). */
 export const ADMIN_MENU: MenuItem[] = [
-  { href: '/admin', label: 'Home', exact: true },
-  { href: '/admin/accounts', label: 'Accounts' },
-  { href: '/admin/approvals', label: 'Teacher approvals' },
-  { href: '/admin/admins', label: 'Admins' },
-  { href: '/admin/audit-log', label: 'Audit log' },
-  { href: '/admin/security', label: 'Security' },
+  { href: '/admin', label: 'Home', icon: 'dashboard', exact: true },
+  { href: '/admin/accounts', label: 'Accounts', icon: 'manage_accounts' },
+  { href: '/admin/approvals', label: 'Teacher approvals', icon: 'how_to_reg' },
+  { href: '/admin/admins', label: 'Admins', icon: 'admin_panel_settings' },
+  { href: '/admin/audit-log', label: 'Audit log', icon: 'receipt_long' },
+  { href: '/admin/security', label: 'Security', icon: 'security' },
 ];
 
 const PERMISSION_PAGE: Record<string, string> = {
@@ -28,33 +28,33 @@ export function adminMenuFor(role: 'superadmin' | 'admin', permissions: readonly
 
 /** Parent menu from the approved P19 board (OC-33). */
 export const PARENT_MENU: MenuItem[] = [
-  { href: '/parent', label: 'Family home', exact: true },
-  { href: '/parent/children', label: 'Children' },
+  { href: '/parent', label: 'Family home', icon: 'family_restroom', exact: true },
+  { href: '/parent/children', label: 'Children', icon: 'supervisor_account' },
   // Board 57 (approved): the new Teachers item (OC-36, OC-41).
-  { href: '/parent/teachers', label: 'Teachers' },
+  { href: '/parent/teachers', label: 'Teachers', icon: 'co_present' },
   // Board D4 (approved, OC-82): enquiries sent from public listings (PR-D4a).
-  { href: '/parent/enquiries', label: 'My enquiries' },
-  { href: '/parent/book-ai', label: 'Schedule AI class' },
-  { href: '/parent/book-teacher', label: 'Book human teacher' },
-  { href: '/parent/calendar', label: 'Family calendar' },
-  { href: '/parent/content', label: 'Content repository' },
-  { href: '/parent/history', label: 'Session history' },
-  { href: '/parent/notifications', label: 'Notifications' },
-  { href: '/parent/settings', label: 'Settings' },
+  { href: '/parent/enquiries', label: 'My enquiries', icon: 'forum' },
+  { href: '/parent/book-ai', label: 'Schedule AI class', icon: 'smart_toy' },
+  { href: '/parent/book-teacher', label: 'Book human teacher', icon: 'person_search' },
+  { href: '/parent/calendar', label: 'Family calendar', icon: 'calendar_month' },
+  { href: '/parent/content', label: 'Content repository', icon: 'folder_shared' },
+  { href: '/parent/history', label: 'Session history', icon: 'history_edu' },
+  { href: '/parent/notifications', label: 'Notifications', icon: 'notifications' },
+  { href: '/parent/settings', label: 'Settings', icon: 'settings' },
 ];
 
 /** Teacher menu from the approved P21 board (OC-33). */
 export const TEACHER_MENU: MenuItem[] = [
-  { href: '/teacher', label: 'Dashboard', exact: true },
-  { href: '/teacher/schedule', label: 'My schedule' },
-  { href: '/teacher/availability', label: 'Availability' },
-  { href: '/teacher/students', label: 'Students' },
+  { href: '/teacher', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { href: '/teacher/schedule', label: 'My schedule', icon: 'event_available' },
+  { href: '/teacher/availability', label: 'Availability', icon: 'calendar_view_week' },
+  { href: '/teacher/students', label: 'Students', icon: 'groups' },
   // Board D5 (approved, OC-82): the teacher's public listing (PR-D2).
-  { href: '/teacher/listing', label: 'Looking for students' },
+  { href: '/teacher/listing', label: 'Looking for students', icon: 'person_search' },
   // Board D6 (approved, OC-82): enquiries from parents (PR-D4a).
-  { href: '/teacher/enquiries', label: 'Enquiries' },
-  { href: '/teacher/resources', label: 'Learning resources' },
-  { href: '/teacher/profile', label: 'Profile' },
+  { href: '/teacher/enquiries', label: 'Enquiries', icon: 'forum' },
+  { href: '/teacher/resources', label: 'Learning resources', icon: 'library_books' },
+  { href: '/teacher/profile', label: 'Profile', icon: 'account_circle' },
 ];
 
 /**
@@ -62,7 +62,7 @@ export const TEACHER_MENU: MenuItem[] = [
  * the other pages show greyed out until approval (OC-38).
  */
 export const TEACHER_PENDING_MENU: MenuItem[] = [
-  { href: '/teacher/status', label: 'Account status' },
-  { href: '/teacher/profile', label: 'Profile' },
+  { href: '/teacher/status', label: 'Account status', icon: 'hourglass_top' },
+  { href: '/teacher/profile', label: 'Profile', icon: 'account_circle' },
   ...TEACHER_MENU.filter((item) => item.href !== '/teacher/profile').map((item) => ({ ...item, disabled: true })),
 ];
