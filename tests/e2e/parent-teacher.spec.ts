@@ -135,7 +135,9 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
     const text = (await page.locator('main').innerText()).toLowerCase();
     expect(text).not.toMatch(/accredited|faculty id|top 10%|rising star|mastery|safe environment|dispatched/);
     await expect(page.locator('main img')).toHaveCount(0);
-    for (const d of ['D-35', 'D-08', 'D-07', 'D-15', 'D-09', 'D-16']) {
+    // D-16 is decided (OC-51, OC-86), so it is no longer shown as open.
+    await expect(page.getByText('Not decided yet (D-16):')).toHaveCount(0);
+    for (const d of ['D-35', 'D-08', 'D-07', 'D-15', 'D-09']) {
       await expect(page.getByText(`Not decided yet (${d}):`)).toBeVisible();
     }
     // R-06: no meeting link, ID or passcode anywhere.

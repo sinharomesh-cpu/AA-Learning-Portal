@@ -378,17 +378,14 @@ function Resources({ home }: { home: TeacherHome }) {
           </span>
           <h3 className="font-headline text-headline-sm">Revision sheets, notes and slides</h3>
           <p className="mt-1 max-w-md text-body-md text-on-surface-variant">
-            Sharing files with your students is not open yet. It opens once it is decided who sees teacher-shared
-            resources.
+            Sharing files and setting homework are not open yet. Your linked students will see what you share, and their
+            parents can see it too; no approval is needed for each file.
           </p>
           <Button inactive className="mt-3">
             <Icon name="upload_file" size={18} />
             Choose files (not open yet)
           </Button>
         </div>
-        <PendingNote decision="D-16">
-          Who sees teacher-shared resources, and whether parents approve sharing.
-        </PendingNote>
       </section>
       <section aria-labelledby="shared" className={cx(PANEL, 'flex flex-col gap-4 p-5')}>
         <div className="flex items-center justify-between gap-2">
