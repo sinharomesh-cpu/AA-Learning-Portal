@@ -30,7 +30,10 @@ export type EmailTemplate =
   | 'teacher_profile_change_declined'
   | 'parent_teacher_link_ended'
   | 'parent_teacher_subjects_reduced'
-  | 'listing_expiry_reminder';
+  | 'listing_expiry_reminder'
+  | 'enquiry_received'
+  | 'enquiry_accepted'
+  | 'enquiry_declined';
 
 export interface QueuedEmail {
   to: string;

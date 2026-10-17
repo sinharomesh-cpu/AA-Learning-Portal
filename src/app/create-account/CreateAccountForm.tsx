@@ -9,7 +9,7 @@ import { TextField } from '@/components/TextField';
 import { TIME_ZONES } from '@/config/timeZones';
 
 /** Board 62: create a parent or teacher account (OC-38). Children never sign up themselves. */
-export function CreateAccountForm() {
+export function CreateAccountForm({ connect }: { connect?: { publicId: string; teacherName: string } } = {}) {
   const [state, action, pending] = useActionState<FormState, FormData>(signUpAction, {});
   const v = state.values ?? {};
   const e = state.fieldErrors ?? {};
@@ -17,7 +17,23 @@ export function CreateAccountForm() {
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
-      <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0" aria-describedby={e.role ? 'role-error' : undefined}>
+      {connect ? (
+        <>
+          {/* D11: this path creates a parent account only; the chosen teacher is kept for 7 days. */}
+          <input type="hidden" name="connect" value={connect.publicId} />
+          <input type="hidden" name="role" value="parent" />
+          <FormMessage tone="info">
+            You&apos;re connecting with <strong>{connect.teacherName}</strong>. We&apos;ll keep this for you. This
+            creates a parent account; teachers register separately.
+          </FormMessage>
+        </>
+      ) : null}
+      <fieldset
+        hidden={!!connect}
+        disabled={!!connect}
+        className="m-0 flex flex-col gap-2.5 border-0 p-0"
+        aria-describedby={e.role ? 'role-error' : undefined}
+      >
         <legend className="mb-2.5 p-0 text-[15px] font-bold">I am…</legend>
         {(
           [

@@ -814,3 +814,105 @@ test('PR-D3: visitors browse published teachers on the homepage and /teachers wi
   await vc.close();
   await tc.close();
 });
+
+test('PR-D4a: a visitor connects with a teacher, signs up, sends an enquiry; the teacher accepts (D3, D4, D6, D11)', async ({
+  page,
+  browser,
+}) => {
+  const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
+  const teacherName = `Teacher Enq ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.70' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('enq-teacher');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Science'], [7, 8]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.71' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for enquiries');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+  await t.goto('/teacher/profile');
+  await t.getByLabel('Name shown to families').fill(teacherName);
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText('Your profile is saved.')).toBeVisible();
+  await t.goto('/teacher/listing');
+  await t.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+  await t.getByRole('button', { name: 'Publish' }).click();
+  await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
+
+  // A signed-out visitor chooses the teacher and creates a parent account from there.
+  const vc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.72' } });
+  const v = await vc.newPage();
+  await v.goto('/teachers');
+  await v.getByRole('link', { name: `View profile: ${teacherName}` }).click();
+  await v.getByRole('link', { name: 'Connect with teacher' }).click();
+  await expect(v.getByRole('heading', { level: 1, name: `Connect with ${teacherName}` })).toBeVisible();
+  await noSeriousA11yIssues(v);
+  await v.getByRole('link', { name: 'Create a parent account' }).click();
+  await expect(v.getByText(`You're connecting with ${teacherName}.`)).toBeVisible();
+  await expect(v.getByRole('radio', { name: /A teacher/ })).toBeHidden();
+  const parentEmail = freshEmail('enq-parent');
+  await v.getByLabel('Your name').fill('Priya Sample');
+  await v.getByLabel('Email').fill(parentEmail);
+  await v.getByLabel('Password').fill(ADULT_PHRASE);
+  await v.getByRole('checkbox', { name: /privacy notice/ }).check();
+  await v.getByRole('button', { name: 'Create account' }).click();
+  await expect(v.getByText(/we'll take you back to the teacher you chose/)).toBeVisible();
+
+  // Confirmation opened "on another device": a fresh browser.
+  const dc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.73' } });
+  const d = await dc.newPage();
+  await confirmFromMailbox(d, parentEmail);
+  await signIn(d, parentEmail, ADULT_PHRASE);
+  await expect(d).toHaveURL(/\/teachers\/t-[a-z0-9]{10}\/connect$/);
+  const connectPath = new URL(d.url()).pathname;
+  await expect(d.getByRole('heading', { level: 1, name: `Send an enquiry to ${teacherName}` })).toBeVisible();
+  await d.getByRole('radio', { name: /A child I haven.t added yet/ }).check();
+  await d.getByLabel('Grade', { exact: true }).selectOption({ label: 'Grade 8' });
+  await d.getByLabel('Curriculum (optional)').selectOption({ label: 'ICSE' });
+  await d.getByRole('button', { name: 'Send enquiry' }).click();
+  await expect(d.getByText('Choose at least one subject this teacher teaches.')).toBeVisible();
+  await d.getByRole('checkbox', { name: 'Science' }).check();
+  await d.getByLabel('Message (optional)').fill('Looking for help with chemistry basics.');
+  await noSeriousA11yIssues(d);
+  await d.getByRole('button', { name: 'Send enquiry' }).click();
+  await expect(d).toHaveURL(/\/parent\/enquiries\?sent=1$/);
+  await expect(d.getByText('Waiting for answer')).toBeVisible();
+  await noSeriousA11yIssues(d);
+  // A second active enquiry to the same teacher for the same child is refused.
+  await d.goto(connectPath);
+  await d.getByRole('radio', { name: /A child I haven.t added yet/ }).check();
+  await d.getByLabel('Grade', { exact: true }).selectOption({ label: 'Grade 8' });
+  await d.getByLabel('Curriculum (optional)').selectOption({ label: 'ICSE' });
+  await d.getByRole('checkbox', { name: 'Science' }).check();
+  await d.getByRole('button', { name: 'Send enquiry' }).click();
+  await expect(d.getByText(/You already have an active enquiry with this teacher/)).toBeVisible();
+
+  // The teacher sees the parent's first name and grade only, and accepts.
+  await t.goto('/teacher/enquiries');
+  const enquiry = t.getByRole('article').filter({ hasText: 'From Priya (parent)' });
+  await expect(enquiry.getByText('Grade 8 · ICSE')).toBeVisible();
+  await expect(enquiry.getByText('Looking for help with chemistry basics.')).toBeVisible();
+  expect(await t.content()).not.toContain(parentEmail);
+  await noSeriousA11yIssues(t);
+  await enquiry.getByLabel('Note to Priya (optional)').fill('Happy to help. Saturdays work best.');
+  await enquiry.getByRole('button', { name: 'Accept the enquiry from Priya' }).click();
+  await expect(t.getByText(/Accepted. The parent is told/)).toBeVisible();
+
+  await d.goto('/parent/enquiries');
+  await expect(d.getByText('Accepted', { exact: true })).toBeVisible();
+  await expect(d.getByText('Happy to help. Saturdays work best.')).toBeVisible();
+  await expect(d.getByRole('link', { name: 'Add teacher' })).toBeVisible();
+
+  // A teacher who opens "Connect" is told only parents can connect; nothing is sent.
+  await t.goto(d.url().replace(/\/parent\/enquiries$/, '/teachers'));
+  await t.goto((await d.evaluate(() => location.origin)) + '/teachers');
+  await vc.close();
+  await dc.close();
+  await tc.close();
+});

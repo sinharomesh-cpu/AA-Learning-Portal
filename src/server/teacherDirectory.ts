@@ -118,7 +118,11 @@ export async function getDirectoryTeacher(
            ) AS mine
     FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id
     WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active'
-      AND tp.approval_status = 'approved' AND NOT tp.hidden_from_search
+      AND tp.approval_status = 'approved'
+      -- A hidden teacher can still be added by a parent whose enquiry they accepted (OC-77(2)).
+      AND (NOT tp.hidden_from_search OR EXISTS (
+        SELECT 1 FROM teacher_enquiries e
+        WHERE e.parent_id = ${parentId} AND e.teacher_id = a.id AND e.status = 'accepted'))
       AND cardinality(tp.subjects) > 0`;
   return row ? toTeacher(row) : null;
 }

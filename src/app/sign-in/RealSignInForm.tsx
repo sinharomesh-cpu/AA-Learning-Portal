@@ -8,13 +8,14 @@ import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
 
 /** M-01 email and password sign-in (board 11/45), with the states from the board. */
-export function RealSignInForm() {
+export function RealSignInForm({ connect }: { connect?: string } = {}) {
   const [state, action, pending] = useActionState<FormState, FormData>(signInWithPasswordAction, {});
   const [resend, resendAction, resending] = useActionState<FormState, FormData>(resendConfirmationAction, {});
   const [as, setAs] = useState<'parent' | 'teacher'>(state.values?.signInAs === 'teacher' ? 'teacher' : 'parent');
   return (
     <div className="flex flex-col gap-5">
       <form action={action} className="flex flex-col gap-5" noValidate>
+        {connect ? <input type="hidden" name="connect" value={connect} /> : null}
         {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
         {/* OC-59: a guide only. The account's own role decides which portal opens, so either choice works. */}
         <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0" aria-describedby="sign-in-as-hint">

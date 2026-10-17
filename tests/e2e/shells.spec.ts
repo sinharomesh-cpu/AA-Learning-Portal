@@ -97,6 +97,7 @@ test.describe('parent and teacher shells (P19 / P21)', () => {
       'Family home',
       'Children',
       'Teachers',
+      'My enquiries',
       'Schedule AI class',
       'Book human teacher',
       'Family calendar',
@@ -115,6 +116,7 @@ test.describe('parent and teacher shells (P19 / P21)', () => {
       'Availability',
       'Students',
       'Looking for students',
+      'Enquiries',
       'Learning resources',
       'Profile',
     ]);

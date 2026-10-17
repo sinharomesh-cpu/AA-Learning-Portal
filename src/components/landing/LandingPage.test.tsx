@@ -8,9 +8,9 @@ import { TeachersSection } from './TeachersSection';
 
 const WRAP = 'mx-auto';
 
-describe('home page with listings live (PR-D3) and before enquiries (PR-D4)', () => {
-  it('ships with listings on and enquiries off', () => {
-    expect(MARKETPLACE).toEqual({ listings: true, enquiries: false });
+describe('home page with listings (PR-D3) and enquiries (PR-D4a) live', () => {
+  it('ships with both marketplace switches on', () => {
+    expect(MARKETPLACE).toEqual({ listings: true, enquiries: true });
   });
 
   it('links "Find a teacher" to the new section and shows the approved empty state', async () => {
@@ -27,11 +27,10 @@ describe('home page with listings live (PR-D3) and before enquiries (PR-D4)', ()
     expect(await axeViolations(container)).toEqual([]);
   });
 
-  it('never describes enquiries, which do not exist yet', () => {
+  it('describes listings and enquiries; "How connecting works" only appears with listings shown', () => {
     render(<LandingPage />);
-    expect(screen.queryByText('Can I find a new teacher on AA Pro?')).not.toBeInTheDocument();
+    expect(screen.getByText('Can I find a new teacher on AA Pro?')).toBeInTheDocument();
     expect(screen.queryByText(/How connecting works/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Connect with teacher/)).not.toBeInTheDocument();
     // True today: teachers can publish listings.
     expect(screen.getByRole('heading', { name: 'Looking for students?' })).toBeInTheDocument();
     expect(screen.getByText('How do I pay a teacher?')).toBeInTheDocument();

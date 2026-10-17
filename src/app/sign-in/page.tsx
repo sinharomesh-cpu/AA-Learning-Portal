@@ -15,6 +15,8 @@ import { signInAdult } from './actions';
 import { DemoSignInForm } from './DemoSignInForm';
 import { DemoNotice } from './DemoNotice';
 import { RealSignInForm } from './RealSignInForm';
+import { db } from '@/server/db/client';
+import { getPublicListing } from '@/server/publicListings';
 
 export const metadata: Metadata = { title: 'Sign in' };
 
@@ -55,6 +57,9 @@ export default async function SignInPage({
   ].find((v): v is string => typeof v === 'string' && v in NOTICES);
   const notice = noticeKey ? NOTICES[noticeKey] : undefined;
   const real = realAuthEnabled();
+  // D11: back to a chosen teacher after signing in (only a live listing's public address).
+  const connectId = typeof params.connect === 'string' && /^t-[a-z0-9]{10}$/.test(params.connect) ? params.connect : '';
+  const connectName = real && connectId ? (await getPublicListing(db(), connectId))?.name : undefined;
   const viewer = await getViewer();
   if (viewer) redirect(ROLE_HOME[viewer.role]);
   const demo = isDemoMode();
@@ -103,7 +108,12 @@ export default async function SignInPage({
             ) : real ? (
               <>
                 {notice ? <FormMessage tone={notice.tone}>{notice.text}</FormMessage> : null}
-                <RealSignInForm />
+                {connectName ? (
+                  <FormMessage tone="info">
+                    Sign in to connect with <strong>{connectName}</strong>. We&apos;ll take you straight back.
+                  </FormMessage>
+                ) : null}
+                <RealSignInForm connect={connectName ? connectId : undefined} />
               </>
             ) : (
               <p className="text-body-md text-on-surface-variant">Sign-in is not available yet.</p>

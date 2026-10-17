@@ -32,6 +32,8 @@ export const PARENT_MENU: MenuItem[] = [
   { href: '/parent/children', label: 'Children' },
   // Board 57 (approved): the new Teachers item (OC-36, OC-41).
   { href: '/parent/teachers', label: 'Teachers' },
+  // Board D4 (approved, OC-82): enquiries sent from public listings (PR-D4a).
+  { href: '/parent/enquiries', label: 'My enquiries' },
   { href: '/parent/book-ai', label: 'Schedule AI class' },
   { href: '/parent/book-teacher', label: 'Book human teacher' },
   { href: '/parent/calendar', label: 'Family calendar' },
@@ -49,6 +51,8 @@ export const TEACHER_MENU: MenuItem[] = [
   { href: '/teacher/students', label: 'Students' },
   // Board D5 (approved, OC-82): the teacher's public listing (PR-D2).
   { href: '/teacher/listing', label: 'Looking for students' },
+  // Board D6 (approved, OC-82): enquiries from parents (PR-D4a).
+  { href: '/teacher/enquiries', label: 'Enquiries' },
   { href: '/teacher/resources', label: 'Learning resources' },
   { href: '/teacher/profile', label: 'Profile' },
 ];
