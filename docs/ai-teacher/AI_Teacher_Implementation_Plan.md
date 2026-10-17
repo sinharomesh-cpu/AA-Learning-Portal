@@ -1,5 +1,8 @@
 # AA Pro AI Teacher — Implementation Plan
 
+> **Update — OC-91 (owner, 18 Oct 2026, 00:42 IST): approved budget $0.** No paid AI service, API key, cloud billing or billable test may be set up until the owner approves the specific service and budget in writing. Every step below that needs a paid service is **Blocked — Owner Budget Approval Required**. Work continues with the simulated provider. See `docs/deployment/Billable_Dependency_Register.md`.
+
+
 > **Update — OC-89 (owner, 17 Oct 2026, 23:41 IST).** These decisions supersede this document where it differs:
 > - **Session length:** a single 15-minute session (10 minutes of explanation + 5 of Q&A), at most one per child in any rolling 24 hours. The 30-minute option is withdrawn.
 > - **Classroom controls:** "Next Question" is removed; "Give Me a Hint" is kept, student-initiated.
@@ -95,3 +98,17 @@ Cannot be planned reliably: its API and embedding options are unverified. If the
 2. Phase A PoC report with measurements → owner go/no-go.
 3. Phase 3 bookings and reader R2-2+ built → start Phase B.
 4. Preview deployment only; production needs explicit owner approval (OC-09).
+
+## Zero-budget plan (OC-91)
+
+| Step | Needs a paid service? | Status |
+|---|---|---|
+| Session rules, daily limit and controller | No | **Done** (PR #62) |
+| Classroom page (S15/S16) with the textbook reader, captions, End Class, Repeat Explanation and Give Me a Hint, driven by a **simulated tutor** | No | Next AI step, after the homework designs |
+| Server relay and adapter interface with a fake adapter; the paid adapters are designed only | No | Allowed |
+| Provider eligibility confirmation (R-AI-1) | No cost to ask; owner decides who asks | Waiting for the owner |
+| Real provider adapter, API keys, a billable test project | **Yes** | **Blocked — Owner Budget Approval Required** |
+| Real voice proof of concept with adult testers | **Yes** | **Blocked — Owner Budget Approval Required** |
+
+**Architecture rule:** every paid capability (AI voice, email, WhatsApp, Zoom, object storage) sits behind an AA Pro interface. A free stub or mock is the default and the only implementation used today. A paid adapter can be added only after its approval is recorded in `src/config/paidServices.ts`, and CI enforces this.
+

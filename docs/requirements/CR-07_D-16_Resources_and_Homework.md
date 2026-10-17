@@ -382,6 +382,8 @@ All tests use synthetic accounts and small generated files only.
 
 ## 12. Delivery plan (after confirmation)
 
+> **OC-91 (budget $0):** H-0 to H-5 use no paid service. Files go in the existing database on Neon's free plan (1 GB per project: enough for small synthetic test files, not for real use). Notifications stay queued. Object storage for real use, and real email, are **Blocked — Owner Budget Approval Required**. Any HEIC decoder must be free open-source software with a compatible licence.
+
 Each step is one pull request with its own tests. Only synthetic data is used; nothing paid; nothing goes to production.
 
 | PR | Content |

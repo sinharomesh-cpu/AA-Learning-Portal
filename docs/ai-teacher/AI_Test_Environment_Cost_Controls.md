@@ -1,31 +1,33 @@
 # AA Pro AI Teacher — Test-Environment Cost Controls
 
-**Version:** 1.0 · 17 Oct 2026 · **Decision:** OC-89(5). **No test budget is approved yet. No billable testing has started.**
+**Version:** 2.0 · 18 Oct 2026 · **Decisions:** OC-89(5), **OC-91 (approved budget $0)**
 
-## 1. What is prepared now (no cost)
+> **No budget is approved: the approved amount is $0.** No billable AI testing, no paid API key, no cloud project with billing and no paid usage of any kind is authorised. The "about $12 a day" figure in version 1.0 was only an illustration of possible exposure, **never** a budget. It is withdrawn as a planning figure. Status of live AI testing: **Blocked — Owner Budget Approval Required.**
 
-- The session controller and the daily-limit rules are tested with a simulated clock and a simulated AI provider.
-- The application has its own limits, which work whatever the provider:
-  - one 15-minute session per child per 24 hours;
-  - one active session per child;
-  - at most 5 hints per session;
-  - questions held during the explanation (at most 10).
+## 1. What continues at no cost
 
-## 2. Controls to set up before any billable test (each needs the owner's budget approval)
+- The session rules (15 minutes, one a day, one active, no duplicates) and the controller (phases, hints, quiz blocking, cut-off, recovery) are built and tested with a simulated clock and a simulated AI provider.
+- The classroom page, the textbook reader and the server relay can be built against the same simulated provider: a scripted tutor that "speaks" captions. This tests the screens, timing and error handling, but not real voice or teaching quality.
+- Provider research and a cost model, with no accounts created.
+- The CI guard (`src/config/paidServices.test.ts`) fails the build if a paid AI SDK or API host is added before approval.
 
-| # | Control | Effect | Limits |
-|---|---|---|---|
-| C-1 | A separate test billing project, with only the AI API enabled | Keeps test spend separate and easy to switch off | — |
-| C-2 | A budget with alerts at 50%, 90% and 100% of the approved amount | Email alerts | **Alerts do not stop spending.** Billing data can lag by hours |
-| C-3 | API quotas: requests per minute and per day, and concurrent sessions, set low (for example, 2 concurrent sessions) | Hard limit, enforced by the provider | Changes can take time to apply |
-| C-4 | An AA Pro switch `AI_TEACHER_ENABLED` (off by default) and a cap `AI_TEST_MAX_SESSIONS_PER_DAY` across all testers (for example, 10) | Hard limit, enforced by AA Pro, before any request leaves the server | Only protects calls made through AA Pro |
-| C-5 | Automatic shut-off: the budget alert triggers a small function that turns billing off for the test project | Stops further charges | Charges already incurred, and those in the lag window, still apply. Turning billing off can delete or stop resources |
-| C-6 | The API key or service account is restricted to the AI API and to the AA Pro server's network, and rotated after testing | Limits misuse if a key leaks | — |
-| C-7 | Usage monitoring dashboard: sessions, minutes, tokens and estimated cost per day | Visibility | — |
+## 2. Controls Claude will propose with any future budget request (none are active, and none may be set up without approval)
 
-## 3. Remaining cost exposure (stated plainly)
+| # | Control | Guaranteed? |
+|---|---|---|
+| C-1 | A separate test project, with only the AI API enabled | Yes, as separation |
+| C-2 | **AA Pro hard caps before any request leaves the server:** `AI_TEACHER_ENABLED` off by default; a total daily cap across all testers (for example, 10 sessions); 15 minutes per session; one session per child per day | Yes, for calls made through AA Pro |
+| C-3 | Provider quotas: low requests per minute and per day, and low concurrent sessions | Enforced by the provider. Changes can take time to apply |
+| C-4 | API key or service account restricted to the AI API and AA Pro's server, and rotated after testing | Reduces the risk from a leaked key; does not remove it |
+| C-5 | Automatic shut-off: a budget event turns billing off for the test project | **Not guaranteed to cap spend:** billing data arrives late, so charges in that window still apply |
+| C-6 | Budget alerts | **Not spending protection** (OC-91 rule 5); information only |
+| C-7 | A daily usage report (sessions, minutes, tokens, estimated cost) | Visibility only |
 
-- **Alerts alone do not cap spending.** The provider's billing reports arrive late, so a fault or misuse can overspend before an alert is seen.
-- **Within AA Pro's own caps,** the worst case per day is the per-day session cap × 15 minutes × the highest per-session estimate. With 10 sessions and about $1.20 each (cost estimate, high case), that is about $12 a day.
-- **Outside those caps:** a leaked key or misconfigured quota could exceed this. C-3, C-5 and C-6 reduce that risk but do not remove it.
-- **Per child:** at most 30 sessions a month. That is about $6.60–$36 a month per active child at the estimate's low and high cases, before tax. Prices must be checked again before any approval.
+**Maximum exposure.** With every control in place, the documented maximum is: daily session cap × 15 minutes × the highest measured cost per session × the number of days, plus a stated allowance for billing lag. This figure is calculated from the provider's current prices **at the time of the request**, presented for approval, and is not assumed now.
+
+## 3. Status
+| Item | Status |
+|---|---|
+| Live AI voice tests | **Blocked — Owner Budget Approval Required** (and R-AI-1, provider eligibility) |
+| Simulated-provider classroom work | Allowed (no cost) |
+| Provider eligibility questions to Google and others | Allowed only if free and with no account or commitment; owner to decide who sends them |
