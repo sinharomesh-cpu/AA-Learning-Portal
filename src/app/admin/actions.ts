@@ -16,6 +16,7 @@ import {
 import { db } from '@/server/db/client';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getRealSession } from '@/server/session';
+import { decidePhoto } from '@/server/teacherPhotos';
 
 /**
  * Admin actions (WP2-5b). The actor comes from the server-side session only, and must have
@@ -186,5 +187,22 @@ export async function decideProfileChangeAction(_prev: AdminFormState, fd: FormD
   }
   if (r.reason === 'note_required') return { fieldErrors: { note: 'Write a short decision note (required).' } };
   if (r.reason === 'not_found') return { error: 'This change has already been decided or was withdrawn.' };
+  return NOT_ALLOWED;
+}
+
+/** PR-D1b: approve or decline a teacher photo (OC-85). A decline needs a note for the teacher. */
+export async function decidePhotoAction(_prev: AdminFormState, fd: FormData): Promise<AdminFormState> {
+  const actorId = await actor();
+  const decision = str(fd, 'decision');
+  if (decision !== 'approve' && decision !== 'decline') return { error: 'Choose a decision.' };
+  const r = await decidePhoto(db(), actorId, str(fd, 'photoId'), decision, str(fd, 'note'));
+  if (r.ok) {
+    revalidatePath('/admin');
+    redirect(`/admin/approvals?done=photo_${decision}`);
+  }
+  if (r.reason === 'note_required')
+    return { fieldErrors: { note: 'Tell the teacher why, so they can choose another photo.' } };
+  if (r.reason === 'note_too_long') return { fieldErrors: { note: 'Keep the note under 500 characters.' } };
+  if (r.reason === 'not_found') return { error: 'This photo has already been decided or was replaced.' };
   return NOT_ALLOWED;
 }
