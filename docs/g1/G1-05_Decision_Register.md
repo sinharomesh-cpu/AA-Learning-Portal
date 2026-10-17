@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.49 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.50 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.50 changes (owner, 18 Oct 2026, 01:41 IST):**
+- **New open decision D-45**, deferred by the owner to Phase 3: upcoming lessons of a deactivated teacher. **Open — Owner Decision Required.** No cancellation, reassignment, continuation or rescheduling policy may be assumed or implemented. At Phase 3 planning, Claude presents the options and their implications for approval before implementing anything. Tracked in `docs/phase3/P3-00_Phase3_Backlog.md`.
 
 **v1.49 changes (owner correction, 18 Oct 2026, 01:07 IST):**
 - **OC-44 to OC-47 (D-35, D-08, D-07, D-15) were confirmed on 14 Oct 2026 and remain unchanged.** Screens still showed "Not decided yet" for them. That was Claude's error, now corrected (report: `docs/phase2/OC-44-47_Lesson_Rules_Implementation_Report.md`). The rules now live in one shared module (`src/lib/lessonRules.ts`) with tests. One real conflict was fixed: a teacher-proposed lesson no longer blocks the child's AI booking times (OC-45).
@@ -378,6 +381,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | ID | Question | Recommended option | Alternatives | Impact | Approval? | Blocks |
 |---|---|---|---|---|---|---|
 | **D-05b** | Which other parent restrictions exist for AI booking? (The daily limit is decided: OC-60.) | Recurring blocked periods; one-off blocked dates; minimum lead time | Weekly cap; per-subject limits; parent-PIN override | Slot engine; M-09 | **Yes** | Phase 3 |
+| **D-45** | Upcoming lessons of a deactivated teacher (owner deferral, 18 Oct 2026) | No default: Claude presents options (cancel and notify; reassign to another approved teacher with the parent's consent; keep until a cut-off date; pause pending the parent's choice) with their implications at Phase 3 planning | — | Families' lessons, notifications, Zoom clean-up | **Yes** (Open — Owner Decision Required) | Phase 3 |
 | ~~D-07~~ | **Closed → OC-46.** | | | | | |
 | ~~D-08~~ | **Closed → OC-45.** | | | | | |
 | ~~D-09~~ | **Closed → OC-36.** | | | | | |
