@@ -8,9 +8,9 @@ import { TeachersSection } from './TeachersSection';
 
 const WRAP = 'mx-auto';
 
-describe('home page while listings and enquiries are not built', () => {
-  it('ships with both marketplace switches off', () => {
-    expect(MARKETPLACE).toEqual({ listings: false, enquiries: false });
+describe('home page with listings live (PR-D3) and before enquiries (PR-D4)', () => {
+  it('ships with listings on and enquiries off', () => {
+    expect(MARKETPLACE).toEqual({ listings: true, enquiries: false });
   });
 
   it('links "Find a teacher" to the new section and shows the approved empty state', async () => {
@@ -27,17 +27,20 @@ describe('home page while listings and enquiries are not built', () => {
     expect(await axeViolations(container)).toEqual([]);
   });
 
-  it('never describes listings or enquiries that do not exist yet', () => {
+  it('never describes enquiries, which do not exist yet', () => {
     render(<LandingPage />);
-    expect(screen.queryByText(/Looking for students\?/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/publish a .*listing/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Can I find a new teacher on AA Pro?')).not.toBeInTheDocument();
     expect(screen.queryByText(/How connecting works/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/as stated by the teacher/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Approved teachers looking for students')).not.toBeInTheDocument();
-    // True today.
-    expect(screen.getByRole('heading', { name: 'Teach with AA Pro' })).toBeInTheDocument();
+    expect(screen.queryByText(/Connect with teacher/)).not.toBeInTheDocument();
+    // True today: teachers can publish listings.
+    expect(screen.getByRole('heading', { name: 'Looking for students?' })).toBeInTheDocument();
     expect(screen.getByText('How do I pay a teacher?')).toBeInTheDocument();
+  });
+
+  it('a loading problem shows a message instead of teachers, and no search controls', () => {
+    const { container } = render(<LandingPage teachers={{ listings: [], loadError: true, more: false }} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(/Teacher profiles can.t be shown right now/);
+    expect(within(container.querySelector('#teachers')!).queryAllByRole('combobox')).toHaveLength(0);
   });
 });
 

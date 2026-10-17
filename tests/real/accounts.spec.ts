@@ -180,7 +180,8 @@ test('a waiting teacher fills in the profile, saves a draft and sends it for app
   await expect(page.getByText('Your profile was sent for approval.')).toBeVisible();
   await noSeriousA11yIssues(page);
   await page.getByRole('link', { name: 'View my profile' }).click();
-  await expect(page.getByText('Under review')).toBeVisible();
+  await expect(page).toHaveURL(/\/teacher\/profile$/);
+  await expect(page.getByRole('heading', { level: 1 }).getByText('Under review')).toBeVisible();
   // Still no portal pages before approval.
   await page.goto('/teacher/schedule');
   await expect(page).toHaveURL(/\/teacher\/status$/);

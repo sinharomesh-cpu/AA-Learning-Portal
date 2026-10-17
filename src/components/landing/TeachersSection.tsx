@@ -1,5 +1,7 @@
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
+import type { PublicListingCard } from '@/components/listing/cards';
+import { type SearchValues, TeacherSearchPanel } from '@/components/listing/TeacherSearchPanel';
 import type { MarketplaceSwitches } from '@/config/landing';
 import { Icon } from '@/components/public/icons';
 import { cx } from '@/lib/cx';
@@ -15,35 +17,36 @@ import { describeGrades } from '@/lib/grades';
  * field for email, phone, ratings or anything about children. Optional teacher photos (OC-84)
  * come with the listing feature; until then cards show the teacher's initial.
  *
- * Until teachers can publish listings (board D5), the section shows an honest empty state and no
- * search or filter controls (they would have nothing to search).
+ * Shows the newest published listings (PR-D3) with search and filters that open /teachers. With
+ * no listings it shows an honest empty state and no search or filter controls (nothing to
+ * search); if listings cannot be loaded, an error message while the rest of the page works.
  */
 
-export interface PublicListingCard {
-  /** Random public id of the listing, never an account id (P2-R3 §11.5). */
-  id: string;
-  name: string;
-  subjects: string[];
-  grades: number[];
-  curricula: string[];
-  /** Years of teaching as entered by the teacher; shown "as stated by the teacher". */
-  experienceYears: number | null;
-  /** Ready-made price lines, e.g. "₹600 per hour · 40-minute sessions" (up to 3, C9). */
-  prices: string[];
-}
+export type { PublicListingCard } from '@/components/listing/cards';
 
-function ListingCard({ listing }: { listing: PublicListingCard }) {
+export function ListingCard({ listing }: { listing: PublicListingCard }) {
   const headingId = `listing-${listing.id}`;
   const initial = [...listing.name.replace(/^(Teacher|Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')][0]?.toUpperCase() ?? '?';
   return (
     <Card as="article" aria-labelledby={headingId} className="pub-card flex w-full flex-col gap-4 rounded-lg">
       <div className="flex items-start gap-4">
-        <span
-          aria-hidden="true"
-          className="flex size-16 flex-none items-center justify-center rounded-[18px] bg-primary-fixed font-headline text-[26px] font-extrabold text-on-primary-fixed"
-        >
-          {initial}
-        </span>
+        {listing.photoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- small approved photo from our own route
+          <img
+            src={listing.photoSrc}
+            alt=""
+            width={64}
+            height={64}
+            className="size-16 flex-none rounded-[18px] border border-card-border object-cover"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex size-16 flex-none items-center justify-center rounded-[18px] bg-primary-fixed font-headline text-[26px] font-extrabold text-on-primary-fixed"
+          >
+            {initial}
+          </span>
+        )}
         <div className="flex min-w-0 flex-col gap-1">
           <h3 id={headingId} className="text-[20px] font-bold leading-7">
             {listing.name}
@@ -90,6 +93,16 @@ function ListingCard({ listing }: { listing: PublicListingCard }) {
           </span>
         </div>
       ) : null}
+      {listing.href ? (
+        <LinkButton
+          href={listing.href}
+          variant="secondary"
+          className="mt-auto w-full"
+          aria-label={`View profile: ${listing.name}`}
+        >
+          View profile
+        </LinkButton>
+      ) : null}
     </Card>
   );
 }
@@ -98,12 +111,26 @@ export function TeachersSection({
   marketplace,
   wrap,
   listings = [],
+  loadError = false,
+  more = false,
 }: {
   marketplace: MarketplaceSwitches;
   wrap: string;
   listings?: PublicListingCard[];
+  /** The listings could not be loaded (the rest of the page still works). */
+  loadError?: boolean;
+  /** More listings exist than are shown here. */
+  more?: boolean;
 }) {
   const shown = marketplace.listings ? listings : [];
+  const anyFilters: SearchValues = {
+    name: '',
+    subject: null,
+    grade: null,
+    curriculum: null,
+    minExperience: null,
+    sort: 'newest',
+  };
   return (
     <section
       id="teachers"
@@ -139,8 +166,19 @@ export function TeachersSection({
           </p>
         ) : null}
       </div>
-      {shown.length ? (
+      {loadError && marketplace.listings ? (
+        <div role="alert" className="pub-card flex flex-col items-start gap-3 rounded-lg p-6">
+          <p className="text-[17px] font-bold">Teacher profiles can&apos;t be shown right now.</p>
+          <p className="text-[15px] text-on-surface-variant">
+            Please try again in a moment. The rest of AA Pro works as usual.
+          </p>
+          <LinkButton href="/teachers" variant="secondary">
+            Try again
+          </LinkButton>
+        </div>
+      ) : shown.length ? (
         <>
+          <TeacherSearchPanel values={anyFilters} idPrefix="home-ts" />
           <ul className="m-0 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3" aria-label="Teachers">
             {shown.map((l) => (
               <li key={l.id} className="flex">
@@ -148,11 +186,16 @@ export function TeachersSection({
               </li>
             ))}
           </ul>
-          <p className="max-w-[60ch] text-body-sm text-on-surface-variant">
-            Every teacher here has been approved by the AA Pro team. Browse freely; you only need a parent account when
-            you want to contact a teacher. AA Pro doesn&apos;t take or handle payments: prices are set by teachers and
-            agreed with them directly.
-          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <LinkButton href="/teachers">{more ? 'See all teachers' : 'Search all teachers'}</LinkButton>
+            <p className="max-w-[60ch] text-body-sm text-on-surface-variant">
+              Every teacher here has been approved by the AA Pro team. Browse freely.{' '}
+              {marketplace.enquiries
+                ? 'You only need a parent account when you want to contact a teacher.'
+                : 'Connecting with a teacher through AA Pro opens soon.'}{' '}
+              AA Pro doesn&apos;t take or handle payments: prices are set by teachers and agreed with them directly.
+            </p>
+          </div>
         </>
       ) : (
         <div className="pub-card flex flex-col gap-5 rounded-lg p-6 md:flex-row md:items-center md:justify-between md:p-8">

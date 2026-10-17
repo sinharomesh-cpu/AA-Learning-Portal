@@ -722,3 +722,95 @@ test('PR-D2: an approved teacher publishes a listing after agreeing to the previ
   expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await tc.close();
 });
+
+test('PR-D3: visitors browse published teachers on the homepage and /teachers without signing in (OC-84)', async ({
+  page,
+  browser,
+}) => {
+  const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
+  const teacherName = `Teacher Pub ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.60' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('public');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Science'], [7, 8]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.61' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for public listing');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+  await t.goto('/teacher/profile');
+  await t.getByLabel('Name shown to families').fill(teacherName);
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText('Your profile is saved.')).toBeVisible();
+  await t.goto('/teacher/availability');
+  const times = t.getByRole('region', { name: 'Your usual weekly times' });
+  await times.getByLabel('Day 1', { exact: true }).selectOption({ label: 'Wednesday' });
+  await times.getByRole('button', { name: 'Save times' }).click();
+  await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
+  await t.goto('/teacher/listing');
+  await t.getByRole('region', { name: 'What you offer' }).getByRole('checkbox', { name: 'ICSE', exact: true }).check();
+  await t.getByRole('region', { name: 'What you offer' }).getByLabel('Years of teaching (optional)').fill('6');
+  await t.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+  await t.getByRole('button', { name: 'Publish' }).click();
+  await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
+
+  // A signed-out visitor, in another browser.
+  const vc = await browser.newContext({ timezoneId: 'Asia/Singapore' });
+  const v = await vc.newPage();
+  await v.goto('/');
+  const section = v.locator('#teachers');
+  await expect(section.getByRole('heading', { level: 2, name: 'Meet Our Subject Specialists' })).toBeVisible();
+  const teacherCard = section.getByRole('article', { name: teacherName });
+  await expect(teacherCard).toBeVisible();
+  await expect(teacherCard.getByText('Science')).toBeVisible();
+  await expect(section.getByRole('search', { name: 'Search teachers' })).toBeVisible();
+  expect(await v.content()).not.toContain(teacherEmail);
+  await noSeriousA11yIssues(v);
+
+  // Subject chip and filters on /teachers.
+  await section.getByRole('navigation', { name: 'Subjects' }).getByRole('link', { name: 'Science' }).click();
+  await expect(v).toHaveURL(/\/teachers\?subject=science/);
+  await expect(v.getByRole('article', { name: teacherName })).toBeVisible();
+  const search = v.getByRole('search', { name: 'Search teachers' });
+  await search.getByLabel('Grade').selectOption({ label: 'Grade 3' });
+  await search.getByRole('button', { name: 'Show teachers' }).click();
+  await expect(v.getByRole('heading', { name: 'No teachers match' })).toBeVisible();
+  await search.getByLabel('Grade').selectOption({ label: 'Grade 8' });
+  await search.getByLabel('Curriculum').selectOption({ label: 'ICSE' });
+  await search.getByLabel('Experience').selectOption({ label: '5+ years' });
+  await search.getByRole('button', { name: 'Show teachers' }).click();
+  await expect(v.getByRole('article', { name: teacherName })).toBeVisible();
+  await noSeriousA11yIssues(v);
+
+  // The listing page: only public details; usual times in the visitor's time zone (Wed 4–6 pm India = 6:30–8:30 pm Singapore).
+  await v.getByRole('link', { name: `View profile: ${teacherName}` }).click();
+  await expect(v).toHaveURL(/\/teachers\/t-[a-z0-9]{10}$/);
+  await expect(v.getByRole('heading', { level: 1, name: teacherName })).toBeVisible();
+  await expect(v.getByText('6 years')).toBeVisible();
+  await expect(v.getByText(/6:30 pm–8:30 pm/)).toBeVisible();
+  await expect(v.getByText(/In your time zone \(Asia\/Singapore\)/)).toBeVisible();
+  await expect(v.getByRole('button', { name: /Connect/ })).toHaveCount(0);
+  expect(await v.content()).not.toContain(teacherEmail);
+  const robots = await v.locator('meta[name="robots"]').getAttribute('content');
+  expect(robots).toMatch(/noindex/);
+  await noSeriousA11yIssues(v);
+  const listingUrl = v.url();
+  await v.setViewportSize({ width: 390, height: 844 });
+  expect(await v.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Paused: the page says only that it is no longer available.
+  await t.goto('/teacher/listing');
+  await t.getByRole('button', { name: 'Pause' }).click();
+  await expect(t.getByText(/Paused. Parents no longer see your listing/)).toBeVisible();
+  await v.goto(listingUrl);
+  await expect(v.getByRole('heading', { level: 1, name: 'Listing no longer available' })).toBeVisible();
+  expect(await v.content()).not.toContain(teacherName);
+  await vc.close();
+  await tc.close();
+});

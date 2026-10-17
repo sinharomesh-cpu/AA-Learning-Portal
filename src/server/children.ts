@@ -1,4 +1,5 @@
 import 'server-only';
+import { CURRICULA_LIST } from '@/lib/curricula';
 import { randomInt } from 'node:crypto';
 import { SUBJECT_IDS, type SubjectId } from '@/fixtures/subjects';
 import { writeAudit } from './auth/audit';
@@ -35,7 +36,7 @@ export const AVATARS = ['star', 'sun', 'leaf', 'moon'] as const;
 export type Avatar = (typeof AVATARS)[number];
 
 /** Curricula offered in the profile form, shown as "configured by AA Pro" (M-08). Owner-confirmed (OC-58). */
-export const CURRICULA = ['CBSE', 'ICSE', 'State board', 'IB', 'Cambridge (IGCSE)', 'Other'] as const;
+export const CURRICULA = CURRICULA_LIST;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

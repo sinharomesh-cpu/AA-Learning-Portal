@@ -65,3 +65,53 @@ export function describeUsualTime(r: UsualTime): string {
   const sameHalf = start.slice(-2) === end.slice(-2);
   return `${WEEKDAYS_SHORT[r.weekday - 1]} ${sameHalf ? start.slice(0, -3) : start}–${end}`;
 }
+
+/** Offset in minutes of `timeZone` from UTC at `instant` (e.g. +330 for India). */
+function offsetMinutes(timeZone: string, instant: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(instant);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'));
+  return Math.round((asUtc - Math.floor(instant.getTime() / 60000) * 60000) / 60000);
+}
+
+/**
+ * Converts weekly ranges from the teacher's time zone to the viewer's, for the week around
+ * `reference` (so daylight-saving changes are taken into account). A range that crosses
+ * midnight in the viewer's zone is split into two days.
+ */
+export function convertUsualTimes(
+  ranges: UsualTime[],
+  fromZone: string,
+  toZone: string,
+  reference: Date = new Date(),
+): UsualTime[] {
+  if (fromZone === toZone) return sortUsualTimes(ranges);
+  const out: UsualTime[] = [];
+  const week = 7 * 1440;
+  for (const r of ranges) {
+    // Minutes since Monday 00:00 in the teacher's zone → shift by the difference in offsets.
+    const shift = offsetMinutes(toZone, reference) - offsetMinutes(fromZone, reference);
+    let start = (r.weekday - 1) * 1440 + r.start + shift;
+    start = ((start % week) + week) % week;
+    const length = r.end - r.start;
+    let remaining = length;
+    let cursor = start;
+    while (remaining > 0) {
+      const dayIndex = Math.floor(cursor / 1440) % 7;
+      const minuteOfDay = cursor % 1440;
+      const take = Math.min(remaining, 1440 - minuteOfDay);
+      out.push({ weekday: dayIndex + 1, start: minuteOfDay, end: minuteOfDay + take });
+      remaining -= take;
+      cursor = (cursor + take) % week;
+    }
+  }
+  return sortUsualTimes(out);
+}
