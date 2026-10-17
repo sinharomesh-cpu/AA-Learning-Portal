@@ -8,10 +8,21 @@
   background-color: var(--color-background);
   color: var(--color-on-surface);
   --pub-header-bg: rgb(250 248 255 / 0.86);
+  /* Hero (owner, 17 Oct 2026, 16:54 IST): soft, luminous sky-blue atmosphere with depth; light
+     enough for dark text. The glow behind the planets is --pub-orbit-glow. */
   --pub-hero-bg:
-    radial-gradient(60% 70% at 85% 10%, rgb(0 97 148 / 0.12), transparent 70%),
-    radial-gradient(50% 60% at 10% 90%, rgb(139 112 255 / 0.1), transparent 70%),
-    linear-gradient(180deg, #eef4ff 0%, #faf8ff 100%);
+    linear-gradient(180deg, transparent 78%, rgb(238 243 255 / 0.9) 100%),
+    radial-gradient(70% 60% at 100% 0%, rgb(66 153 232 / 0.38), transparent 70%),
+    radial-gradient(55% 60% at 0% 100%, rgb(140 198 255 / 0.48), transparent 72%),
+    radial-gradient(45% 55% at 18% 30%, rgb(255 255 255 / 0.6), transparent 70%),
+    linear-gradient(165deg, #e7f3ff 0%, #d3eaff 42%, #bddcfb 100%);
+  --pub-orbit-glow: radial-gradient(
+    closest-side,
+    rgb(255 255 255 / 0.7),
+    rgb(125 198 255 / 0.5) 42%,
+    rgb(110 185 250 / 0.18) 72%,
+    transparent 100%
+  );
   --pub-band-bg: #f2f3ff;
   --pub-card-shadow: 0 8px 24px -4px rgb(7 26 56 / 0.06), 0 1px 2px rgb(7 26 56 / 0.04);
   --pub-glow: 0 0 0 transparent;
@@ -31,9 +42,17 @@
 :root[data-theme='dark'] .aa-public {
   --pub-header-bg: rgb(11 16 38 / 0.82);
   --pub-hero-bg:
-    radial-gradient(55% 65% at 80% 20%, rgb(69 214 232 / 0.14), transparent 70%),
-    radial-gradient(45% 55% at 15% 85%, rgb(139 112 255 / 0.14), transparent 70%),
-    linear-gradient(180deg, #070d1e 0%, #0b1026 100%);
+    radial-gradient(70% 60% at 100% 0%, rgb(37 99 235 / 0.3), transparent 70%),
+    radial-gradient(55% 60% at 0% 100%, rgb(56 189 248 / 0.14), transparent 72%),
+    radial-gradient(40% 50% at 18% 25%, rgb(99 102 241 / 0.12), transparent 70%),
+    linear-gradient(170deg, #050b22 0%, #08133a 55%, #0b1a4a 100%);
+  --pub-orbit-glow: radial-gradient(
+    closest-side,
+    rgb(80 170 255 / 0.42),
+    rgb(37 99 235 / 0.22) 55%,
+    rgb(37 99 235 / 0.06) 80%,
+    transparent 100%
+  );
   --pub-band-bg: #0d1430;
   --pub-card-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.5);
   --pub-glow: 0 0 24px rgb(69 214 232 / 0.35);
@@ -53,9 +72,17 @@
   :root:not([data-theme='light']) .aa-public {
     --pub-header-bg: rgb(11 16 38 / 0.82);
     --pub-hero-bg:
-      radial-gradient(55% 65% at 80% 20%, rgb(69 214 232 / 0.14), transparent 70%),
-      radial-gradient(45% 55% at 15% 85%, rgb(139 112 255 / 0.14), transparent 70%),
-      linear-gradient(180deg, #070d1e 0%, #0b1026 100%);
+      radial-gradient(70% 60% at 100% 0%, rgb(37 99 235 / 0.3), transparent 70%),
+      radial-gradient(55% 60% at 0% 100%, rgb(56 189 248 / 0.14), transparent 72%),
+      radial-gradient(40% 50% at 18% 25%, rgb(99 102 241 / 0.12), transparent 70%),
+      linear-gradient(170deg, #050b22 0%, #08133a 55%, #0b1a4a 100%);
+    --pub-orbit-glow: radial-gradient(
+      closest-side,
+      rgb(80 170 255 / 0.42),
+      rgb(37 99 235 / 0.22) 55%,
+      rgb(37 99 235 / 0.06) 80%,
+      transparent 100%
+    );
     --pub-band-bg: #0d1430;
     --pub-card-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.5);
     --pub-glow: 0 0 24px rgb(69 214 232 / 0.35);
@@ -80,6 +107,12 @@
 
 .aa-public .pub-hero {
   background: var(--pub-hero-bg);
+}
+
+/* Blue illumination around the planetary system; sits behind the scene, never over it. */
+.aa-public .pub-orbit-glow {
+  background: var(--pub-orbit-glow);
+  filter: blur(6px);
 }
 
 .aa-public .pub-band {
