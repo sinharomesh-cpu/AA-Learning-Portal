@@ -38,7 +38,7 @@ function ListingCard({ listing }: { listing: PublicListingCard }) {
     .filter(Boolean)
     .join(' · ');
   return (
-    <Card as="article" aria-labelledby={headingId} className="flex flex-col gap-3">
+    <Card as="article" aria-labelledby={headingId} className="pub-card flex flex-col gap-3 rounded-lg">
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
@@ -95,10 +95,19 @@ export function TeachersSection({
 }) {
   const shown = marketplace.listings ? listings : [];
   return (
-    <section id="teachers" aria-labelledby="teachers-title" className={cx(wrap, 'flex flex-col gap-7 py-12 md:py-16')}>
-      <div className="flex flex-col gap-2.5">
-        <span className="text-label-md font-bold uppercase tracking-[.08em] text-primary">Find a teacher</span>
-        <h2 id="teachers-title" className="text-headline-lg-mobile md:text-headline-lg">
+    <section
+      id="teachers"
+      aria-labelledby="teachers-title"
+      className={cx(wrap, 'flex scroll-mt-24 flex-col gap-8 py-16 md:py-24')}
+    >
+      <div className="flex flex-col gap-3">
+        <span className="inline-flex self-start rounded-full border border-primary/40 bg-primary-fixed/50 px-3 py-1 text-label-sm uppercase tracking-[.08em] text-on-primary-fixed-variant">
+          Find a teacher
+        </span>
+        <h2
+          id="teachers-title"
+          className="font-headline text-[30px] font-extrabold leading-[38px] tracking-[-0.02em] md:text-[40px] md:leading-[48px]"
+        >
           Teachers looking for students
         </h2>
         {shown.length ? (
@@ -124,7 +133,7 @@ export function TeachersSection({
           </p>
         </>
       ) : (
-        <div className="flex flex-col items-start gap-3 rounded-md border border-dashed border-outline bg-white p-6">
+        <div className="pub-card flex flex-col items-start gap-3 rounded-lg border-dashed p-6 md:p-8">
           <p className="text-[17px] leading-[26px]">
             No teachers are listed right now. Create a parent account to add your child&apos;s own teacher, or check
             back soon.
@@ -136,7 +145,7 @@ export function TeachersSection({
         </div>
       )}
       {marketplace.enquiries && shown.length ? (
-        <Card className="flex flex-col gap-3">
+        <Card className="pub-card flex flex-col gap-3 rounded-lg">
           <span className="text-label-md font-bold uppercase tracking-[.08em] text-primary">How connecting works</span>
           <ol className="flex flex-col gap-3 text-[15px] leading-[22px]">
             <li>1. Choose a teacher and press Connect with teacher.</li>
@@ -154,11 +163,11 @@ export function TeachersSection({
 /** H1 "For teachers" band. Mentions listings only once teachers can publish them. */
 export function TeacherBand({ marketplace, wrap }: { marketplace: MarketplaceSwitches; wrap: string }) {
   return (
-    <section aria-labelledby="teacher-band" className={cx(wrap, 'py-12 md:py-16')}>
-      <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-5 rounded-md border border-primary-fixed-dim bg-primary-fixed/40 p-6">
+    <section aria-labelledby="teacher-band" className={cx(wrap, 'py-16 md:py-20')}>
+      <div className="pub-card flex flex-wrap items-center justify-between gap-x-10 gap-y-5 rounded-lg p-6 md:p-8">
         <div className="flex max-w-[64ch] flex-col gap-2">
           <span className="text-label-md font-bold uppercase tracking-[.08em] text-primary">For teachers</span>
-          <h2 id="teacher-band" className="text-headline-md">
+          <h2 id="teacher-band" className="font-headline text-headline-md">
             {marketplace.listings ? 'Looking for students?' : 'Teach with AA Pro'}
           </h2>
           <p className="text-[16px] leading-[25px] text-on-surface-variant">

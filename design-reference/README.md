@@ -11,6 +11,23 @@ This folder holds **reference material only**. Nothing here is production code, 
 | `ORIGINAL_CHECKSUMS.sha256` | SHA-256 of both original ZIP exports and of every file inside them |
 | `ORIGINAL_INVENTORY.md` | Path and size of every original file |
 
+## ZIP 5 additions (`zip5-selected/`, 17 Oct 2026)
+
+| File | Source |
+|---|---|
+| `Z5-01_home_cosmic_dark.redacted.html` | Owner-uploaded cosmic home page (theme chosen by the owner, 17 Oct 2026) |
+| `Z5-02_home_light_desktop.redacted.html` | ZIP 5 `aa_pro_official_homepage_desktop` |
+| `Z5-03_create_an_account.redacted.html` | ZIP 5 `aa_pro_create_an_account` |
+| `DESIGN-cosmic-luminary.md` | Owner-uploaded "Cosmic Luminary" token specification, unchanged |
+
+These were made the same way as the derivatives below:
+- identifying terms are replaced by "Sample";
+- sample teacher and child names are replaced by synthetic ones;
+- hot-linked images are replaced by a neutral placeholder;
+- each file's first line records the original SHA-256.
+
+The other 21 screens in ZIP 5 are byte-identical to ZIPs 8 and 9 and are already covered below. Gap report: `docs/design/AA_Pro_Design_Implementation_Gap_Report.md`.
+
 ## How the derivatives were made (OC-20)
 
 Each derivative starts from the untouched original, whose SHA-256 is recorded in the file's first-line comment. Only these substitutions were made:

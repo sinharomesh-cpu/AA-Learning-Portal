@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import './public-theme.css';
 
 /*
  * Base styles. Corrections from the approved Tokens board (board 2, OC-24) are logged in

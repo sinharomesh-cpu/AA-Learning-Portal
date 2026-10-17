@@ -152,3 +152,59 @@ export const FAQ: readonly FaqItem[] = [
     a: 'Maths, Science, SST, English, Hindi and IT. You choose which ones each child sees.',
   },
 ];
+
+/**
+ * Home page subjects (ZIP 5 "Explore your school subjects"). Plain descriptions of each
+ * subject only: no curriculum, accreditation or outcome claims (owner, 17 Oct 2026).
+ */
+export const SUBJECT_CARDS = [
+  { id: 'maths', name: 'Maths', icon: 'calc', tone: 'cyan', body: 'Numbers, shapes, measurement and problem solving.' },
+  {
+    id: 'science',
+    name: 'Science',
+    icon: 'flask',
+    tone: 'amber',
+    body: 'Living things, materials, forces and the world around us.',
+  },
+  {
+    id: 'sst',
+    name: 'SST',
+    icon: 'globe',
+    tone: 'cyan',
+    body: 'Social studies: history, geography, civics and communities.',
+  },
+  {
+    id: 'english',
+    name: 'English',
+    icon: 'letter',
+    tone: 'violet',
+    body: 'Reading, writing, grammar and speaking with confidence.',
+  },
+  { id: 'hindi', name: 'Hindi', icon: 'hindi', tone: 'amber', body: 'Reading, writing and grammar in Hindi.' },
+  {
+    id: 'it',
+    name: 'IT',
+    icon: 'laptop',
+    tone: 'violet',
+    body: 'Using computers safely, digital skills and first steps in coding.',
+  },
+] as const;
+
+/**
+ * Neutral facts for the strip under the hero. They replace the reference's unverified figures
+ * ("10,000+ lessons", "98% satisfaction", "100% vetted", "0 leaks"), which stay out until
+ * evidence and owner approval exist.
+ */
+export const HOME_FACTS = [
+  { value: 'Grades 1–12', label: 'One place for every school year' },
+  { value: '6 subjects', label: 'Maths, Science, SST, English, Hindi, IT' },
+  { value: '3 roles', label: 'Parents, students and teachers' },
+  { value: 'No child email', label: 'Children sign in with a username' },
+] as const;
+
+/** Hero feature row: neutral descriptions of what AA Pro is for (no badges or ratings). */
+export const HERO_POINTS = [
+  { icon: 'family', title: 'Parents in charge', body: 'You add your children and choose their teachers' },
+  { icon: 'shield', title: 'Teachers approved first', body: 'Checked by the AA Pro team before they see a child' },
+  { icon: 'sparkle', title: 'AI Tutor', body: 'Lessons with your own textbook — being built' },
+] as const;

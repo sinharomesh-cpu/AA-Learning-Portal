@@ -20,9 +20,20 @@ export const viewport: Viewport = {
   themeColor: '#006194',
 };
 
+/**
+ * Applies a light/dark choice for the public pages before first paint (no flash). Only the
+ * values "light" and "dark" are accepted; anything else leaves the device setting in charge.
+ */
+const THEME_BOOTSTRAP =
+  "try{var t=localStorage.getItem('aa-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}";
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${jakarta.variable}`}>
+    // data-theme is set by the script below before React loads, hence suppressHydrationWarning.
+    <html lang="en" className={`${outfit.variable} ${jakarta.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
       <body>
         {isHostedDemoPreview() ? <DemoPreviewBanner /> : null}
         {isTestEnvironment(process.env) ? <TestEnvironmentBanner /> : null}

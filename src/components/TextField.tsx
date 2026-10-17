@@ -28,7 +28,7 @@ export function TextField({ label, hint, error, invalid, size = 'md', className,
         aria-describedby={describedBy}
         aria-invalid={error || invalid ? true : undefined}
         className={cx(
-          'box-border w-full rounded-[16px] border-2 bg-white px-4 font-body font-medium text-on-surface',
+          'box-border w-full rounded-[16px] border-2 bg-surface-container-lowest px-4 font-body font-medium text-on-surface',
           size === 'child' ? 'min-h-14 text-[18px]' : 'min-h-[52px] text-base',
           error || invalid ? 'border-error' : 'border-outline',
         )}
