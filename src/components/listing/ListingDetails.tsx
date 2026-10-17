@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { describeGrades } from '@/lib/grades';
 import { describePrice, type ListingSnapshot, PRICE_MODEL_LABEL } from '@/lib/listing';
@@ -17,16 +18,19 @@ export function ListingDetails({
   photoSrc,
   headingLevel = 3,
   timesNote,
+  timesSlot,
 }: {
   listing: ListingSnapshot;
   /** URL of the approved photo the viewer may see, or null for the initial. */
   photoSrc: string | null;
-  headingLevel?: 2 | 3;
+  headingLevel?: 1 | 2 | 3;
   /** How the usual times are shown, e.g. "Your time zone (India (IST))". */
   timesNote: string;
+  /** Replaces the list of usual times (e.g. converted to the viewer's time zone). */
+  timesSlot?: ReactNode;
 }) {
-  const H = headingLevel === 2 ? 'h2' : 'h3';
-  const Sub = headingLevel === 2 ? 'h3' : 'h4';
+  const H = headingLevel === 1 ? 'h1' : headingLevel === 2 ? 'h2' : 'h3';
+  const Sub = headingLevel === 1 ? 'h2' : headingLevel === 2 ? 'h3' : 'h4';
   const subjects = listing.subjects.map((s) => SUBJECTS[s as SubjectId]?.name ?? s);
   return (
     <div className="flex flex-col gap-5">
@@ -49,7 +53,15 @@ export function ListingDetails({
           </span>
         )}
         <div className="flex min-w-0 flex-col gap-1">
-          <H className="text-[22px] font-bold leading-7">{listing.name}</H>
+          <H
+            className={
+              headingLevel === 1
+                ? 'font-headline text-[30px] font-extrabold leading-[38px] md:text-[38px] md:leading-[46px]'
+                : 'text-[22px] font-bold leading-7'
+            }
+          >
+            {listing.name}
+          </H>
           <p className="text-[15px] font-bold text-primary">{subjects.join(' · ') || 'No subjects chosen'}</p>
           <span className="self-start rounded-full border border-success-border bg-success-container px-2.5 py-0.5 text-xs font-bold text-on-success-container">
             Looking for students
@@ -83,7 +95,9 @@ export function ListingDetails({
 
       <section aria-label="Usually free" className="flex flex-col gap-2">
         <Sub className="text-[16px] font-bold">Usually free</Sub>
-        {listing.usualTimes.length ? (
+        {timesSlot ? (
+          timesSlot
+        ) : listing.usualTimes.length ? (
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[15px]">
             {listing.usualTimes.map((t) => (
               <li key={`${t.weekday}-${t.start}`}>

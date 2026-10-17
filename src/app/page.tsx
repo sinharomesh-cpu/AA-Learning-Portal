@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { LandingPage } from '@/components/landing/LandingPage';
 import { brand } from '@/config/brand';
 import { ROLE_HOME } from '@/lib/roles';
+import { homeTeachers } from '@/server/homeTeachers';
 import { getViewer } from '@/server/session';
 
 export const metadata: Metadata = {
@@ -14,5 +15,5 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const viewer = await getViewer();
   if (viewer) redirect(ROLE_HOME[viewer.role]);
-  return <LandingPage />;
+  return <LandingPage teachers={await homeTeachers()} />;
 }

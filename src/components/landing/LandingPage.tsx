@@ -17,6 +17,7 @@ import { cx } from '@/lib/cx';
 import { Icon, type IconName } from '@/components/public/icons';
 import { PUBLIC_WRAP, PublicShell } from '@/components/public/PublicShell';
 import { OrbitIllustration } from './OrbitIllustration';
+import type { PublicListingCard } from '@/components/listing/cards';
 import { TeacherBand, TeachersSection } from './TeachersSection';
 import { TextbookPreview } from './TextbookPreview';
 
@@ -92,7 +93,14 @@ const SAFETY_ICON: Record<(typeof SAFETY)[number]['id'], IconName> = {
   books: 'pages',
 };
 
-export function LandingPage({ marketplace = MARKETPLACE }: { marketplace?: MarketplaceSwitches } = {}) {
+export function LandingPage({
+  marketplace = MARKETPLACE,
+  teachers = { listings: [], loadError: false, more: false },
+}: {
+  marketplace?: MarketplaceSwitches;
+  /** Newest public listings for the teachers section (PR-D3). */
+  teachers?: { listings: PublicListingCard[]; loadError: boolean; more: boolean };
+} = {}) {
   return (
     <PublicShell onHome>
       <main>
@@ -230,7 +238,13 @@ export function LandingPage({ marketplace = MARKETPLACE }: { marketplace?: Marke
           </div>
         </section>
 
-        <TeachersSection marketplace={marketplace} wrap={PUBLIC_WRAP} />
+        <TeachersSection
+          marketplace={marketplace}
+          wrap={PUBLIC_WRAP}
+          listings={teachers.listings}
+          loadError={teachers.loadError}
+          more={teachers.more}
+        />
 
         <section aria-labelledby="how" className="pub-band border-y border-card-border">
           <div className={cx(PUBLIC_WRAP, 'flex flex-col gap-10 py-16 md:py-24')}>
