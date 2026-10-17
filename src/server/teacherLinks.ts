@@ -303,7 +303,11 @@ export async function addTeacherFromDirectory(
       SELECT a.email, a.display_name AS name, tp.subjects AS teaches
       FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id
       WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active'
-        AND tp.approval_status = 'approved' AND NOT tp.hidden_from_search
+        AND tp.approval_status = 'approved'
+        -- A hidden teacher can still be added by a parent whose enquiry they accepted (OC-77(2)).
+        AND (NOT tp.hidden_from_search OR EXISTS (
+          SELECT 1 FROM teacher_enquiries e
+          WHERE e.parent_id = ${parentId} AND e.teacher_id = a.id AND e.status = 'accepted'))
       FOR SHARE OF a, tp`;
     if (!teacher) {
       await writeAudit(

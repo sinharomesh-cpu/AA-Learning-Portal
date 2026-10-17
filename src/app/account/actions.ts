@@ -18,6 +18,7 @@ import { createSession, loadSession, revokeAllSessions, revokeSession, SESSION_C
 import { signInChild } from '@/server/children';
 import { db } from '@/server/db/client';
 import { realAuthEnabled } from '@/server/realAuth';
+import { takeRememberedConnect } from '@/server/teacherEnquiries';
 import { clientIp, siteBaseUrl } from '@/server/requestInfo';
 
 /**
@@ -87,6 +88,13 @@ export async function signInWithPasswordAction(_prev: FormState, fd: FormData): 
   }
   await startSession(result.account);
   const role = result.account.role;
+  // D11: back to the teacher the visitor chose. Only a listing address on AA Pro is accepted.
+  const connect = str(fd, 'connect');
+  if (/^t-[a-z0-9]{10}$/.test(connect)) redirect(`/teachers/${connect}/connect`);
+  if (role === 'parent') {
+    const remembered = await takeRememberedConnect(db(), result.account.id);
+    if (remembered) redirect(`/teachers/${remembered}/connect`);
+  }
   redirect(isRole(role) ? ROLE_HOME[role] : '/');
 }
 
@@ -153,6 +161,10 @@ export async function signUpAction(_prev: FormState, fd: FormData): Promise<Form
     consent: str(fd, 'consent'),
   };
   const values = { role: raw.role, name: raw.name, email: raw.email, timeZone: raw.timeZone };
+  // D11: arriving from "Connect with teacher" creates a parent account only.
+  const connect = /^t-[a-z0-9]{10}$/.test(str(fd, 'connect')) ? str(fd, 'connect') : undefined;
+  if (connect && raw.role !== 'parent')
+    return { fieldErrors: { role: 'Only parent accounts can connect with teachers.' }, values };
   const parsed = SignUpSchema.safeParse(raw);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -172,6 +184,7 @@ export async function signUpAction(_prev: FormState, fd: FormData): Promise<Form
     acceptedPrivacy: true,
     ip: await clientIp(),
     baseUrl: await siteBaseUrl(),
+    connectPublicId: connect,
   });
   if (!result.ok) {
     switch (result.reason) {
@@ -187,7 +200,7 @@ export async function signUpAction(_prev: FormState, fd: FormData): Promise<Form
         return { error: 'Too many requests from this network. Please try again later.', values };
     }
   }
-  redirect(`/create-account/check-email?to=${encodeURIComponent(result.maskedEmail)}`);
+  redirect(`/create-account/check-email?to=${encodeURIComponent(result.maskedEmail)}${connect ? '&connect=1' : ''}`);
 }
 
 function isValidTimeZone(tz: string): boolean {

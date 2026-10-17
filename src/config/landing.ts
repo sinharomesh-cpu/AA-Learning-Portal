@@ -38,8 +38,8 @@ export interface MarketplaceSwitches {
   enquiries: boolean;
 }
 
-// Listings are live since PR-D3; enquiries come with PR-D4.
-export const MARKETPLACE: MarketplaceSwitches = { listings: true, enquiries: false };
+// Listings are live since PR-D3 and enquiries since PR-D4a.
+export const MARKETPLACE: MarketplaceSwitches = { listings: true, enquiries: true };
 
 export const ABOUT_PLACEHOLDERS = [
   'Who we are — owner to add',

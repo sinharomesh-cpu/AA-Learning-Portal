@@ -114,6 +114,8 @@ export interface SignUpInput {
   acceptedPrivacy: boolean;
   ip?: string;
   baseUrl: string;
+  /** D11: the public listing a new parent chose ("Connect with teacher"); remembered 7 days. */
+  connectPublicId?: string;
 }
 
 export type SignUpResult =
@@ -158,6 +160,11 @@ export async function signUp(sql: Sql, input: SignUpInput, now: Date = new Date(
              VALUES (${accountId}, 'privacy_and_terms', ${PRIVACY_VERSION}, ${now})`;
     if (input.role === 'teacher') {
       await tx`INSERT INTO teacher_profiles (account_id, origin, approval_status) VALUES (${accountId}, 'self_registered', 'draft')`;
+    }
+    // Only for a brand-new parent account: an existing email never gets a choice attached.
+    if (input.role === 'parent' && input.connectPublicId && /^t-[a-z0-9]{10}$/.test(input.connectPublicId)) {
+      await tx`INSERT INTO pending_connects (account_id, public_id, created_at)
+               VALUES (${accountId}, ${input.connectPublicId}, ${now})`;
     }
     const token = await issueToken(tx, accountId, 'email_verify', hours(EMAIL_CONFIRM_HOURS), now);
     await queueEmail(tx, {

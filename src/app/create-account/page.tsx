@@ -8,6 +8,8 @@ import { ROLE_HOME } from '@/lib/roles';
 import { isDemoMode } from '@/server/demo';
 import { realAuthEnabled } from '@/server/realAuth';
 import { getViewer } from '@/server/session';
+import { db } from '@/server/db/client';
+import { getPublicListing } from '@/server/publicListings';
 import { CreateAccountForm } from './CreateAccountForm';
 
 export const metadata: Metadata = { title: 'Create an account' };
@@ -35,9 +37,20 @@ const NEXT: Array<{ icon: IconName; title: string; body: string; tone: string }>
 ];
 
 /** Board 62 (approved, OC-55), in the ZIP 5 "Create an account" layout. Demo or no database: not open. */
-export default async function CreateAccountPage() {
+export default async function CreateAccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const viewer = await getViewer();
   if (viewer) redirect(ROLE_HOME[viewer.role]);
+  // D11: "Connect with teacher" while signed out. Only a live listing's public address is used.
+  const raw = (await searchParams).connect;
+  let connect: { publicId: string; teacherName: string } | undefined;
+  if (realAuthEnabled() && typeof raw === 'string' && /^t-[a-z0-9]{10}$/.test(raw)) {
+    const listing = await getPublicListing(db(), raw);
+    if (listing) connect = { publicId: listing.publicId, teacherName: listing.name };
+  }
   if (!realAuthEnabled()) {
     return (
       <PublicShell>
@@ -88,7 +101,7 @@ export default async function CreateAccountPage() {
             >
               Create an account
             </h1>
-            <CreateAccountForm />
+            <CreateAccountForm connect={connect} />
           </section>
           <aside aria-labelledby="next-steps" className="flex flex-col gap-5 lg:col-span-5">
             <div className="flex flex-col gap-1.5">

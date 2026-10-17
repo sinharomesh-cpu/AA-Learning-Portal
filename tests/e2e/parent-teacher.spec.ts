@@ -67,6 +67,7 @@ test.describe('parent family home (P19, boards 53 and 54)', () => {
     const items = [
       'Children',
       'Teachers',
+      'My enquiries',
       'Schedule AI class',
       'Book human teacher',
       'Family calendar',

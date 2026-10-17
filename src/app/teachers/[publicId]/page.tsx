@@ -51,15 +51,13 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
                 Connect with {listing.name}
               </h2>
               <p className="text-[15px] leading-[22px]">
-                Sending an enquiry through AA Pro opens soon. You&apos;ll need a free parent account; browsing
-                doesn&apos;t.
+                Send an enquiry about lessons. You&apos;ll need a free parent account; browsing doesn&apos;t.
               </p>
+              <LinkButton href={`/teachers/${listing.publicId}/connect`}>Connect with teacher</LinkButton>
               <p className="text-[15px] leading-[22px] text-on-surface-variant">
-                Parents with an account can already add a teacher they know by email from their Teachers page.
+                An enquiry doesn&apos;t book a lesson, start a payment or share anything about your child beyond grade,
+                curriculum and subjects.
               </p>
-              <LinkButton href="/create-account" variant="secondary">
-                Create a parent account
-              </LinkButton>
               <p className="text-sm text-on-surface-variant">
                 Never shown publicly: the teacher&apos;s email, phone, account details or students; any child&apos;s
                 name, profile, schedule or learning records.
