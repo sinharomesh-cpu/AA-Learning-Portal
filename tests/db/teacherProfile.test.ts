@@ -34,6 +34,8 @@ const profile = (over: Partial<TeacherProfileInput> = {}): TeacherProfileInput =
   subjects: ['science'],
   grades: [4, 5],
   bio: BIO,
+  curricula: [],
+  experienceYears: null,
   acceptTerms: true,
   ...over,
 });
@@ -416,5 +418,95 @@ describe('OC-72: children of a deactivated parent', () => {
     await setAccountActive(sql, owner, parentId, { active: false, reason: 'Test of OC-72' }, now);
     expect(await loadSession(sql, session.token, now)).not.toBeNull();
     expect(await signInChild(sql, { username, password: CHILD_PHRASE, ip: ip() }, now)).toMatchObject({ ok: true });
+  });
+});
+
+describe('PR-D1a: curricula and experience, as stated by the teacher (K-6, OC-85)', () => {
+  it('a draft saves them; curricula keep the offered order and repeats are dropped', async () => {
+    const id = await teacher();
+    expect(
+      await saveTeacherProfile(
+        sql,
+        id,
+        profile({ curricula: ['IB', 'CBSE', 'IB'], experienceYears: 8, acceptTerms: false }),
+        'draft',
+        T0,
+      ),
+    ).toEqual({ ok: true, outcome: 'draft_saved' });
+    expect(await getTeacherProfile(sql, id)).toMatchObject({ curricula: ['CBSE', 'IB'], experienceYears: 8 });
+    // Leaving them out is allowed (both optional).
+    await saveTeacherProfile(sql, id, profile({ curricula: [], experienceYears: null }), 'submit', T0);
+    expect(await getTeacherProfile(sql, id)).toMatchObject({
+      curricula: [],
+      experienceYears: null,
+      approvalStatus: 'submitted',
+    });
+  });
+
+  it('refuses unknown curricula and experience outside whole years 0 to 60', async () => {
+    const id = await teacher();
+    const cases: Array<[Partial<TeacherProfileInput>, string]> = [
+      [{ curricula: ['Made-up board'] }, 'curricula'],
+      [{ experienceYears: -1 }, 'experience'],
+      [{ experienceYears: 61 }, 'experience'],
+      [{ experienceYears: 2.5 }, 'experience'],
+      [{ experienceYears: Number.NaN }, 'experience'],
+    ];
+    for (const [over, problem] of cases) {
+      const r = await saveTeacherProfile(sql, id, profile(over), 'draft', T0);
+      expect(r).toEqual({ ok: false, reason: 'invalid', problems: [problem] });
+    }
+    expect(await getTeacherProfile(sql, id)).toMatchObject({ curricula: [], experienceYears: null });
+  });
+
+  it('the database refuses them too, whatever the application does', async () => {
+    const id = await teacher();
+    await expect(sql`UPDATE teacher_profiles SET curricula = ${['Fake']} WHERE account_id = ${id}`).rejects.toThrow(
+      /check constraint/,
+    );
+    await expect(sql`UPDATE teacher_profiles SET experience_years = 61 WHERE account_id = ${id}`).rejects.toThrow(
+      /check constraint/,
+    );
+  });
+
+  it('after approval they save at once, also while a subject change waits for review', async () => {
+    const id = await teacher('self_registered', 'approved');
+    expect(
+      await saveTeacherProfile(sql, id, profile({ curricula: ['ICSE'], experienceYears: 3 }), 'submit', T0),
+    ).toEqual({ ok: true, outcome: 'saved' });
+    expect(await getTeacherProfile(sql, id)).toMatchObject({
+      curricula: ['ICSE'],
+      experienceYears: 3,
+      pendingChange: null,
+    });
+    expect(
+      await saveTeacherProfile(
+        sql,
+        id,
+        profile({ subjects: ['maths', 'science'], curricula: ['ICSE', 'Other'], experienceYears: 4 }),
+        'submit',
+        T0,
+      ),
+    ).toEqual({ ok: true, outcome: 'saved_change_pending' });
+    expect(await getTeacherProfile(sql, id)).toMatchObject({
+      subjects: ['science'],
+      curricula: ['ICSE', 'Other'],
+      experienceYears: 4,
+    });
+  });
+
+  it('a rejected teacher cannot change them (OC-72)', async () => {
+    const id = await teacher('self_registered', 'rejected');
+    expect(await saveTeacherProfile(sql, id, profile({ curricula: ['CBSE'] }), 'draft', T0)).toEqual({
+      ok: false,
+      reason: 'not_allowed',
+    });
+  });
+
+  it('the approver sees them labelled as the teacher’s own statement', async () => {
+    const id = await teacher();
+    await saveTeacherProfile(sql, id, profile({ curricula: ['CBSE', 'ICSE'], experienceYears: 1 }), 'submit', T0);
+    const queue = await listPendingTeachers(sql, await approver());
+    expect(queue?.find((t) => t.id === id)?.claims).toBe('CBSE, ICSE · 1 year of teaching experience');
   });
 });

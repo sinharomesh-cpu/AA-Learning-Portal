@@ -82,6 +82,14 @@ export default async function AdminApprovalsPage({ searchParams }: { searchParam
                 <dt className="text-xs font-bold uppercase tracking-[.04em] text-on-surface-variant">Profile</dt>
                 <dd className="m-0 font-bold">{t.detail}</dd>
               </div>
+              {t.claims ? (
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[.04em] text-on-surface-variant">
+                    As stated by the teacher
+                  </dt>
+                  <dd className="m-0 font-bold">{t.claims}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-xs font-bold uppercase tracking-[.04em] text-on-surface-variant">Status</dt>
                 <dd className="m-0 font-bold">

@@ -230,6 +230,17 @@ const SUBJECT_NAME: Record<string, string> = {
   it: 'IT',
 };
 
+/** "CBSE, ICSE · 8 years' experience", or null when the teacher stated neither (K-6). */
+export function teacherClaims(curricula: string[], experienceYears: number | null): string | null {
+  const parts = [
+    curricula.join(', '),
+    experienceYears === null
+      ? ''
+      : `${experienceYears} ${Number(experienceYears) === 1 ? 'year' : 'years'} of teaching experience`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
+}
+
 function teacherDetail(subjects: string[] | null, grades: number[] | null): string {
   const s = (subjects ?? []).map((x) => SUBJECT_NAME[x] ?? x).join(', ');
   const g = grades?.length ? `Grades ${[...grades].sort((a, b) => a - b).join(', ')}` : '';
@@ -455,6 +466,8 @@ export interface PendingTeacher {
   approvalStatus: string;
   detail: string;
   bio: string | null;
+  /** The teacher's own statement (K-6), shown to the approver as such. */
+  claims: string | null;
   submittedAt: Date | null;
   /** Every teacher must send their profile (and accept the terms) before approval (OC-38, OC-75). */
   canApprove: boolean;
@@ -487,10 +500,12 @@ export async function listPendingTeachers(sql: Db, actorId: string): Promise<Pen
       subjects: string[];
       grades: number[];
       bio: string | null;
+      curricula: string[];
+      experience_years: number | null;
       submitted_at: Date | null;
     }>
   >`SELECT a.id, a.display_name AS name, a.email, t.origin, p.email AS parent_email, a.created_at,
-           t.approval_status, t.subjects, t.grades, t.bio, t.submitted_at
+           t.approval_status, t.subjects, t.grades, t.bio, t.curricula, t.experience_years, t.submitted_at
     FROM accounts a JOIN teacher_profiles t ON t.account_id = a.id
     LEFT JOIN accounts p ON p.id = t.added_by_parent_id
     WHERE a.role = 'teacher' AND a.status = 'pending_approval'
@@ -506,6 +521,7 @@ export async function listPendingTeachers(sql: Db, actorId: string): Promise<Pen
     approvalStatus: r.approval_status,
     detail: teacherDetail(r.subjects, r.grades),
     bio: r.bio,
+    claims: teacherClaims(r.curricula, r.experience_years),
     submittedAt: r.submitted_at,
     canApprove: decisionsOpen(r.origin, r.approval_status).approve,
     canRequestChanges: decisionsOpen(r.origin, r.approval_status).changes,
