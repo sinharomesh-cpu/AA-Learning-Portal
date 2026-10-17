@@ -36,6 +36,8 @@ const PROBLEM: Record<TeacherProfileProblem, [string, string]> = {
   subjects: ['subjects', 'Choose at least one subject.'],
   grades: ['grades', 'Choose at least one grade.'],
   bio: ['bio', 'Write a few sentences about your teaching (20 to 1,000 characters).'],
+  curricula: ['curricula', 'Choose curricula from the list.'],
+  experience: ['experienceYears', 'Enter whole years from 0 to 60, or leave it empty.'],
   terms: ['terms', 'Please agree to the teacher terms to send your profile.'],
 };
 
@@ -63,8 +65,17 @@ export async function saveTeacherProfileAction(
     bio: str(fd, 'bio'),
     subjects: list(fd, 'subjects'),
     grades: list(fd, 'grades'),
+    curricula: list(fd, 'curricula'),
+    experienceYears: str(fd, 'experienceYears').trim(),
     terms: str(fd, 'terms'),
   };
+  // Empty means "not stated"; anything else must be whole years (checked again on the server).
+  const experienceYears =
+    values.experienceYears === ''
+      ? null
+      : /^\d{1,3}$/.test(values.experienceYears)
+        ? Number(values.experienceYears)
+        : NaN;
   const r = await saveTeacherProfile(
     db(),
     real.session.accountId,
@@ -74,6 +85,8 @@ export async function saveTeacherProfileAction(
       bio: values.bio,
       subjects: values.subjects,
       grades: values.grades.map(Number),
+      curricula: values.curricula,
+      experienceYears,
       acceptTerms: values.terms === 'yes',
     },
     intent,

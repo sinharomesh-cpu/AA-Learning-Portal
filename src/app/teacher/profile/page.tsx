@@ -5,6 +5,7 @@ import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
+import { CURRICULA } from '@/server/children';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getViewer } from '@/server/session';
@@ -99,6 +100,7 @@ export default async function TeacherProfilePage() {
       <TeacherProfileForm
         mode={mode}
         needTerms={!approved && !profile.termsAccepted}
+        curriculaOptions={CURRICULA}
         initial={{
           name: profile.name,
           email: profile.email,
@@ -107,6 +109,8 @@ export default async function TeacherProfilePage() {
           subjects: change?.subjects ?? profile.subjects,
           grades: change?.grades ?? profile.grades,
           bio: profile.bio,
+          curricula: profile.curricula,
+          experienceYears: profile.experienceYears,
         }}
       />
       <SearchVisibilityForm hidden={profile.hiddenFromSearch} approved={approved} />

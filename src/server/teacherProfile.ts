@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { SUBJECT_IDS } from '@/fixtures/subjects';
 import { writeAudit } from './auth/audit';
+import { CURRICULA } from './children';
 import { type Db, db, type Sql } from './db/client';
 import { isDemoMode } from './demo';
 
@@ -11,8 +12,9 @@ import { isDemoMode } from './demo';
  * - Before approval the teacher fills in the profile, saves drafts and sends it for approval,
  *   accepting the teacher terms. After "changes requested" they edit and send it again.
  * - A rejected teacher cannot edit anything (OC-72): they only see the status page.
- * - After approval, name, bio and time zone save at once; a change to subjects or grades waits
- *   for an approver while the teacher keeps using the portal with the approved values (OC-73).
+ * - After approval, name, bio, time zone, curricula and experience save at once (curricula and
+ *   experience are the teacher's own statement, K-6); a change to subjects or grades waits for an
+ *   approver while the teacher keeps using the portal with the approved values (OC-73).
  *
  * The teacher is always taken from the server-side session; nothing here trusts an id from a form.
  */
@@ -23,6 +25,8 @@ export const TEACHER_TERMS_VERSION = 'teacher-terms-draft-2026-10-16';
 export const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export const BIO_MAX = 1000;
 export const NAME_MAX = 80;
+/** Years of teaching experience a teacher may state (K-6). */
+export const EXPERIENCE_MAX = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -35,6 +39,10 @@ export interface TeacherProfile {
   subjects: string[];
   grades: number[];
   bio: string;
+  /** Curricula the teacher teaches, as stated by the teacher (K-6). */
+  curricula: string[];
+  /** Years of teaching experience, as stated by the teacher; null when not given (K-6). */
+  experienceYears: number | null;
   origin: 'self_registered' | 'parent_added' | 'admin_created';
   approvalStatus: ApprovalStatus;
   decisionNote: string | null;
@@ -54,10 +62,13 @@ export interface TeacherProfileInput {
   subjects: string[];
   grades: number[];
   bio: string;
+  curricula: string[];
+  experienceYears: number | null;
   acceptTerms: boolean;
 }
 
-export type TeacherProfileProblem = 'name' | 'time_zone' | 'subjects' | 'grades' | 'bio' | 'terms';
+export type TeacherProfileProblem =
+  'name' | 'time_zone' | 'subjects' | 'grades' | 'bio' | 'curricula' | 'experience' | 'terms';
 
 const clean = (s: string) => s.normalize('NFC').trim().replace(/\s+/g, ' ');
 const cleanBio = (s: string) =>
@@ -101,6 +112,9 @@ export function checkTeacherProfile(
   if (!gradesOk || (mode === 'complete' && input.grades.length === 0)) problems.push('grades');
   const bio = cleanBio(input.bio);
   if ([...bio].length > BIO_MAX || (mode === 'complete' && bio.length < 20)) problems.push('bio');
+  if (!input.curricula.every((c) => (CURRICULA as readonly string[]).includes(c))) problems.push('curricula');
+  const exp = input.experienceYears;
+  if (exp !== null && !(Number.isInteger(exp) && exp >= 0 && exp <= EXPERIENCE_MAX)) problems.push('experience');
   if (needTerms && mode === 'complete' && !input.acceptTerms) problems.push('terms');
   return problems;
 }
@@ -113,6 +127,8 @@ type Row = {
   subjects: string[];
   grades: number[];
   bio: string | null;
+  curricula: string[];
+  experience_years: number | null;
   origin: TeacherProfile['origin'];
   approval_status: ApprovalStatus;
   decision_note: string | null;
@@ -129,7 +145,8 @@ type Row = {
 
 async function loadRow(sql: Db, teacherId: string, lock = false): Promise<Row | undefined> {
   const [row] = await sql<Row[]>`
-    SELECT a.display_name AS name, a.email, a.time_zone, a.status, t.subjects, t.grades, t.bio, t.origin,
+    SELECT a.display_name AS name, a.email, a.time_zone, a.status, t.subjects, t.grades, t.bio,
+           t.curricula, t.experience_years, t.origin,
            t.approval_status, t.decision_note, t.submitted_at,
            EXISTS (SELECT 1 FROM consents c WHERE c.account_id = a.id AND c.kind = 'teacher_terms') AS terms,
            t.pending_subjects, t.pending_grades, t.change_submitted_at,
@@ -151,6 +168,8 @@ export async function getTeacherProfile(sql: Db, teacherId: string): Promise<Tea
     subjects: r.subjects,
     grades: r.grades.map(Number),
     bio: r.bio ?? '',
+    curricula: r.curricula,
+    experienceYears: r.experience_years === null ? null : Number(r.experience_years),
     origin: r.origin,
     approvalStatus: r.approval_status,
     decisionNote: r.decision_note,
@@ -203,6 +222,10 @@ export async function saveTeacherProfile(
   const grades = sortedUnique(input.grades);
   const name = clean(input.name);
   const bio = cleanBio(input.bio);
+  // Keep the order of the offered list, so the profile always reads the same way.
+  const curricula = CURRICULA.filter((c) => input.curricula.includes(c));
+  const unknownCurricula = input.curricula.some((c) => !(CURRICULA as readonly string[]).includes(c));
+  const experience = input.experienceYears;
   return sql.begin(async (tx): Promise<SaveResult> => {
     const row = await loadRow(tx, teacherId, true);
     if (!row) return { ok: false, reason: 'not_allowed' };
@@ -215,7 +238,7 @@ export async function saveTeacherProfile(
     const approved = row.approval_status === 'approved';
     const complete = approved || intent === 'submit' || row.approval_status === 'submitted';
     const problems = checkTeacherProfile(
-      { ...input, subjects, grades },
+      { ...input, subjects, grades, curricula: unknownCurricula ? input.curricula : curricula },
       complete ? 'complete' : 'draft',
       !approved && !row.terms,
     );
@@ -233,7 +256,7 @@ export async function saveTeacherProfile(
           hadPending &&
           sameSet(subjects, sortedUnique(row.pending_subjects ?? [])) &&
           sameSet(grades, sortedUnique((row.pending_grades ?? []).map(Number)));
-        await tx`UPDATE teacher_profiles SET bio = ${bio || null},
+        await tx`UPDATE teacher_profiles SET bio = ${bio || null}, curricula = ${curricula}, experience_years = ${experience},
                    pending_subjects = ${subjects}, pending_grades = ${grades},
                    change_submitted_at = ${samePending ? row.change_submitted_at : now}
                  WHERE account_id = ${teacherId}`;
@@ -252,7 +275,7 @@ export async function saveTeacherProfile(
         }
         return { ok: true, outcome: 'saved_change_pending' };
       }
-      await tx`UPDATE teacher_profiles SET bio = ${bio || null},
+      await tx`UPDATE teacher_profiles SET bio = ${bio || null}, curricula = ${curricula}, experience_years = ${experience},
                  pending_subjects = NULL, pending_grades = NULL, change_submitted_at = NULL
                WHERE account_id = ${teacherId}`;
       await writeAudit(
@@ -265,7 +288,8 @@ export async function saveTeacherProfile(
 
     // Before approval.
     if (row.approval_status === 'submitted') {
-      await tx`UPDATE teacher_profiles SET subjects = ${subjects}, grades = ${grades}, bio = ${bio || null}
+      await tx`UPDATE teacher_profiles SET subjects = ${subjects}, grades = ${grades}, bio = ${bio || null},
+                   curricula = ${curricula}, experience_years = ${experience}
                WHERE account_id = ${teacherId}`;
       await writeAudit(
         tx,
@@ -275,7 +299,8 @@ export async function saveTeacherProfile(
       return { ok: true, outcome: 'updated_in_queue' };
     }
     if (intent === 'draft') {
-      await tx`UPDATE teacher_profiles SET subjects = ${subjects}, grades = ${grades}, bio = ${bio || null}
+      await tx`UPDATE teacher_profiles SET subjects = ${subjects}, grades = ${grades}, bio = ${bio || null},
+                   curricula = ${curricula}, experience_years = ${experience}
                WHERE account_id = ${teacherId}`;
       return { ok: true, outcome: 'draft_saved' };
     }
@@ -285,6 +310,7 @@ export async function saveTeacherProfile(
                ON CONFLICT (account_id, kind, version) DO NOTHING`;
     }
     await tx`UPDATE teacher_profiles SET subjects = ${subjects}, grades = ${grades}, bio = ${bio || null},
+               curricula = ${curricula}, experience_years = ${experience},
                approval_status = 'submitted', submitted_at = ${now}
              WHERE account_id = ${teacherId}`;
     await writeAudit(

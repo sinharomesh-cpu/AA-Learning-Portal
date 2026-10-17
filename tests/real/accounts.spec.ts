@@ -156,6 +156,18 @@ test('a waiting teacher fills in the profile, saves a draft and sends it for app
   await page.reload();
   await expect(page.getByRole('checkbox', { name: 'Science', exact: true })).toBeChecked();
 
+  // PR-D1a: curricula and experience are optional, the teacher's own statement (K-6).
+  await page.getByLabel('Years of teaching experience (optional)').fill('70');
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByText('Enter whole years from 0 to 60, or leave it empty.')).toBeVisible();
+  await page.getByRole('checkbox', { name: 'CBSE', exact: true }).check();
+  await page.getByLabel('Years of teaching experience (optional)').fill('8');
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByText('Draft saved. Send it for approval when you are ready.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'CBSE', exact: true })).toBeChecked();
+  await expect(page.getByLabel('Years of teaching experience (optional)')).toHaveValue('8');
+
   // The draft terms are labelled as a draft.
   const terms = await page.context().newPage();
   await terms.goto('/teacher-terms');

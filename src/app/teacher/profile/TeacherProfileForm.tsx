@@ -22,6 +22,8 @@ export interface TeacherProfileValues {
   subjects: string[];
   grades: number[];
   bio: string;
+  curricula: string[];
+  experienceYears: number | null;
 }
 
 export type ProfileMode = 'draft' | 'changes_requested' | 'submitted' | 'approved';
@@ -43,11 +45,14 @@ export function TeacherProfileForm({
   initial,
   mode,
   needTerms,
+  curriculaOptions,
 }: {
   initial: TeacherProfileValues;
   mode: ProfileMode;
   /** Before approval, until the teacher has accepted the terms once. */
   needTerms: boolean;
+  /** The curricula offered (OC-58), passed from the server. */
+  curriculaOptions: readonly string[];
 }) {
   const [state, action, pending] = useActionState<TeacherProfileFormState, FormData>(saveTeacherProfileAction, {});
   const v = state.values;
@@ -55,6 +60,7 @@ export function TeacherProfileForm({
   const str = (key: string, fallback: string) => (typeof v?.[key] === 'string' ? (v[key] as string) : fallback);
   const subjects = Array.isArray(v?.subjects) ? (v.subjects as string[]) : initial.subjects;
   const grades = Array.isArray(v?.grades) ? (v.grades as string[]).map(Number) : initial.grades;
+  const curricula = Array.isArray(v?.curricula) ? (v.curricula as string[]) : initial.curricula;
   const [bioLength, setBioLength] = useState([...str('bio', initial.bio)].length);
   const hasErrors = Object.keys(e).length > 0;
   const approved = mode === 'approved';
@@ -166,6 +172,44 @@ export function TeacherProfileForm({
           </div>
           <FieldError id="tp-grades-error">{e.grades}</FieldError>
         </fieldset>
+        <fieldset
+          className="m-0 flex flex-col gap-2.5 border-0 p-0"
+          aria-describedby={['tp-curricula-hint', e.curricula ? 'tp-curricula-error' : ''].filter(Boolean).join(' ')}
+        >
+          <legend className="mb-2.5 p-0 text-sm font-bold leading-5">Curricula you teach (optional)</legend>
+          <div className="flex flex-wrap gap-2.5">
+            {curriculaOptions.map((c) => (
+              <label key={c} className={CHOICE}>
+                <input
+                  type="checkbox"
+                  name="curricula"
+                  value={c}
+                  defaultChecked={curricula.includes(c)}
+                  className="h-[22px] w-[22px] accent-primary"
+                />
+                {c}
+              </label>
+            ))}
+          </div>
+          <FieldError id="tp-curricula-error">{e.curricula}</FieldError>
+          <span id="tp-curricula-hint" className="text-sm leading-5 text-on-surface-variant">
+            Saved at once. If you publish a listing later, families see this as stated by you.
+          </span>
+        </fieldset>
+        <div className="max-w-[320px]">
+          <TextField
+            label="Years of teaching experience (optional)"
+            name="experienceYears"
+            inputMode="numeric"
+            maxLength={2}
+            defaultValue={str(
+              'experienceYears',
+              initial.experienceYears === null ? '' : String(initial.experienceYears),
+            )}
+            hint="Whole years, 0 to 60. Saved at once; shown “as stated by the teacher” on a listing."
+            error={e.experienceYears}
+          />
+        </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="tp-bio" className="text-sm font-bold leading-5">
             About you (short)
