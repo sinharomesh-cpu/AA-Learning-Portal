@@ -1,6 +1,6 @@
 # CR-07 — D-16: Teacher-Shared Resources, Digital Homework and Handwritten Homework
 
-**Version:** 1.0 · 17 Oct 2026 · **Status:** specification for owner confirmation (OC-86). Nothing in this document is built yet.
+**Version:** 1.0 · 17 Oct 2026 · **Status:** specification (OC-86). Q-1, Q-5, Q-9 and the build order answered by OC-87 (proposed answers accepted); Q-2, Q-3, Q-4, Q-6, Q-7, Q-8 and Q-10 still open. Nothing in this document is built yet.
 **Source:** owner's "D-16 Business Decision and Functional Requirements" (17 Oct 2026, 23:14 IST), recorded as OC-86.
 **Baseline:** FRD v1.1 with CR-01 to CR-06; decision register G1-05 v1.44.
 
