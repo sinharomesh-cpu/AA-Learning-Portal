@@ -1,12 +1,16 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.52 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.53 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.53 changes (owner, 18 Oct 2026, 09:22 IST — "Human teacher session should be recorded"):**
+- Recording was **not in scope**: R-03 removed it in Phase 0. **OC-93** records the owner's answers, specified as **CR-10** (`docs/requirements/CR-10_Lesson_Review_and_Recording.md`, FR-032 and FR-033).
+- Free now: whiteboard replay and a teacher's written summary. Video recording: **Blocked — Owner Budget Approval Required** (OC-91) and blocked by a legal review. R-03 stays in force until video recording is approved and built.
 
 **v1.52 changes (owner, 18 Oct 2026, 08:59 IST — "whiteboard and live whiteboard notes"):**
 - **OC-92** records the owner's answers for the new live whiteboard and lesson notes, specified as **CR-09** (`docs/requirements/CR-09_Whiteboard_and_Lesson_Notes.md`, FR-028 to FR-031). Design boards **WB0–WB5** are drawn on the design canvas (page "Whiteboard & lesson notes"), **awaiting owner review**.
@@ -352,6 +356,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-90** | **CR-07 final decisions.** **Q-2:** short written-answer type approved; teachers mark it; it is part of submission and review. **Q-3:** no download restriction and no per-file teacher switch; users with authorised access may download; access controls unchanged. **Q-4:** accept uploads from any mobile device, including iPhone HEIC; convert or process so files view consistently; validate formats, sizes and errors without unnecessary restriction. **Q-6:** keep homework for 12 months; the expiry rule is documented (CR-07 FR-027.5). **Q-7:** typed feedback only for the first release, tied to the student and assignment, with Reviewed and Revision required; no voice, audio, video or drawing unless separately approved. **Q-8:** no administrator access to children's homework contents or feedback; enforced on the backend; no override unless separately approved. **Q-10:** late work allowed and marked Late; the submission time and due date kept for audit; late work stays available for teacher review. | Owner, 17 Oct 2026, 23:55 IST | CR-07 v1.1 |
 | **OC-91** | **Budget $0; no billable activity without explicit written approval.** (1) No billable integration, activation, paid configuration or use of any service, API, AI model, cloud resource, platform or subscription without prior written approval. (2) Approval of the project, a feature, an architecture or a recommendation is not approval of its cost. (3) Use free options (existing infrastructure, free tiers, local, mocks, stubs, synthetic data) and state their limits. (4) Paid options may be researched, estimated and designed, but not activated or made mandatory. (5) Budget alerts are not protection; before any paid test, propose preventive controls, quotas, limits and a documented maximum exposure, and state what cannot be guaranteed. (6) Review existing dependencies without triggering paid usage, and flag any that could charge. (7) Every new cost commitment needs the service, purpose, test and monthly costs, worst case, free alternatives and controls, then explicit written consent. Requirements needing a paid service are marked **Blocked — Owner Budget Approval Required**. Silence, project approval or technical acceptance is never consent to spend; the earlier ~$12/day figure is not a budget. | Owner, 18 Oct 2026, 00:42 IST | `docs/deployment/Billable_Dependency_Register.md`; CI guard |
 | **OC-92** | **Live whiteboard and lesson notes (CR-09).** (1) Human-teacher lessons use **AA Pro's own whiteboard**, opened next to Zoom: free, updating every 1–2 seconds. (2) **Teacher and child both write**: the teacher lets the child write, and can undo or clear the child's marks. (3) **AI-written notes are allowed in AI lessons only**, labelled "Written by the AI Tutor". OC-74(5) is unchanged for textbooks. (4) Board notes are **saved to lesson history** as read-only "Lesson notes"; the child and parent can view and download them, the teacher too for their own lessons, and they are kept 12 months like homework. | Owner, 18 Oct 2026 (question card after 08:59 IST request) | CR-09; boards WB0–WB5 awaiting review |
+| **OC-93** | **Lesson review for parents (CR-10).** (1) **Free now, video later:** a step-by-step whiteboard replay and a short written summary from the teacher now; video recording of human-teacher lessons only after its budget (OC-91) and a legal and privacy review are approved. (2) Recordings may be watched by **the parent and the child** only (not the teacher, not admins). (3) Recordings are kept **30 days**. (4) **The parent opts in per child and the teacher agrees**; "Recording" is shown throughout the lesson. Open: teacher declines, download, summary required or optional, child's camera, recording method (CR-10 §4). | Owner, 18 Oct 2026 (question card after 09:22 IST request) | CR-10; FR-032 can be built (free); FR-033 Blocked — Owner Budget Approval Required |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -359,7 +364,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 |---|---|---|
 | R-01 | Client-side role switcher; shared parent/teacher sidebar | Removed. Each role has its own authenticated shell. |
 | R-02 | Sibling switcher in student view | Removed from student screens; siblings are switched in the Parent portal only |
-| R-03 | Zoom Enterprise, vanity domain, recording, E2E claim | Removed. Zoom Basic, external launch, no recording. |
+| R-03 | Zoom Enterprise, vanity domain, recording, E2E claim | Removed. Zoom Basic, external launch, no recording. *(Recording may return for human-teacher lessons under OC-93 / CR-10 once its budget and legal review are approved; until then no recording.)* |
 | R-04 | Teacher ratings/reviews | Removed |
 | R-05 | Spanish/French subjects | Removed; FRD catalogue only |
 | R-06 | Zoom IDs/passcodes/links on dashboards | Only via an authorised Join action |

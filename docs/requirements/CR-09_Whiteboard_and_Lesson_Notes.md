@@ -42,7 +42,7 @@
 | FR-030.3 | Anyone who can see the notes can download them, as a PDF or images, made on AA Pro's own server with free open-source software (OC-90 Q-3, OC-91). |
 | FR-030.4 | **Retention:** 12 months after the lesson, then deleted, with the same notice and "Removed after 12 months" label as homework (CR-07 FR-027.5). Deleting the child's account removes them sooner. |
 | FR-030.5 | Admins never see lesson notes (consistent with OC-90 Q-8). |
-| FR-030.6 | No audio, video or screen recording is made or kept (master instruction §12). |
+| FR-030.6 | No audio, video or screen recording is made or kept (master instruction §12). A whiteboard replay and consented video recording of human lessons are covered by CR-10 (OC-93); video stays blocked until approved. |
 
 ### FR-031 Access summary
 | Action | Child | Parent | Teacher | Admin |
