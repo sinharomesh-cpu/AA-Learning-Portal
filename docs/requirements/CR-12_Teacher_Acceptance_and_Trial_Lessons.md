@@ -1,6 +1,6 @@
 # CR-12 — Teacher acceptance of parent requests, and optional trial lessons
 
-**Version:** 1.0 · 18 Oct 2026 · **Status:** decisions recorded (OC-97). Designs **TR0–TR7** are drawn and **awaiting owner review**. Nothing is built.
+**Version:** 1.1 · 18 Oct 2026 · **Status:** decisions recorded (OC-97). Designs **TR0–TR7** and Readings A–C **approved (OC-101, 19:36 IST)**. Point 1 is being built; Point 2 stays in Phase 3.
 **Source:** owner testing as a parent, 18 Oct 2026, 14:49 IST: "there should be a provision that the teacher accepts or rejects this proposal by parents (no time, personal reason …)", and "the parent asks for a demo to check the comfort between child and teacher; once ok, the parent can link the child". The owner's decisions arrived at 16:12 IST.
 
 ## 1. Owner decisions (OC-97)
@@ -39,7 +39,7 @@ The earlier decisions are **not deleted or rewritten**. The register marks them 
 | **OC-61** (outside-teacher invitation: up to three times; accept, decline or suggest) | Unchanged | The trial (Point 2) reuses the same pattern |
 | **OC-76 / OC-79** (marketplace enquiries) | Accepting an enquiry grants no access; linking is a separate parent step | Unchanged. After an accepted enquiry, the parent's link request still goes to the teacher for acceptance |
 
-**Claude's readings, for the owner to confirm on the boards:**
+**Claude's readings, confirmed by the owner's approval (OC-101):**
 - **Reading A, links still waiting for AA Pro approval when Point 1 is released.** These are *not* active links today. After the teacher is approved they become requests to the teacher (14-day clock from approval). Only active links are kept as they are (decision 4).
 - **Reading B, the minimum request details** (consistent with OC-76 for enquiries). Before accepting, the teacher sees:
   - the child's grade and curriculum;
@@ -49,7 +49,7 @@ The earlier decisions are **not deleted or rewritten**. The register marks them 
   - the date of the request and when it expires.
 
   The teacher does **not** see the child's name, profile, books, homework, history or anything else until they accept.
-- **Reading C, after a trial.** Agreeing to a trial is not agreeing to teach regularly, so "Link this teacher" sends the normal request and the teacher still accepts it (one tap; the request shows "after a trial on …"). Alternative: the link starts at once when the parent chooses it. Claude recommends the first; the owner decides on board TR7.
+- **Reading C, after a trial.** Agreeing to a trial is not agreeing to teach regularly, so "Link this teacher" sends the normal request and the teacher still accepts it (one tap; the request shows "after a trial on …"). Alternative: the link starts at once when the parent chooses it. Claude recommended the first, and the owner approved it with board TR7 (OC-101).
 
 ## 3. Requirements
 
@@ -103,7 +103,7 @@ The earlier decisions are **not deleted or rewritten**. The register marks them 
 
 ## 5. Designs (for review before building)
 
-Boards **TR0–TR7** are on the design canvas, page "Teacher requests & trial lessons":
+Boards **TR0–TR7** are on the design canvas, page "Teacher requests & trial lessons (approved)". They were approved on 18 Oct 2026 (OC-101):
 
 | Board | Screen |
 |---|---|
