@@ -1,6 +1,6 @@
 # CR-13 — Teacher rate negotiation in the marketplace
 
-**Version:** 1.1 · 18 Oct 2026 · **Status:** requirement (OC-98) and all ten decisions (OC-99) recorded. Designs **RN0–RN7** are updated and **awaiting owner review**. One reading is to confirm (§6, Reading 1). Nothing is built.
+**Version:** 1.2 · 18 Oct 2026 · **Status:** requirement (OC-98), all ten decisions (OC-99) and the decline-wait clarification (OC-100) recorded. Designs **RN0–RN7** are **awaiting owner review**. No open questions. Nothing is built.
 **Source:** owner requirement "AA Pro — Teacher Rate Negotiation Feature", 18 Oct 2026, 16:47 IST, recorded here in full as sections A–G. Owner decisions on Q-1 to Q-10 and additional rules, 18 Oct 2026, 18:31 IST (OC-99).
 
 ## 1. Summary
@@ -92,7 +92,7 @@ An agreed rate does **not** link the teacher to a child, give access to anything
 | FR-040.12 | **Expiry (OC-99 (4)):** **each new valid offer resets the 14-calendar-day expiry**. If the side whose turn it is does not answer within 14 days, the negotiation becomes **Expired**. |
 | FR-040.13 | **Statuses:** **Pending** (the initial proposal, the teacher's turn) → **Counter-proposed** (a later offer, the other side's turn) → … → **Accepted**, or **Declined**, **Withdrawn** or **Expired**. These four are **final**: no further offers or answers. |
 | FR-040.14 | **One active negotiation** per parent, teacher, child (or grade and curriculum for a prospective child) and pricing basis. |
-| FR-040.15 | **Decline wait (OC-99 (5)):** after a negotiation ends **Declined**, the same parent cannot propose again to the same teacher, for the same child and pricing basis, for **7 calendar days**. **Expired** and **Withdrawn** create **no** wait. (See Reading 1 for a decline by the parent.) |
+| FR-040.15 | **Decline wait (OC-99 (5), clarified by OC-100):** when a negotiation ends **Declined**, whoever declined (the teacher, or the parent, including a decline of the teacher's counter-offer or of the sixth and final offer), the same parent cannot start a **new** negotiation with the same teacher for the same child (or the same grade and curriculum for a prospective child) and the same pricing basis for **7 calendar days** from the decline. **No wait** after a parent withdrawal, an expiry or an acceptance. The rule is enforced on the server and in the database at the moment a negotiation is created, whichever screen or route the request comes from and however often it is repeated. The parent sees the **next eligible date** wherever they could start one: on the public profile's price, on the proposal form, and on the declined negotiation in Rate Proposals. |
 | FR-040.16 | **Limits (OC-99 (7)):** <br>• **Active** means **Pending** or **Counter-proposed**. At most **5 active negotiations per parent**. <br>• At most **10 new proposals per parent per calendar day**. A calendar day runs from midnight to midnight in the parent's own time zone (set on their account). Counter-offers are not new proposals. <br>• Both values are changed by the Super Admin (Admin → settings, like OC-96) and enforced on the server. |
 | FR-040.17 | **Record:** every offer (sequence number, amount, currency, basis, minutes, lessons per period, who, when, message) and every response (who, what, when, reason) is kept as an unchangeable history, together with the final agreed rate and the end reason. |
 | FR-040.18 | **Agreed rate:** shown to both sides as "Agreed rate", next to the asking price, with its terms and date. It is not changed by later edits to the teacher's prices. **It does not book a lesson, link the teacher to the child, grant access to learning materials, or start any payment.** The parent sees a separate "Ask this teacher to teach [child]" step (CR-12). |
@@ -121,7 +121,7 @@ Final: Accepted · Declined · Withdrawn · Expired (no more offers)
 | 2 | A "Rate Proposals" tab next to "My Enquiries" (parents) and next to "Enquiries" (teachers) |
 | 3 | At most six offers, including the first proposal. After offer 6 the recipient can only accept or decline; no 7th offer. Both sides see the offer number |
 | 4 | Each new valid offer resets the 14-day expiry; final statuses close the negotiation |
-| 5 | 7 calendar days after a decline before the same parent proposes again to the same teacher for the same child and basis; none after an expiry or a withdrawal |
+| 5 | 7 calendar days after a decline before the same parent proposes again to the same teacher for the same child and basis; none after an expiry or a withdrawal. **Clarified by OC-100:** a decline by either party counts; acceptance creates no wait |
 | 6 | An existing child, or a prospective child by grade and curriculum; the teacher sees only grade and curriculum; private to that parent and teacher |
 | 7 | 5 active proposals per parent and 10 new per parent per calendar day by default; configurable by the Super Admin; enforced on the server. Active statuses and the daily reset are defined (FR-040.16) |
 | 8 | Any positive amount in the listing price's currency; no minimum or maximum; zero, negative, malformed or invalid amounts refused; no conversion |
@@ -135,7 +135,7 @@ Final: Accepted · Declined · Withdrawn · Expired (no more offers)
 - Authentication, authorisation, privacy and limits are enforced on the server.
 - Existing non-billable infrastructure only. No paid service or expenditure without prior written approval.
 
-**Reading 1, for the owner to confirm.** Decision 5 says "after a decline". Claude reads this as covering a decline by **either side**, including the parent declining the teacher's counter-offer. Otherwise a parent could decline at offer 6 and start again at once, which would get round the six-offer limit (decision 3). The alternative is to apply the wait only when the **teacher** declines.
+**Decision 5 clarified (OC-100, owner, 18 Oct 2026, 19:16 IST):** the seven-calendar-day wait applies whenever **either party declines**, including the parent declining a teacher's counter-offer or the sixth and final offer. It applies to a **new** negotiation between the same parent and teacher, for the same child and pricing basis. Exceptions: parent withdrawal, expiry and acceptance create no wait. It is enforced on the server, shows the next eligible date, and cannot be bypassed through another screen or by repeating the request. Purpose: repeated negotiations must not get round the six-offer limit.
 
 ## 7. Acceptance criteria
 
@@ -148,7 +148,7 @@ Final: Accepted · Declined · Withdrawn · Expired (no more offers)
 | AC-5 | Accept, decline, counter and withdraw follow the turn order; final statuses accept no action | T-RN-4 (full transition matrix) |
 | AC-6 | Offers are numbered 1–6 on both sides; after offer 6 only accept or decline; a 7th offer is refused by the server and the database | T-RN-5 |
 | AC-7 | Each new offer resets the 14 days; with no answer for 14 days the negotiation expires and later answers are refused | T-RN-6 |
-| AC-8 | One active negotiation per parent, teacher, child and basis; after a decline, 7 days' wait (Reading 1); none after an expiry or a withdrawal | T-RN-7 |
+| AC-8 | One active negotiation per parent, teacher, child and basis. After a decline by **either side** (teacher; parent declining a counter-offer; parent declining offer 6), a new negotiation for the same teacher, child and basis is refused for 7 calendar days and the parent sees the next eligible date. It is allowed at once after a withdrawal, an expiry or an acceptance, and at once for another child, another basis or another teacher. Repeating the request, sending it from another screen, or calling the server directly is refused the same way. Two simultaneous attempts on the 7th day boundary give a consistent result | T-RN-7 (I, every route and both deciders), T-RN-7b (concurrency), E-RN-4 (next-eligible date shown) |
 | AC-9 | At most 5 active (Pending or Counter-proposed) and 10 new a day (the parent's time zone); the Super Admin can change both; the server refuses beyond them with a clear message | T-RN-8 |
 | AC-10 | Zero, negative, malformed and over-precise amounts are refused; any positive amount is accepted | T-RN-9 (U and I) |
 | AC-11 | Turning negotiation off stops new proposals; open negotiations continue unchanged | T-RN-10 |
