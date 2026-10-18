@@ -68,6 +68,7 @@ export function ListingEditor({
   profile,
   timeZoneLabel,
   shown,
+  rateNegotiationOn,
 }: {
   approvedSubjects: string[];
   approvedGrades: number[];
@@ -78,7 +79,11 @@ export function ListingEditor({
     curricula: string[];
     experienceYears: number | null;
     prices: ListingPrice[];
+    /** CR-13 RN4: bases whose "Proposals" switch is on. */
+    negotiableModels: PriceModel[];
   };
+  /** CR-13 RN4: the global switch on the dashboard. */
+  rateNegotiationOn: boolean;
   profile: { name: string; bio: string; timeZone: string; usualTimes: UsualTime[]; photoId: string | null };
   timeZoneLabel: string;
   /** The listing is published or paused now. */
@@ -91,6 +96,7 @@ export function ListingEditor({
   const [curricula, setCurricula] = useState(initial.curricula);
   const [experience, setExperience] = useState(initial.experienceYears === null ? '' : String(initial.experienceYears));
   const [rows, setRows] = useState<PriceRow[]>(() => initial.prices.map(toRow));
+  const [openModels, setOpenModels] = useState<PriceModel[]>(initial.negotiableModels);
 
   const toggle = <T,>(list: T[], value: T, on: boolean) => (on ? [...list, value] : list.filter((x) => x !== value));
   const setRow = (key: number, patch: Partial<PriceRow>) =>
@@ -333,6 +339,23 @@ export function ListingEditor({
                 ) : (
                   <input type="hidden" name="priceSessions" value="" />
                 )}
+                <label className="flex min-h-12 cursor-pointer items-center gap-2.5 self-end rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    name="negotiable"
+                    value={r.model}
+                    checked={openModels.includes(r.model)}
+                    onChange={(ev) =>
+                      setOpenModels((ms) =>
+                        ev.target.checked ? [...new Set([...ms, r.model])] : ms.filter((m) => m !== r.model),
+                      )
+                    }
+                    aria-label={`Rate proposals for price ${i + 1}`}
+                    className="h-5 w-5 accent-primary"
+                  />
+                  Proposals: {openModels.includes(r.model) ? 'On' : 'Off'}
+                </label>
                 <div className="flex items-end">
                   <Button
                     type="button"
@@ -365,6 +388,16 @@ export function ListingEditor({
               Add a price
             </Button>
           </div>
+          <p className="text-sm text-on-surface-variant">
+            &quot;Proposals&quot; lets parents offer a different rate for that price (CR-13). It applies to the plan
+            type, takes effect on your public page when you save, and needs Rate negotiation turned on on your
+            dashboard.
+          </p>
+          {!rateNegotiationOn && openModels.length ? (
+            <FormMessage tone="warning">
+              Rate proposals are off on your dashboard, so these switches have no effect until you turn it on.
+            </FormMessage>
+          ) : null}
           <p className="text-sm text-on-surface-variant">
             Weekly, every-two-weeks and monthly plans need the number of sessions. Sessions are up to 40 minutes. Prices
             are shown in their own currency and never converted.

@@ -12,6 +12,7 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getOwnListing, queueListingReminders, type ListingStatus } from '@/server/teacherListings';
+import { getTeacherRateSettings } from '@/server/rateNegotiations';
 import { ListingEditor } from './ListingEditor';
 import { ListingStatusButtons, RenewForm } from './ListingStatusForms';
 
@@ -56,6 +57,7 @@ export default async function TeacherListingPage({ searchParams }: { searchParam
   // Until a scheduler exists, reminders are queued when teachers open their pages (L-2).
   await queueListingReminders(db(), await siteBaseUrl());
   const listing = await getOwnListing(db(), viewer.id);
+  const rates = await getTeacherRateSettings(db(), viewer.id);
   if (!listing) {
     return (
       <NotReadyYet
@@ -154,7 +156,9 @@ export default async function TeacherListingPage({ searchParams }: { searchParam
           curricula: listing.preview.curricula,
           experienceYears: listing.preview.experienceYears,
           prices: listing.prices,
+          negotiableModels: rates.models,
         }}
+        rateNegotiationOn={rates.on}
         profile={{
           name: listing.preview.name,
           bio: listing.preview.bio,

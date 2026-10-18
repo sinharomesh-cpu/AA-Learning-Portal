@@ -1,6 +1,6 @@
 # CR-13 — Teacher rate negotiation in the marketplace
 
-**Version:** 1.3 · 18 Oct 2026 · **Status:** requirement (OC-98), all ten decisions (OC-99) and the decline-wait clarification (OC-100) recorded. Designs **RN0–RN7** **approved (OC-101, 19:36 IST)**. No open questions. To be built after CR-12 Point 1.
+**Version:** 1.4 · 19 Oct 2026 · **Status:** requirement (OC-98), all ten decisions (OC-99) and the decline-wait clarification (OC-100) recorded. Designs **RN0–RN7** **approved (OC-101)**. **Built** (PR #82, see §10; owner go-ahead 19 Oct 2026, 02:09 IST).
 **Source:** owner requirement "AA Pro — Teacher Rate Negotiation Feature", 18 Oct 2026, 16:47 IST, recorded here in full as sections A–G. Owner decisions on Q-1 to Q-10 and additional rules, 18 Oct 2026, 18:31 IST (OC-99).
 
 ## 1. Summary
@@ -176,3 +176,25 @@ The boards are on the design canvas, page "Rate negotiation (RN0–RN7)":
 ## 9. Cost
 
 $0: AA Pro's own database and pages, with in-app notices. Real email stays **Blocked — Owner Budget Approval Required** (OC-91).
+
+## 10. As built (PR #82)
+
+| Item | Where |
+|---|---|
+| Teacher switches: `rate_negotiation_on` (dashboard) and `negotiable_models` (listing editor), both off for every teacher | migration `0021_rate_negotiations.sql`, `teacher_profiles` |
+| Limits `rate_active_per_parent` (5) and `rate_new_per_day` (10), changed by the Super Admin on Admin → Rate proposals | `platform_settings`, `/admin/rate-proposals` |
+| `rate_negotiations` (fixed basis, currency and asking price; status; turn; offer count; 14-day expiry; agreed rate) and `rate_offers` (unchangeable history) | migration 0021 |
+| Database rules: first offer by the parent; turn order; at most 6 offers; final statuses unchangeable; answers before expiry; one active per parent, teacher, child and basis; 7-day wait after a decline by either side; fixed facts never change | triggers `rate_negotiations_check`, `rate_offers_check`, unique index |
+| Server rules (every route): propose, counter, accept, decline (optional reason), withdraw, lazy expiry, limits in the parent's time zone, privacy (others get "not found") | `src/server/rateNegotiations.ts` |
+| Screens: public prices with "Propose a rate" or "Fixed price" (RN1); propose page with sign-in gate returning to the same price (RN2); parent Rate proposals tab (RN3, RN7); dashboard control and price switches (RN4); teacher Rate proposals tab (RN5); counter-offer and agreed rate (RN6) | `/teachers/[id]`, `/teachers/[id]/propose`, `/parent/enquiries/rates`, `/teacher/enquiries/rates`, `/teacher`, `/teacher/listing` |
+| Emails, queued only: `rate_proposal_received`, `rate_counter_offer`, `rate_proposal_accepted`, `rate_proposal_declined`, `rate_proposal_withdrawn`, `rate_proposal_expired` | `src/server/auth/outbox.ts` |
+| Tests: T-RN-1 to T-RN-15 (`tests/db/rateNegotiations.test.ts`, 20 tests), amount unit tests, real e2e E-RN-1 to E-RN-3 | |
+
+**Build readings (Claude's, consistent with the approved boards; open to owner change):**
+1. A price's "Proposals" switch applies to its **basis** (hourly, weekly …), which is also the basis the one-active and wait rules use. If a teacher lists two prices on the same basis, they share the switch.
+2. The proposal carries **one subject**, from the subjects the teacher lists (and, for an own child, the child studies), so the teacher can see what the rate is for (FR-040.9).
+3. Amounts may have up to 12 digits before the decimal point; "no maximum" is otherwise kept.
+4. "Ask this teacher to teach [child]" opens the existing add-a-teacher page for that teacher (CR-12 request). For a prospective child it says "Add your child first".
+5. A parent who creates a new account from the "Propose a rate" gate returns to the teacher's connect page after confirming, with a "Propose a rate instead" link; signing in returns to the same price directly.
+
+Known limit: expiry is applied when a page loads (no scheduler yet), so the expiry email is queued then.

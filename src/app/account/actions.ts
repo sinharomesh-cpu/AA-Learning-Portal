@@ -90,6 +90,8 @@ export async function signInWithPasswordAction(_prev: FormState, fd: FormData): 
   const role = result.account.role;
   // D11: back to the teacher the visitor chose. Only a listing address on AA Pro is accepted.
   const connect = str(fd, 'connect');
+  const rate = str(fd, 'rate');
+  if (/^t-[a-z0-9]{10}$/.test(connect) && /^[0-2]$/.test(rate)) redirect(`/teachers/${connect}/propose?price=${rate}`);
   if (/^t-[a-z0-9]{10}$/.test(connect)) redirect(`/teachers/${connect}/connect`);
   if (role === 'parent') {
     const remembered = await takeRememberedConnect(db(), result.account.id);

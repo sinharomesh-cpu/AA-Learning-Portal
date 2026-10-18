@@ -88,6 +88,8 @@ export async function saveListingAction(_prev: ListingFormState, fd: FormData): 
       curricula: list(fd, 'curricula'),
       experienceYears: exp === '' ? null : /^\d{1,3}$/.test(exp) ? Number(exp) : NaN,
       prices,
+      // CR-13 RN4: the "Proposals" switch beside each price (applies to that price's basis).
+      negotiableModels: list(fd, 'negotiable'),
       previewKey: str(fd, 'previewKey'),
     },
     intent,

@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { EnquiryTabs } from '@/components/rates/EnquiryTabs';
+import { teacherWaitingCount } from '@/server/rateNegotiations';
 import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { StatusChip } from '@/components/StatusChip';
@@ -43,6 +45,7 @@ export default async function TeacherEnquiriesPage({ searchParams }: { searchPar
   const viewer = access.viewer;
   const { done } = await searchParams;
   const all = await listTeacherEnquiries(db(), viewer.id);
+  const rateWaiting = await teacherWaitingCount(db(), access.viewer.id);
   const day = (d: Date) =>
     new Intl.DateTimeFormat('en-GB', { timeZone: viewer.timeZone, day: 'numeric', month: 'short' }).format(d);
   const waiting = all.filter((e) => e.status === 'pending');
@@ -119,6 +122,7 @@ export default async function TeacherEnquiriesPage({ searchParams }: { searchPar
           Parents who saw your listing. You see the parent&apos;s first name and the child&apos;s grade, curriculum and
           subjects — never the child&apos;s name, photo, school, learning history or books.
         </p>
+        <EnquiryTabs base="/teacher/enquiries" current="enquiries" waiting={rateWaiting} />
       </div>
       {done === 'accept' ? (
         <FormMessage tone="success">

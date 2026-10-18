@@ -1,4 +1,5 @@
 import 'server-only';
+import { setNegotiableModels } from './rateNegotiations';
 import { randomBytes } from 'node:crypto';
 import { SUBJECT_IDS } from '@/fixtures/subjects';
 import {
@@ -221,6 +222,8 @@ export interface ListingInput {
   curricula: string[];
   experienceYears: number | null;
   prices: ListingPrice[];
+  /** CR-13 RN4: the bases (hourly, weekly …) whose price switch is on; applies at once. */
+  negotiableModels?: string[];
   /**
    * snapshotKey() of the preview the teacher saw when agreeing. Publishing is refused if the
    * details built on the server differ, so the agreement always matches what is shown.
@@ -303,6 +306,15 @@ export async function saveListing(
       await tx`INSERT INTO listing_prices (listing_id, position, model, currency, amount_minor, sessions, minutes)
                VALUES (${row.id}, ${i + 1}, ${price.model}, ${price.currency}, ${price.amountMinor},
                        ${price.sessions}, ${price.minutes})`;
+    }
+    if (input.negotiableModels) {
+      const models = input.prices.map((x) => x.model);
+      await setNegotiableModels(
+        tx,
+        teacherId,
+        input.negotiableModels.filter((m) => (models as string[]).includes(m)),
+        now,
+      );
     }
     await tx`INSERT INTO rate_events (account_id, kind, occurred_at) VALUES (${teacherId}, 'listing_save', ${now})`;
     await tx`DELETE FROM rate_events WHERE account_id = ${teacherId} AND occurred_at < ${new Date(now.getTime() - 7 * DAY)}`;
