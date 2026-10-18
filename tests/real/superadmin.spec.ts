@@ -166,11 +166,45 @@ test('the Super Admin adds an Admin who can only read the audit log', async ({ p
   await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
   await a.goto('/admin/admins');
   await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
+  await a.goto('/admin/storage');
+  await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
   await a.goto('/admin/audit-log');
   await expect(a.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
   await expect(a.getByTestId('audit-row').filter({ hasText: 'Admin added' }).first()).toBeVisible();
   await noSeriousA11yIssues(a);
   await other.close();
+});
+
+test('OC-96: the Super Admin sees storage use and changes the safety limits without a code change', async ({
+  page,
+}) => {
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.6' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/storage');
+  await expect(page.getByRole('heading', { level: 1, name: 'Storage' })).toBeVisible();
+  await expect(page.getByTestId('db-used')).toContainText(/of 1\.0 GB used/);
+  await noSeriousA11yIssues(page);
+  const perDay = page.getByLabel(/Uploads per account per day/);
+  await expect(perDay).toHaveValue('100');
+  await expect(page.getByLabel(/Storage per account/)).toHaveValue('200');
+
+  // The warning level must stay below the stop level.
+  await page.getByLabel(/Warn me at/).fill('95');
+  await page.getByRole('button', { name: 'Save limits' }).click();
+  await expect(page.getByText(/warning level must be lower than the level at which uploads stop/)).toBeVisible();
+
+  await page.getByLabel(/Warn me at/).fill('75');
+  await perDay.fill('50');
+  await page.getByRole('button', { name: 'Save limits' }).click();
+  await expect(page.getByText('Saved. The new limits apply to the next upload.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel(/Uploads per account per day/)).toHaveValue('50');
+  // Put the approved default back.
+  await page.getByLabel(/Uploads per account per day/).fill('100');
+  await page.getByRole('button', { name: 'Save limits' }).click();
+  await expect(page.getByText('Saved. The new limits apply to the next upload.')).toBeVisible();
+  await page.goto('/admin/audit-log');
+  await expect(page.getByTestId('audit-row').filter({ hasText: 'Storage limit changed' }).first()).toBeVisible();
 });
 
 test('the Super Admin approves a teacher and manages accounts', async ({ page, browser }) => {

@@ -52,6 +52,12 @@ const LABELS: Record<string, string> = {
   PARENT_REAUTH_SUCCEEDED: 'Parent confirmed password', // pragma: allowlist secret
   PARENT_REAUTH_FAILED: 'Parent password check failed', // pragma: allowlist secret
   RATE_LIMIT_IP_THROTTLED: 'Too many attempts from one network',
+  FILE_STORED: 'File uploaded',
+  FILE_REMOVED: 'File removed',
+  FILE_READ_REFUSED: 'File access refused',
+  STORAGE_LIMIT_CHANGED: 'Storage limit changed',
+  STORAGE_WARNING: 'Storage warning level reached',
+  STORAGE_UPLOADS_STOPPED: 'Uploads stopped: storage nearly full',
 };
 
 export function auditLabel(type: string): string {

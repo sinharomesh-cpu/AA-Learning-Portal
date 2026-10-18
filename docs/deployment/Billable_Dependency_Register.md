@@ -45,7 +45,7 @@ No API key, cloud resource or paid SDK was found in the repository. None of the 
 | Real email (OC-65) | Confirmations, invitations, reminders | The email outbox plus the test mailbox | No real delivery; addresses can't be verified |
 | WhatsApp | Reminders | Not built | — |
 | Zoom | Human-teacher lessons | "Zoom meeting not created yet" | No real meetings or links |
-| Object storage (C-5) | Large files at scale | **Files in AA Pro's database (OC-87)** on Neon's free plan | 1 GB per Neon project: fine for small synthetic files, not for real families' scans |
+| Object storage (C-5) | Large files at scale | **Files in AA Pro's database (OC-87)** on Neon's free plan | 1 GB per Neon project: fine for small synthetic files, not for real families' scans. Guarded by OC-96: uploads stop at 90% of the allowance; nothing upgrades (see `Storage_and_Free_Allowance.md`) |
 | Production hosting (Vercel Pro or another host) | Commercial launch | The Hobby test projects (non-commercial) | Hobby's terms exclude commercial use |
 | Payments | — | Not planned (OC-79: survey question only) | — |
 
