@@ -107,4 +107,4 @@
 | HW0–HW9 | Homework and shared resources (CR-07) | 18 Oct 2026 | **Approved by the owner** (OC-95, 18 Oct 2026, 12:27 IST) |
 | WB0–WB5 | Live whiteboard and lesson notes (CR-09) | 18 Oct 2026 | **Approved by the owner** (OC-95, 18 Oct 2026, 12:27 IST) |
 | TR0–TR7 | Teacher acceptance of parent requests and optional trial lessons (CR-12) | 18 Oct 2026 | **Awaiting owner review** — not approved |
-| RN0–RN7 | Teacher rate negotiation (CR-13) | 18 Oct 2026 | **Awaiting owner review** — not approved |
+| RN0–RN7 | Teacher rate negotiation (CR-13), updated for OC-99 | 18 Oct 2026 | **Awaiting owner review** — not approved |
