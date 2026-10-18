@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.55 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.56 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.56 changes (owner, 18 Oct 2026, 13:07 IST — storage safety limits):**
+- **OC-96:** 100 uploads per account per day and 200 MB per account approved as **temporary technical limits for development and testing only**. They are configurable by the Super Admin (Admin → Storage), enforced on the server, safe against concurrent uploads, and refused or failed uploads use no quota. Storage is monitored against the free allowance with a warning (75%) and a safe stop (90%). Nothing is upgraded or bought. Details: `docs/deployment/Storage_and_Free_Allowance.md`.
 
 **v1.55 changes (owner, 18 Oct 2026, 12:27 IST — "All Homework and Whiteboard design approved"):**
 - **OC-95:** design boards **HW0–HW9** (CR-07) and **WB0–WB5** (CR-09) are **visually approved**. The homework build (CR-07 H-1 to H-5) starts next, in that order (OC-87).
@@ -366,6 +369,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-93** | **Lesson review for parents (CR-10).** (1) **Free now, video later:** a step-by-step whiteboard replay and a short written summary from the teacher now; video recording of human-teacher lessons only after its budget (OC-91) and a legal and privacy review are approved. (2) Recordings may be watched by **the parent and the child** only (not the teacher, not admins). (3) Recordings are kept **30 days**. (4) **The parent opts in per child and the teacher agrees**; "Recording" is shown throughout the lesson. Open: teacher declines, download, summary required or optional, child's camera, recording method (CR-10 §4). | Owner, 18 Oct 2026 (question card after 09:22 IST request) | CR-10; FR-032 can be built (free); FR-033 Blocked — Owner Budget Approval Required |
 | **OC-94** | **English Grammar and Dictionary (CR-11).** (1) Dictionary: **Open English WordNet** (free, CC BY 4.0), kept on AA Pro's server and child-safety filtered. (2) Simple explanations and example sentences for a core list of about 3,000 school words: **Claude drafts, a human checks**. (3) Grammar lessons and practice: **Claude drafts, a human checks**. (4) Grammar follows **general levels** (Beginner, Intermediate, Advanced), not a school board. (2) and (3) are a limited exception to OC-03 / OC-74(5): drafted once, approved by a human before any child sees it. Open: reviewer, word-list source, dashboard placement, parent view of saved words (CR-11 §4). | Owner, 18 Oct 2026 (question card after 11:05 IST request) | CR-11; $0; boards EG0–EG5 next |
 | **OC-95** | **Designs approved:** homework and shared resources **HW0–HW9** (CR-07) and live whiteboard and lesson notes **WB0–WB5** (CR-09). | Owner, 18 Oct 2026, 12:27 IST ("All Homework and Whiteboard design approved") | CR-07 build H-1 to H-5 starts; CR-09 build after it |
+| **OC-96** | **Storage safety limits (testing only).** (1) At most **100 file uploads per account per day** and **200 MB stored per account**: temporary technical limits for development and testing, not business rules and not approval of paid infrastructure. (2) Configurable without code changes, enforced on the server, concurrent uploads cannot bypass them, failed uploads use no quota, with clear messages. (3) Monitor total storage against the free allowance and warn before it is approached. (4) Prevent paid activation or storage charges. (5) If the free allowance is not enough, stop uploads safely and inform the owner; never upgrade, buy storage or switch to a billable service automatically. (6) Parents (and teachers) see a storage indicator, e.g. "85 MB of 200 MB used". | Owner, 18 Oct 2026, 13:07 IST | Admin → Storage; warning 75%, stop 90% (configurable); `Storage_and_Free_Allowance.md` |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

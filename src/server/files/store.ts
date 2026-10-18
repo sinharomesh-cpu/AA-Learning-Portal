@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { writeAudit } from '@/server/auth/audit';
 import type { Db, Sql } from '@/server/db/client';
+import { getStorageSettings, MB, noteStorageLevel, ownUsage, STORAGE_LOCK, storageStatus } from './limits';
 import { type FileProblem, prepareFile, type StoredMediaType } from './prepare';
 
 /**
@@ -19,13 +20,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = 24 * 60 * 60 * 1000;
 
 export type FilePurpose = 'teacher_resource' | 'submission_page';
-
-/**
- * Protection for the free test database, not business rules: at most this many uploads per
- * account per rolling 24 hours, and this much stored per account. Both can be changed.
- */
-export const FILE_UPLOADS_PER_DAY = 100;
-export const FILE_BYTES_PER_OWNER = 200 * 1024 * 1024;
 
 /** Where file bytes live. Only the database is used until a paid store is approved (OC-91). */
 interface FileBodies {
@@ -56,7 +50,13 @@ async function mayUpload(sql: Db, ownerId: string, purpose: FilePurpose): Promis
 
 export type StoreResult =
   | { ok: true; fileId: string; mediaType: StoredMediaType; byteSize: number; fileName: string }
-  | { ok: false; reason: 'not_allowed' | 'daily_limit' | 'space_full' | FileProblem };
+  | { ok: false; reason: 'not_allowed' | FileProblem }
+  /** Today's uploads are used up (OC-96); the next one is allowed at `nextUploadAt`. */
+  | { ok: false; reason: 'daily_limit'; limit: number; nextUploadAt: Date | null }
+  /** This file would take the account past its storage (OC-96). */
+  | { ok: false; reason: 'space_full'; usedBytes: number; limitBytes: number }
+  /** The environment is at the stop level of the free allowance; nothing is upgraded (OC-91, OC-96). */
+  | { ok: false; reason: 'storage_full' };
 
 /**
  * Checks, converts and saves one upload for its owner. The caller (H-2, H-4) links the returned
@@ -79,17 +79,23 @@ export async function storeFile(
   const sha256 = createHash('sha256').update(body).digest();
 
   return sql.begin(async (tx): Promise<StoreResult> => {
-    // One upload at a time per owner, so the limits below cannot be raced.
-    await tx`SELECT id FROM accounts WHERE id = ${ownerId} FOR UPDATE`;
+    // One upload at a time across the environment, so no two uploads can both squeeze past a
+    // limit. Every check below reads the current settings (OC-96).
+    await tx`SELECT pg_advisory_xact_lock(${STORAGE_LOCK})`;
     if (!(await mayUpload(tx, ownerId, purpose))) return { ok: false, reason: 'not_allowed' };
-    const [use] = await tx<Array<{ uploads: number; bytes: number }>>`
-      SELECT (SELECT count(*)::int FROM rate_events
-              WHERE account_id = ${ownerId} AND kind = 'file_upload'
-                AND occurred_at > ${new Date(now.getTime() - DAY)}) AS uploads,
-             (SELECT coalesce(sum(byte_size), 0)::bigint FROM stored_files
-              WHERE owner_id = ${ownerId} AND deleted_at IS NULL) AS bytes`;
-    if (use!.uploads >= FILE_UPLOADS_PER_DAY) return { ok: false, reason: 'daily_limit' };
-    if (Number(use!.bytes) + body.length > FILE_BYTES_PER_OWNER) return { ok: false, reason: 'space_full' };
+    const settings = await getStorageSettings(tx);
+    const status = await storageStatus(tx, settings);
+    if (status.databaseBytes + body.length >= status.stopBytes) {
+      await noteStorageLevel(tx, 'stopped', now);
+      return { ok: false, reason: 'storage_full' };
+    }
+    const usage = await ownUsage(tx, ownerId, now, settings);
+    if (usage.uploadsToday >= usage.uploadsPerDay) {
+      return { ok: false, reason: 'daily_limit', limit: usage.uploadsPerDay, nextUploadAt: usage.nextUploadAt };
+    }
+    if (usage.usedBytes + body.length > settings.file_mb_per_account * MB) {
+      return { ok: false, reason: 'space_full', usedBytes: usage.usedBytes, limitBytes: usage.limitBytes };
+    }
 
     const [row] = await tx<Array<{ id: string }>>`
       INSERT INTO stored_files (owner_id, purpose, media_type, byte_size, sha256, file_name, storage, body, created_at)
@@ -109,6 +115,9 @@ export async function storeFile(
       },
       now,
     );
+    // Only a saved file counts towards today's uploads: refused or failed uploads never reach
+    // this point, and a failure below rolls the whole transaction back.
+    if (status.databaseBytes + body.length >= status.warnBytes) await noteStorageLevel(tx, 'warning', now);
     return { ok: true, fileId: row!.id, mediaType, byteSize: body.length, fileName };
   });
 }

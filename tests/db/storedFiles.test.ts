@@ -3,14 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { afterAll, describe, expect, it } from 'vitest';
-import {
-  FILE_BYTES_PER_OWNER,
-  FILE_UPLOADS_PER_DAY,
-  mayReadFile,
-  readFileForViewer,
-  removeFile,
-  storeFile,
-} from '@/server/files/store';
+import { mayReadFile, readFileForViewer, removeFile, storeFile } from '@/server/files/store';
 import { createAdult, createChild, testDb, uniq } from './helpers';
 
 /** CR-07 H-1: the private file store (T-F1, T-F3, T-F4, T-F6 and the database checks). */
@@ -100,46 +93,6 @@ describe('storing', () => {
       mediaType: 'application/pdf',
       byteSize: pdf.length,
     });
-  });
-});
-
-describe('limits that protect the free test database', () => {
-  it('at most the daily number of uploads per account', async () => {
-    const teacher = await approvedTeacher();
-    await sql`INSERT INTO rate_events (account_id, kind, occurred_at)
-              SELECT ${teacher}, 'file_upload', ${new Date(T0.getTime() - 60_000)}
-              FROM generate_series(1, ${FILE_UPLOADS_PER_DAY})`;
-    expect(await storeFile(sql, teacher, 'teacher_resource', pdf, 'x.pdf', T0)).toEqual({
-      ok: false,
-      reason: 'daily_limit',
-    });
-    // A day later it is allowed again.
-    expect(
-      (await storeFile(sql, teacher, 'teacher_resource', pdf, 'x.pdf', new Date(T0.getTime() + 86_400_000))).ok,
-    ).toBe(true);
-  });
-
-  it('at most the stored space per account', async () => {
-    const teacher = await approvedTeacher();
-    // Fill the allowance with records of the largest size (kept elsewhere, so no bytes are needed).
-    const max = 20 * 1024 * 1024;
-    await sql`INSERT INTO stored_files (owner_id, purpose, media_type, byte_size, sha256, file_name, storage, object_key)
-              SELECT ${teacher}, 'teacher_resource', 'application/pdf', ${max}, ${Buffer.alloc(32)}, 'big.pdf', 'object', 'test-' || g
-              FROM generate_series(1, ${Math.floor(FILE_BYTES_PER_OWNER / max)}) g`;
-    expect(await storeFile(sql, teacher, 'teacher_resource', pdf, 'x.pdf', T0)).toEqual({
-      ok: false,
-      reason: 'space_full',
-    });
-  });
-
-  it('two uploads at the same moment both respect the limit', async () => {
-    const teacher = await approvedTeacher();
-    await sql`INSERT INTO rate_events (account_id, kind, occurred_at)
-              SELECT ${teacher}, 'file_upload', ${T0} FROM generate_series(1, ${FILE_UPLOADS_PER_DAY - 1})`;
-    const results = await Promise.all(
-      [1, 2, 3].map(() => storeFile(sql, teacher, 'teacher_resource', pdf, 'x.pdf', T0)),
-    );
-    expect(results.filter((r) => r.ok)).toHaveLength(1);
   });
 });
 

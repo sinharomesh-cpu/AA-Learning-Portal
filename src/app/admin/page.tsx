@@ -7,6 +7,8 @@ import { adminCounts, RECENT_ADMIN_ACTIONS } from '@/fixtures/admin';
 import { requireAdmin } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { recentActionsBy } from '@/server/admin';
+import { formatMb } from '@/lib/storage';
+import { storageStatus } from '@/server/files/limits';
 
 import { isDemoMode } from '@/server/demo';
 
@@ -44,6 +46,8 @@ export default async function AdminHomePage() {
         subject: r.record === '—' ? '' : r.record,
         when: fmt.format(r.at),
       }));
+  // OC-96: warn the Super Admin before the free database allowance is reached.
+  const storage = !demo && access.viewer.role === 'superadmin' ? await storageStatus(db()) : null;
   const tiles = [
     { label: 'Active parent accounts', value: counts.activeParents },
     { label: 'Active teacher accounts', value: counts.activeTeachers },
@@ -56,6 +60,21 @@ export default async function AdminHomePage() {
         <p className="rounded-[16px] border border-dashed border-secondary bg-warning-container px-3 py-2 text-sm leading-5 text-on-warning-container">
           <strong>Demo:</strong> sample data only. Real Super Admin sign-in uses the owner set-up and a security code
           (OC-37, OC-50).
+        </p>
+      ) : null}
+      {storage && storage.level !== 'ok' ? (
+        <p
+          role="status"
+          data-testid="storage-banner"
+          className={`rounded-[16px] border px-4 py-3 text-[15px] leading-[22px] ${
+            storage.level === 'stopped'
+              ? 'border-error-border bg-error-container text-on-error-container'
+              : 'border-warning-border bg-warning-container text-on-warning-container'
+          }`}
+        >
+          <strong>{storage.level === 'stopped' ? 'New uploads are stopped.' : 'Storage warning.'}</strong> The database
+          uses {formatMb(storage.databaseBytes)} of the {formatMb(storage.allowanceBytes)} free allowance. Nothing has
+          been upgraded or bought. <Link href="/admin/storage">Open Storage</Link>
         </p>
       ) : null}
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-3">

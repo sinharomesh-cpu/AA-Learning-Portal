@@ -7,6 +7,7 @@ export const ADMIN_MENU: MenuItem[] = [
   { href: '/admin/approvals', label: 'Teacher approvals', icon: 'how_to_reg' },
   { href: '/admin/admins', label: 'Admins', icon: 'admin_panel_settings' },
   { href: '/admin/audit-log', label: 'Audit log', icon: 'receipt_long' },
+  { href: '/admin/storage', label: 'Storage', icon: 'cloud_upload' },
   { href: '/admin/security', label: 'Security', icon: 'security' },
 ];
 
@@ -20,7 +21,8 @@ const PERMISSION_PAGE: Record<string, string> = {
 export function adminMenuFor(role: 'superadmin' | 'admin', permissions: readonly string[] = []): MenuItem[] {
   if (role === 'superadmin') return ADMIN_MENU;
   return ADMIN_MENU.filter((item) => {
-    if (item.href === '/admin/admins') return false;
+    // Admins and the storage limits (OC-96) are the Super Admin's alone.
+    if (item.href === '/admin/admins' || item.href === '/admin/storage') return false;
     const needed = PERMISSION_PAGE[item.href];
     return !needed || permissions.includes(needed);
   });

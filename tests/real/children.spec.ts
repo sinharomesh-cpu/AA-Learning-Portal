@@ -221,6 +221,10 @@ test('private files answer "not found" to anyone not allowed, and are never cach
   expect(signedOut.status()).toBe(404);
   expect(signedOut.headers()['cache-control']).toBe('private, no-store');
   await signedInParent(page);
+  // OC-96: the parent sees their own storage use.
+  await page.goto('/parent/content');
+  await expect(page.getByTestId('storage-used')).toHaveText('0 MB of 200 MB used');
+  await noSeriousA11yIssues(page);
   for (const path of [missing, '/files/not-an-id']) {
     const r = await page.request.get(path);
     expect(r.status()).toBe(404);
