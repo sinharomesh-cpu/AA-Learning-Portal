@@ -16,4 +16,5 @@ For each item, Claude presents the options and their implications for the owner'
 - OC-44 to OC-47: join window, teacher proposals, cancel and reschedule, 1:1 only (`src/lib/lessonRules.ts`; see `docs/phase2/OC-44-47_Lesson_Rules_Implementation_Report.md`). When a parent accepts a teacher's proposal, the server checks that the time is still free.
 - OC-89(4): one 15-minute AI session per child in any rolling 24 hours (`server/aiSessions.ts`). AI bookings follow the same rule.
 - OC-49: AI lesson reminders go to the parent by email and to the child on screen. Emails stay queued until an email service is approved (OC-91).
+- **OC-97 / CR-12 Point 2: optional trial lesson** (FR-039, boards TR6 and TR7). One per teacher–child pair, 20–30 minutes, guardian present, price agreed directly (AA Pro takes no payment), a teacher-provided link only after parent approval until a meeting service is approved, no materials during the trial, and "Link this teacher" never automatic. Built with scheduling; nothing is shown before then.
 - OC-91: no paid service. Zoom and real email remain **Blocked — Owner Budget Approval Required**.
