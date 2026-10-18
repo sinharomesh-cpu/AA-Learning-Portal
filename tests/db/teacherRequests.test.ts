@@ -570,7 +570,7 @@ describe('T-REQ-11 (AC-11): audit trail', () => {
   it('records each change without the parent’s message or the decline note', async () => {
     const f = await family();
     const t = await approvedTeacher();
-    const secret = `msg-${uniq()}`;
+    const message = `msg-${uniq()}`;
     const note = `note-${uniq()}`;
     await ask(
       f,
@@ -580,7 +580,7 @@ describe('T-REQ-11 (AC-11): audit trail', () => {
         [f.meera, ['science']],
       ],
       T0,
-      secret,
+      message,
     );
     await acceptLinkRequest(sql, t.id, await requestIdFor(t.id, f.kiran), BASE, T0);
     await declineLinkRequest(sql, t.id, await requestIdFor(t.id, f.meera), { reason: 'not_a_fit', note }, BASE, T0);
@@ -599,7 +599,7 @@ describe('T-REQ-11 (AC-11): audit trail', () => {
     );
     expect(rows.find((r) => r.event_type === 'LINK_REQUEST_DECLINED')!.details).toMatchObject({ reason: 'not_a_fit' });
     const all = JSON.stringify(rows);
-    expect(all).not.toContain(secret);
+    expect(all).not.toContain(message);
     expect(all).not.toContain(note);
   });
 });

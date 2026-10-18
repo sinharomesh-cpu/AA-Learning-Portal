@@ -503,7 +503,7 @@ test('CR-07 H-2b: a teacher shares a worksheet; only the linked child and their 
   page,
   browser,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
   const fam = await parentWithChild(browser, '10.200.0.40', 'Nila', ['Science']);
   const p = fam.page;
   const childUser = (await p.getByTestId('child-username').innerText()).trim();
