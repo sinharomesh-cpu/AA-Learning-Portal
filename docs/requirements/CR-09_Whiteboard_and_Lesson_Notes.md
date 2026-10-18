@@ -1,6 +1,6 @@
 # CR-09 — Live Whiteboard and Lesson Notes (AI and human-teacher lessons)
 
-**Version:** 1.0 · 18 Oct 2026 · **Status:** specification; designs WB0–WB5 are drawn and awaiting the owner's review. Nothing is built yet.
+**Version:** 1.0 · 18 Oct 2026 · **Status:** specification; designs WB0–WB5 **approved** (OC-95). Nothing is built yet.
 **Source:** owner request, 18 Oct 2026, 08:59 IST ("whiteboard and live whiteboard notes, lecture notes for both AI and human teacher"), with the owner's answers recorded as **OC-92**.
 
 ## 1. Owner decisions (OC-92)
