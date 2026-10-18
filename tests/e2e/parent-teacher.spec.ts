@@ -78,6 +78,7 @@ test.describe('parent family home (P19, boards 53 and 54)', () => {
       'Book human teacher',
       'Family calendar',
       'Content repository',
+      'Homework',
       'Session history',
       'Notifications',
       'Settings',
@@ -132,11 +133,8 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
     await students.getByLabel('Filter by student or grade').fill('grade 4');
     await expect(students.getByRole('heading', { level: 3 })).toHaveText(['Meera']);
     await students.getByLabel('Filter by student or grade').fill('');
-    // Sharing is not open yet: the upload control is shown as unavailable, never as a working button.
-    await expect(page.getByRole('button', { name: /Choose files \(not open yet\)/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    // CR-07 H-2b: sharing is open; the panel links to the resources page (board HW1).
+    await expect(page.getByRole('link', { name: 'Choose a file' })).toHaveAttribute('href', '/teacher/resources');
     // No unverified claims, rankings or child photos from the reference (S21 deviations).
     const text = (await page.locator('main').innerText()).toLowerCase();
     expect(text).not.toMatch(/accredited|faculty id|top 10%|rising star|mastery|safe environment|dispatched/);
