@@ -49,6 +49,8 @@ No API key, cloud resource or paid SDK was found in the repository. None of the 
 | Production hosting (Vercel Pro or another host) | Commercial launch | The Hobby test projects (non-commercial) | Hobby's terms exclude commercial use |
 | Payments | — | Not planned (OC-79: survey question only) | — |
 
+**Live whiteboard (CR-09):** this is built free, with AA Pro's own drawing component and sync through polling the database. A paid real-time service or a paid whiteboard library (for example tldraw's commercial licence) would need a budget request. The Neon free plan's 100 compute-hours a month must be checked against real lesson volumes before real use.
+
 **Free items that need no budget**, but still follow the normal approvals:
 - the Google Classroom API (no usage charge; needs an OAuth app and the school's admin consent);
 - open-source libraries, such as a HEIC decoder (licence checked in its PR).
