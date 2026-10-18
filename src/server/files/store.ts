@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { writeAudit } from '@/server/auth/audit';
-import type { Db, Sql } from '@/server/db/client';
+import type { Db, Sql, Tx } from '@/server/db/client';
 import { getStorageSettings, MB, noteStorageLevel, ownUsage, STORAGE_LOCK, storageStatus } from './limits';
 import { type FileProblem, prepareFile, type StoredMediaType } from './prepare';
 
@@ -56,7 +56,21 @@ export type StoreResult =
   /** This file would take the account past its storage (OC-96). */
   | { ok: false; reason: 'space_full'; usedBytes: number; limitBytes: number }
   /** The environment is at the stop level of the free allowance; nothing is upgraded (OC-91, OC-96). */
-  | { ok: false; reason: 'storage_full' };
+  | { ok: false; reason: 'storage_full' }
+  /** The caller's own step (for example "share with these students") refused; nothing was saved. */
+  | { ok: false; reason: 'refused'; detail: string };
+
+/**
+ * A step the caller runs in the same transaction as the save, such as creating the resource
+ * that uses the file. If it refuses, nothing is saved and no quota is used.
+ */
+export type AttachStep = (tx: Tx, fileId: string) => Promise<{ ok: true } | { ok: false; detail: string }>;
+
+class AttachRefused extends Error {
+  constructor(readonly detail: string) {
+    super(detail);
+  }
+}
 
 /**
  * Checks, converts and saves one upload for its owner. The caller (H-2, H-4) links the returned
@@ -69,6 +83,7 @@ export async function storeFile(
   bytes: Uint8Array,
   originalName: string | null,
   now: Date = new Date(),
+  attach?: AttachStep,
 ): Promise<StoreResult> {
   if (!UUID.test(ownerId) || !(purpose in OWNER_ROLE) || !(await mayUpload(sql, ownerId, purpose))) {
     return { ok: false, reason: 'not_allowed' };
@@ -76,8 +91,25 @@ export async function storeFile(
   const prepared = await prepareFile(bytes, originalName);
   if (!prepared.ok) return { ok: false, reason: prepared.problem };
   const { body, mediaType, fileName } = prepared;
-  const sha256 = createHash('sha256').update(body).digest();
+  try {
+    return await saveChecked(sql, ownerId, purpose, body, mediaType, fileName, now, attach);
+  } catch (e) {
+    if (e instanceof AttachRefused) return { ok: false, reason: 'refused', detail: e.detail };
+    throw e;
+  }
+}
 
+async function saveChecked(
+  sql: Sql,
+  ownerId: string,
+  purpose: FilePurpose,
+  body: Buffer,
+  mediaType: StoredMediaType,
+  fileName: string,
+  now: Date,
+  attach: AttachStep | undefined,
+): Promise<StoreResult> {
+  const sha256 = createHash('sha256').update(body).digest();
   return sql.begin(async (tx): Promise<StoreResult> => {
     // One upload at a time across the environment, so no two uploads can both squeeze past a
     // limit. Every check below reads the current settings (OC-96).
@@ -115,6 +147,11 @@ export async function storeFile(
       },
       now,
     );
+    if (attach) {
+      const linked = await attach(tx, row!.id);
+      // Throwing rolls back the file, the upload count and the audit entry together.
+      if (!linked.ok) throw new AttachRefused(linked.detail);
+    }
     // Only a saved file counts towards today's uploads: refused or failed uploads never reach
     // this point, and a failure below rolls the whole transaction back.
     if (status.databaseBytes + body.length >= status.warnBytes) await noteStorageLevel(tx, 'warning', now);
@@ -170,6 +207,25 @@ export async function mayReadFile(sql: Db, viewerId: string, fileId: string): Pr
   return null;
 }
 
+/** Records a refused read of an existing file by a real account (never the file's contents). */
+export async function noteRefusedRead(
+  sql: Db,
+  viewerId: string,
+  fileId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!UUID.test(viewerId) || !UUID.test(fileId)) return;
+  const [exists] = await sql`SELECT 1 FROM stored_files WHERE id = ${fileId}`;
+  const [actor] = await sql`SELECT 1 FROM accounts WHERE id = ${viewerId}`;
+  if (exists && actor) {
+    await writeAudit(
+      sql,
+      { type: 'FILE_READ_REFUSED', outcome: 'denied', actorId: viewerId, details: { fileId } },
+      now,
+    );
+  }
+}
+
 /** Reads a file for a viewer. A refusal is recorded in the audit trail and looks like "not found". */
 export async function readFileForViewer(
   sql: Db,
@@ -179,17 +235,7 @@ export async function readFileForViewer(
 ): Promise<{ meta: FileMeta; body: Buffer } | null> {
   const meta = await mayReadFile(sql, viewerId, fileId);
   if (!meta) {
-    if (UUID.test(viewerId) && UUID.test(fileId)) {
-      const [exists] = await sql`SELECT 1 FROM stored_files WHERE id = ${fileId}`;
-      const [actor] = await sql`SELECT 1 FROM accounts WHERE id = ${viewerId}`;
-      if (exists && actor) {
-        await writeAudit(
-          sql,
-          { type: 'FILE_READ_REFUSED', outcome: 'denied', actorId: viewerId, details: { fileId } },
-          now,
-        );
-      }
-    }
+    await noteRefusedRead(sql, viewerId, fileId, now);
     return null;
   }
   const body = await databaseBodies.read(sql, fileId);

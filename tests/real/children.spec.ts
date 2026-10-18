@@ -231,4 +231,22 @@ test('private files answer "not found" to anyone not allowed, and are never cach
     expect(await r.text()).toBe(await signedOut.text());
     expect(r.headers()['cache-control']).toBe('private, no-store');
   }
+  // H-2a: pieces of an upload are accepted only from this site, with the upload header.
+  const base = new URL(page.url()).origin;
+  const piece = `/files/upload?upload=${crypto.randomUUID()}&piece=0&of=1&name=a.pdf`;
+  const pdf = '%PDF-1.4\n%%EOF\n';
+  expect((await page.request.post(piece, { data: pdf, headers: { origin: base } })).status()).toBe(403);
+  expect(
+    (
+      await page.request.post(piece, { data: pdf, headers: { origin: 'https://evil.example', 'x-aa-upload': '1' } })
+    ).status(),
+  ).toBe(403);
+  const ok = await page.request.post(piece, {
+    data: pdf,
+    headers: { origin: base, 'x-aa-upload': '1', 'content-type': 'application/octet-stream' },
+  });
+  expect(await ok.json()).toEqual({ ok: true, received: 1, total: 1, complete: true });
+  expect((await page.request.get(`${missing}?outline=1`)).status()).toBe(404);
+  await page.goto(`${missing}/view`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
 });

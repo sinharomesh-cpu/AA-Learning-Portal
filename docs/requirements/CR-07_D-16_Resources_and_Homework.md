@@ -390,7 +390,8 @@ Each step is one pull request with its own tests. Only synthetic data is used; n
 |---|---|
 | H-0 | Boards HW0 to HW9 (designs for approval), drawn 18 Oct 2026 on the design canvas page "Homework & shared resources" (named HW to avoid clashing with homepage boards H1, H2) |
 | H-1 | Private file store (`stored_files`, the file route, type and size checks, photo re-encoding). It also serves textbooks later. **Built (18 Oct 2026):** migration 0016, `src/server/files/`, `/files/[id]` |
-| H-2 | Teacher resources: share, unshare, archive, plus the student and parent views |
+| H-2a | **Built (18 Oct 2026):** large files on the free host. Vercel's free plan accepts at most 4.5 MB per request in each direction, so files up to 20 MB travel in 3 MB pieces (`upload_parts`, `/files/upload`, `?piece=n`, `/files/[id]/view`). Photos are stored as JPEG, longest side 2,400 px (FR-021.8) |
+| H-2 / H-2b | Teacher resources: share, unshare, archive, plus the student and parent views |
 | H-3 | Assignments and the lifecycle engine, exercises with auto-marking, and the student player |
 | H-4 | Handwritten homework: parent upload, teacher review, release and revision |
 | H-5 | Dashboards (HW1, HW5, HW8), queued notifications and the unlink behaviour |
