@@ -214,3 +214,17 @@ test('profile edits are saved', async ({ page }) => {
   await expect(page.getByRole('checkbox', { name: 'Science' })).toBeChecked();
   await expect(page.getByLabel('Grade')).toHaveValue('6');
 });
+
+test('private files answer "not found" to anyone not allowed, and are never cached (CR-07 H-1)', async ({ page }) => {
+  const missing = '/files/00000000-0000-4000-8000-000000000000';
+  const signedOut = await page.request.get(missing);
+  expect(signedOut.status()).toBe(404);
+  expect(signedOut.headers()['cache-control']).toBe('private, no-store');
+  await signedInParent(page);
+  for (const path of [missing, '/files/not-an-id']) {
+    const r = await page.request.get(path);
+    expect(r.status()).toBe(404);
+    expect(await r.text()).toBe(await signedOut.text());
+    expect(r.headers()['cache-control']).toBe('private, no-store');
+  }
+});

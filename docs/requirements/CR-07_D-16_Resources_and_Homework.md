@@ -123,7 +123,7 @@ See section 6.
 
 ## 4. Data model
 
-New migrations: 0015 for the file store and 0016 for resources and assignments. All new tables follow the existing patterns: uuid keys, `CHECK` constraints, role checks with `require_role`, and timestamps in UTC.
+New migrations: **0016** for the file store (built in H-1; 0015 was taken by AI sessions) and the next free number for resources and assignments. All new tables follow the existing patterns: uuid keys, `CHECK` constraints, role checks with `require_role`, and timestamps in UTC.
 
 ```
 stored_files            -- one private file; shared by resources, attachments and submissions
@@ -378,7 +378,7 @@ All tests use synthetic accounts and small generated files only.
 | Q-9 | Storage | **AA Pro's database for testing;** provider with prices before real use (OC-87) |
 | Q-10 | Late submissions | **Allowed, marked Late,** times kept (OC-90) |
 
-**Implementation note for Q-4:** the image library AA Pro already uses (sharp) may not decode HEIC, because the HEIC format uses a separately licensed video codec. PR H-1 will check this first. If sharp cannot decode it, H-1 will add a HEIC decoder with a compatible licence, or convert HEIC to JPEG in the parent's browser before upload. Any new dependency and its licence will be reported in that PR.
+**Implementation note for Q-4 (resolved in H-1):** checked: sharp reads HEIC headers but cannot decode iPhone (HEVC) pictures. H-1 adds `heic-decode` 2.1.0 (ISC) with `libheif-js` 1.23.2 (LGPL-3.0, used unmodified as a separate package; see THIRD_PARTY_NOTICES.md) and converts HEIC to JPEG on the server. Original note: the image library AA Pro already uses (sharp) may not decode HEIC, because the HEIC format uses a separately licensed video codec. PR H-1 will check this first. If sharp cannot decode it, H-1 will add a HEIC decoder with a compatible licence, or convert HEIC to JPEG in the parent's browser before upload. Any new dependency and its licence will be reported in that PR.
 
 ## 12. Delivery plan (after confirmation)
 
@@ -389,7 +389,7 @@ Each step is one pull request with its own tests. Only synthetic data is used; n
 | PR | Content |
 |---|---|
 | H-0 | Boards HW0 to HW9 (designs for approval), drawn 18 Oct 2026 on the design canvas page "Homework & shared resources" (named HW to avoid clashing with homepage boards H1, H2) |
-| H-1 | Private file store (`stored_files`, the file route, type and size checks, photo re-encoding). It also serves textbooks later |
+| H-1 | Private file store (`stored_files`, the file route, type and size checks, photo re-encoding). It also serves textbooks later. **Built (18 Oct 2026):** migration 0016, `src/server/files/`, `/files/[id]` |
 | H-2 | Teacher resources: share, unshare, archive, plus the student and parent views |
 | H-3 | Assignments and the lifecycle engine, exercises with auto-marking, and the student player |
 | H-4 | Handwritten homework: parent upload, teacher review, release and revision |
