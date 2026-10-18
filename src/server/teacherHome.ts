@@ -1,6 +1,6 @@
 import 'server-only';
 import { getTeacherDashboard, TEACHER_SLOT_MINUTES, type TeacherLesson } from '@/fixtures/teacher';
-import { SUBJECT_IDS, type SubjectId } from '@/fixtures/subjects';
+import { SUBJECT_IDS, SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { localDayAt, relativeDayLabel } from '@/lib/localTime';
 import { buildWeek, nextSevenDays, type WeekDay } from '@/lib/teacherWeek';
 
@@ -138,11 +138,18 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
   const sql = db();
   const profile = await getTeacherProfile(sql, viewer.id);
   if (!profile || profile.approvalStatus !== 'approved') return null;
-  const [photo, times, listing, enquiries] = await Promise.all([
+  const [photo, times, listing, enquiries, recent] = await Promise.all([
     ownPhotoState(sql, viewer.id),
     getUsualTimes(sql, viewer.id),
     getOwnListing(sql, viewer.id, now),
     listTeacherEnquiries(sql, viewer.id, now),
+    // CR-07 H-2b: the three newest shared resources (board HW1 "Recently shared").
+    sql<Array<{ title: string; names: string | null; subject: string }>>`
+      SELECT r.title, r.subject,
+        (SELECT string_agg(a.display_name, ', ' ORDER BY a.display_name) FROM resource_shares s
+           JOIN accounts a ON a.id = s.student_id WHERE s.resource_id = r.id AND s.unshared_at IS NULL) AS names
+      FROM teacher_resources r WHERE r.teacher_id = ${viewer.id} AND r.archived_at IS NULL
+      ORDER BY r.created_at DESC LIMIT 3`,
   ]);
   const tz = profile.timeZone;
   const days = nextSevenDays(tz, now);
@@ -185,7 +192,11 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
     weekNote:
       'These are your usual weekly times, shown to families as a guide. Nothing is booked from them until scheduling opens.',
     students: [],
-    shared: [],
+    shared: recent.map((r) => ({
+      title: r.title,
+      studentName: r.names ?? 'no one right now',
+      subject: SUBJECTS[r.subject as SubjectId]?.name ?? r.subject,
+    })),
     summary: [
       { label: 'Your listing', value: listingValue, href: '/teacher/listing' },
       { label: 'Enquiries waiting', value: String(waiting), href: '/teacher/enquiries' },

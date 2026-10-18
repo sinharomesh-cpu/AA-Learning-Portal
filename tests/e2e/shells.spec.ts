@@ -28,6 +28,7 @@ test.describe('student shell (S1 / S9)', () => {
     const items = [
       { name: phone ? 'Schedule' : 'My schedule', heading: 'My schedule' },
       { name: 'Book AI class', heading: 'Book a lesson with the AI Tutor' },
+      { name: 'Homework', heading: 'My homework' },
       { name: 'Library', heading: 'My library' },
       { name: 'History', heading: "Things I've learned" },
       { name: 'Home', heading: 'Science with Teacher A. Rao' },
@@ -104,6 +105,7 @@ test.describe('parent and teacher shells (P19 / P21)', () => {
       'Book human teacher',
       'Family calendar',
       'Content repository',
+      'Homework',
       'Session history',
       'Notifications',
       'Settings',

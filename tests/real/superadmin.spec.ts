@@ -481,6 +481,109 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await fam.context.close();
 });
 
+test('CR-07 H-2b: a teacher shares a worksheet; only the linked child and their parent can open it', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const fam = await parentWithChild(browser, '10.200.0.40', 'Nila', ['Science']);
+  const p = fam.page;
+  const childUser = (await p.getByTestId('child-username').innerText()).trim();
+  const childPass = (await p.getByTestId('child-password').innerText()).trim();
+  await p.goto('/parent/teachers/new');
+  const teacherEmail = freshEmail('sharer');
+  await p.getByLabel("Teacher's name").fill('Teacher S. Menon');
+  await p.getByLabel("Teacher's email").fill(teacherEmail);
+  await p.getByRole('group', { name: 'Subjects for Nila' }).getByRole('checkbox', { name: 'Science' }).check();
+  await p.getByRole('button', { name: 'Add teacher' }).click();
+  await expect(p.getByText(/Request sent/)).toBeVisible();
+
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.41' } });
+  const t = await tc.newPage();
+  const TEACHER_PHRASE = ['menon', 'shares', 'leaf', 'sheets'].join(' ');
+  await t.goto(await linkFromMailbox(t, teacherEmail, 'teacher_added_by_parent'));
+  await t.getByLabel('New password').fill(TEACHER_PHRASE);
+  await t.getByLabel('Type it again').fill(TEACHER_PHRASE);
+  await t.getByRole('button', { name: 'Save password and continue' }).click();
+  await expect(t).toHaveURL(/\/sign-in/);
+  await signIn(t, teacherEmail, TEACHER_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Science'], [5]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.42' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Added by a parent; checked');
+  await card.getByRole('button', { name: 'Approve Teacher S. Menon' }).click();
+  await expect(page.getByText(/Approved/)).toBeVisible();
+
+  // The teacher uploads a 5 MB PDF (sent in two pieces) and shares it with Nila.
+  await t.goto('/teacher/resources');
+  await expect(t.getByRole('heading', { level: 1, name: 'Learning resources' })).toBeVisible();
+  await noSeriousA11yIssues(t);
+  const size = 5 * 1024 * 1024;
+  const pdf = Buffer.concat([
+    Buffer.from('%PDF-1.4\n', 'latin1'),
+    Buffer.alloc(size - 16, 0x20),
+    Buffer.from('\n%%EOF\n', 'latin1'),
+  ]);
+  await t
+    .getByLabel('File', { exact: true })
+    .setInputFiles({ name: 'Leaf worksheet.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await expect(t.getByTestId('upload-ready')).toContainText('Leaf worksheet.pdf');
+  await expect(t.getByLabel('Title')).toHaveValue('Leaf worksheet');
+  await t.getByLabel('Chapter (optional)').fill('Chapter 2');
+  await t.getByRole('checkbox', { name: /Nila/ }).check();
+  await t.getByRole('button', { name: 'Share', exact: true }).click();
+  await expect(
+    t.getByText('Shared with Nila. They can open it now, and their parents can see it in AA Pro.'),
+  ).toBeVisible();
+  await expect(t.getByTestId('storage-used')).toHaveText('5 MB of 200 MB used');
+  const own = t.getByTestId('own-resource').filter({ hasText: 'Leaf worksheet' });
+  const viewHref = (await own.getByRole('link', { name: 'Open' }).getAttribute('href')) ?? '';
+  expect(viewHref).toMatch(/^\/files\/[0-9a-f-]{36}\/view$/);
+
+  // The child sees it at once and opens it (joined from pieces in the browser).
+  const cc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.43' } });
+  const c = await cc.newPage();
+  await c.goto('/sign-in/child');
+  await c.getByLabel('Your username').fill(childUser);
+  await c.getByLabel('Your password').fill(childPass);
+  await c.getByRole('button', { name: "Let's go" }).click();
+  await expect(c).toHaveURL(/\/student$/);
+  await c.goto('/student/homework');
+  const item = c.getByTestId('shared-resource').filter({ hasText: 'Leaf worksheet' });
+  await expect(item).toContainText('From your teacher · Teacher S. Menon');
+  await expect(item).toContainText('Chapter 2');
+  await noSeriousA11yIssues(c);
+  await item.getByRole('link', { name: /Open Leaf worksheet/ }).click();
+  await expect(c.getByTestId('file-download')).toBeVisible({ timeout: 30_000 });
+
+  // The parent sees it on Homework.
+  await p.goto('/parent/homework');
+  await expect(p.getByTestId('shared-resource').filter({ hasText: 'Leaf worksheet' })).toContainText('Nila');
+  await noSeriousA11yIssues(p);
+
+  // Another family cannot open it, nor can the Super Admin.
+  const other = await parentWithChild(browser, '10.200.0.44', 'Ravi', ['Science']);
+  await other.page.goto(viewHref);
+  await expect(other.page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
+  expect((await other.page.request.get(viewHref.replace('/view', '?piece=0'))).status()).toBe(404);
+  await other.context.close();
+  expect((await page.request.get(viewHref.replace('/view', '?outline=1'))).status()).toBe(404);
+
+  // Deleting hides it from the child at once.
+  await t.goto('/teacher/resources');
+  await own.getByRole('button', { name: 'Delete' }).click();
+  await t.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  await expect(t.getByText(/Deleted. Removed for good on/)).toBeVisible();
+  await c.goto('/student/homework');
+  await expect(c.getByText('Nothing from your teachers yet.', { exact: false })).toBeVisible();
+  await cc.close();
+  await tc.close();
+  await fam.context.close();
+});
+
 test('board 65: a parent finds an approved teacher and adds them; hidden teachers are not listed (OC-54, C-1)', async ({
   page,
   browser,

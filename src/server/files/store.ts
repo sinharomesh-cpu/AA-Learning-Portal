@@ -174,7 +174,24 @@ export interface FileMeta {
  */
 type AccessRule = (sql: Db, viewer: { id: string; role: string }, file: FileMeta) => Promise<boolean>;
 
-const ACCESS_RULES: AccessRule[] = [async (_sql, viewer, file) => viewer.id === file.ownerId];
+const ACCESS_RULES: AccessRule[] = [
+  // The owner (the teacher who shared it, the parent who uploaded it).
+  async (_sql, viewer, file) => viewer.id === file.ownerId,
+  // A shared teacher resource (CR-07 H-2b, FR-021): the student it is shared with, or an active
+  // guardian of that student, while it is still shared and not deleted by the teacher.
+  async (sql, viewer, file) => {
+    if (file.purpose !== 'teacher_resource' || (viewer.role !== 'student' && viewer.role !== 'parent')) return false;
+    const [row] = await sql`
+      SELECT 1 FROM teacher_resources r
+      JOIN resource_shares s ON s.resource_id = r.id AND s.unshared_at IS NULL
+      WHERE r.file_id = ${file.id} AND r.archived_at IS NULL
+        AND (s.student_id = ${viewer.id}
+             OR EXISTS (SELECT 1 FROM guardian_links g WHERE g.parent_id = ${viewer.id}
+                          AND g.student_id = s.student_id AND g.status = 'active'))
+      LIMIT 1`;
+    return Boolean(row);
+  },
+];
 
 /** The file's details if this viewer may read it, otherwise null (the same as "not found"). */
 export async function mayReadFile(sql: Db, viewerId: string, fileId: string): Promise<FileMeta | null> {

@@ -10,6 +10,8 @@ const ITEMS = [
   { href: '/student', label: 'Home', icon: 'home', exact: true },
   { href: '/student/schedule', label: 'My schedule', icon: 'event_available', short: 'Schedule' },
   { href: '/student/book', label: 'Book AI class', icon: 'smart_toy', short: 'AI', fab: true },
+  // Board HW5 (approved, OC-95): homework and "From my teachers".
+  { href: '/student/homework', label: 'Homework', icon: 'description' },
   { href: '/student/library', label: 'Library', icon: 'library_books' },
   { href: '/student/history', label: 'History', icon: 'history_edu' },
 ] as const;
@@ -65,7 +67,7 @@ export function StudentShell({
       </main>
       <nav
         aria-label="Student menu"
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-center border-t border-card-border bg-surface-container-lowest px-1 pb-2.5 pt-1.5 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-6 items-center border-t border-card-border bg-surface-container-lowest px-1 pb-2.5 pt-1.5 lg:hidden"
       >
         {ITEMS.map((item) =>
           'fab' in item ? (

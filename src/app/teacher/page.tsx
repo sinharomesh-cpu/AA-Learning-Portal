@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Button, LinkButton } from '@/components/Button';
+import { LinkButton } from '@/components/Button';
 import { Icon, type SymbolName } from '@/components/icons/Icon';
 import { JoinButton } from '@/components/JoinButton';
 import { LessonStatusChip } from '@/components/lessons/LessonStatus';
@@ -372,10 +372,9 @@ function Resources({ home }: { home: TeacherHome }) {
           <SectionHeading id="share" eyebrow="Learning resources">
             Share learning resources
           </SectionHeading>
-          <span className="inline-flex items-center gap-1 text-label-sm text-on-surface-variant">
-            <Icon name="lock" size={16} />
-            Opens in a later phase
-          </span>
+          <Link href="/teacher/resources" className="text-label-md font-bold">
+            All learning resources
+          </Link>
         </div>
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-outline-variant bg-surface-container-low/50 p-6 text-center sm:p-8">
           <span
@@ -386,13 +385,13 @@ function Resources({ home }: { home: TeacherHome }) {
           </span>
           <h3 className="font-headline text-headline-sm">Revision sheets, notes and slides</h3>
           <p className="mt-1 max-w-md text-body-md text-on-surface-variant">
-            Sharing files and setting homework are not open yet. Your linked students will see what you share, and their
-            parents can see it too; no approval is needed for each file.
+            PDF, JPG, PNG, WebP or HEIC, up to 20 MB. Your linked students see it straight away; their parents can see
+            it too. Only students linked to you, in the subjects their parent ticked.
           </p>
-          <Button inactive className="mt-3">
+          <LinkButton href="/teacher/resources" className="mt-3">
             <Icon name="upload_file" size={18} />
-            Choose files (not open yet)
-          </Button>
+            Choose a file
+          </LinkButton>
         </div>
       </section>
       <section aria-labelledby="shared" className={cx(PANEL, 'flex flex-col gap-4 p-5')}>

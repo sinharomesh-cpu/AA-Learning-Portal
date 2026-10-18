@@ -40,6 +40,8 @@ export const PARENT_MENU: MenuItem[] = [
   { href: '/parent/book-teacher', label: 'Book human teacher', icon: 'person_search' },
   { href: '/parent/calendar', label: 'Family calendar', icon: 'calendar_month' },
   { href: '/parent/content', label: 'Content repository', icon: 'folder_shared' },
+  // Board HW8 (approved, OC-95): homework and resources teachers shared with the children.
+  { href: '/parent/homework', label: 'Homework', icon: 'description' },
   { href: '/parent/history', label: 'Session history', icon: 'history_edu' },
   { href: '/parent/notifications', label: 'Notifications', icon: 'notifications' },
   { href: '/parent/settings', label: 'Settings', icon: 'settings' },
