@@ -533,7 +533,7 @@ test('CR-07 H-2b: a teacher shares a worksheet; only the linked child and their 
   const card = page.getByRole('article').filter({ hasText: teacherEmail });
   await card.getByLabel('Decision note (required)').fill('Added by a parent; checked');
   await card.getByRole('button', { name: 'Approve Teacher S. Menon' }).click();
-  await expect(page.getByText(/Approved/)).toBeVisible();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
 
   // CR-12: the teacher accepts Nila's request before sharing anything.
   await t.goto('/teacher/students');
