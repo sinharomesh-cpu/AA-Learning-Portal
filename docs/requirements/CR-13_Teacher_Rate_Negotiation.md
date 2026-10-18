@@ -1,6 +1,6 @@
 # CR-13 — Teacher rate negotiation in the marketplace
 
-**Version:** 1.2 · 18 Oct 2026 · **Status:** requirement (OC-98), all ten decisions (OC-99) and the decline-wait clarification (OC-100) recorded. Designs **RN0–RN7** are **awaiting owner review**. No open questions. Nothing is built.
+**Version:** 1.3 · 18 Oct 2026 · **Status:** requirement (OC-98), all ten decisions (OC-99) and the decline-wait clarification (OC-100) recorded. Designs **RN0–RN7** **approved (OC-101, 19:36 IST)**. No open questions. To be built after CR-12 Point 1.
 **Source:** owner requirement "AA Pro — Teacher Rate Negotiation Feature", 18 Oct 2026, 16:47 IST, recorded here in full as sections A–G. Owner decisions on Q-1 to Q-10 and additional rules, 18 Oct 2026, 18:31 IST (OC-99).
 
 ## 1. Summary
