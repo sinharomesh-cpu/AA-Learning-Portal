@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useId, useRef, useState } from 'react';
 import { Button, LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -8,13 +8,65 @@ import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { cx } from '@/lib/cx';
+import { MESSAGE_MAX, REQUEST_DAYS } from '@/lib/linkRequests';
 import {
   addFromDirectoryAction,
   addTeacherAction,
   removeTeacherAction,
+  resendRequestAction,
   type TeacherFormState,
   updateLinksAction,
+  withdrawRequestAction,
 } from './actions';
+
+/** TR1: optional message to the teacher (Reading B), with the privacy hint. */
+function MessageField({ defaultValue, error }: { defaultValue?: string; error?: string }) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-bold leading-5">
+        Message to the teacher (optional)
+      </label>
+      <textarea
+        id={id}
+        name="message"
+        maxLength={MESSAGE_MAX}
+        defaultValue={defaultValue ?? ''}
+        aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`}
+        aria-invalid={error ? true : undefined}
+        className="box-border min-h-24 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface"
+      />
+      <span id={`${id}-hint`} className="text-sm leading-5 text-on-surface-variant">
+        Up to {MESSAGE_MAX} characters. Please don&apos;t include phone numbers, emails, addresses or your
+        children&apos;s names: the teacher sees names only after accepting.
+      </span>
+      {error ? (
+        <span id={`${id}-error`} role="alert" className="text-sm font-bold leading-5 text-on-error-container">
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** TR1 "What happens next". */
+export function RequestSteps() {
+  return (
+    <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-[15px] leading-[22px]">
+      <li>
+        The teacher gets one request <strong>for each child</strong> you tick.
+      </li>
+      <li>
+        Before answering they see only each child&apos;s grade and curriculum, the subjects, your first name and your
+        message. <strong>Not</strong> your children&apos;s names, books or homework.
+      </li>
+      <li>
+        They have <strong>{REQUEST_DAYS} days</strong> to accept or decline. You can withdraw a request while it waits.
+      </li>
+      <li>If they accept, they work with that child in those subjects only.</li>
+    </ul>
+  );
+}
 
 /** Boards 57 and 58: choose children and, for each, the subjects this teacher teaches (OC-41). */
 export interface PickableChild {
@@ -154,9 +206,10 @@ export function AddTeacherForm({ kids }: { kids: PickableChild[] }) {
           initial={state.values?.picks ?? (kids.length === 1 ? { [kids[0]!.id]: [] } : {})}
           error={e.children}
         />
+        <MessageField key={`m${state.at ?? 0}`} defaultValue={state.values?.message} error={e.message} />
         <div className="flex flex-wrap gap-3">
           <Button type="submit" inactive={pending}>
-            {pending ? 'Adding…' : 'Add teacher'}
+            {pending ? 'Sending…' : 'Send request'}
           </Button>
           <LinkButton href="/parent/teachers" variant="secondary">
             Cancel
@@ -182,9 +235,14 @@ export function DirectoryAddForm({ teacherId, kids }: { teacherId: string; kids:
           initial={state.values?.picks ?? (usable.length === 1 ? { [usable[0]!.id]: [] } : {})}
           error={state.fieldErrors?.children}
         />
+        <MessageField
+          key={`m${state.at ?? 0}`}
+          defaultValue={state.values?.message}
+          error={state.fieldErrors?.message}
+        />
         <div className="flex flex-wrap gap-3">
           <Button type="submit" inactive={pending}>
-            {pending ? 'Adding…' : 'Add teacher'}
+            {pending ? 'Sending…' : 'Send request'}
           </Button>
           <LinkButton href="/parent/teachers/find" variant="secondary">
             Cancel
@@ -216,7 +274,8 @@ export function ChangeLinksForm({
         error={state.fieldErrors?.children}
       />
       <p className="text-sm leading-5 text-on-surface-variant">
-        Changes apply straight away. Unticking a child or subject stops the teacher seeing it at once.
+        Changes apply straight away. Unticking a child or subject stops the teacher seeing it at once, and withdraws a
+        waiting request. A child you tick for the first time becomes a new request that the teacher accepts or declines.
       </p>
       <div className="flex flex-wrap gap-3">
         <Button type="submit" inactive={pending}>
@@ -268,6 +327,58 @@ export function RemoveTeacherButton({
       >
         {body}
       </ConfirmDialog>
+    </form>
+  );
+}
+
+/** TR2 "Withdraw request", confirmed first. */
+export function WithdrawRequestButton({
+  requestId,
+  teacher,
+  child,
+}: {
+  requestId: string;
+  teacher: string;
+  child: string;
+}) {
+  const [state, action, pending] = useActionState<TeacherFormState, FormData>(withdrawRequestAction, {});
+  const [open, setOpen] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  return (
+    <form ref={form} action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="requestId" value={requestId} />
+      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      <Button type="button" variant="secondary" inactive={pending} onClick={() => setOpen(true)}>
+        Withdraw request
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title={`Withdraw the request for ${child}?`}
+        confirmLabel="Withdraw"
+        cancelLabel="Keep waiting"
+        tone="danger"
+        onCancel={() => setOpen(false)}
+        onConfirm={() => {
+          setOpen(false);
+          form.current?.requestSubmit();
+        }}
+      >
+        {teacher} will no longer be able to accept it. You can send a new request at any time.
+      </ConfirmDialog>
+    </form>
+  );
+}
+
+/** TR2 "Send again" for an expired, withdrawn or (after the wait) declined request. */
+export function SendAgainButton({ requestId, primary }: { requestId: string; primary?: boolean }) {
+  const [state, action, pending] = useActionState<TeacherFormState, FormData>(resendRequestAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="requestId" value={requestId} />
+      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      <Button type="submit" variant={primary ? 'primary' : 'secondary'} inactive={pending}>
+        {pending ? 'Sending…' : 'Send again'}
+      </Button>
     </form>
   );
 }

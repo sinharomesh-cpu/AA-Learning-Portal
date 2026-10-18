@@ -1,6 +1,6 @@
 # CR-12 — Teacher acceptance of parent requests, and optional trial lessons
 
-**Version:** 1.1 · 18 Oct 2026 · **Status:** decisions recorded (OC-97). Designs **TR0–TR7** and Readings A–C **approved (OC-101, 19:36 IST)**. Point 1 is being built; Point 2 stays in Phase 3.
+**Version:** 1.2 · 18 Oct 2026 · **Status:** decisions recorded (OC-97). Designs **TR0–TR7** and Readings A–C **approved (OC-101, 19:36 IST)**. **Point 1 is built** (PR #81, see §7); Point 2 stays in Phase 3.
 **Source:** owner testing as a parent, 18 Oct 2026, 14:49 IST: "there should be a provision that the teacher accepts or rejects this proposal by parents (no time, personal reason …)", and "the parent asks for a demo to check the comfort between child and teacher; once ok, the parent can link the child". The owner's decisions arrived at 16:12 IST.
 
 ## 1. Owner decisions (OC-97)
@@ -124,3 +124,17 @@ Boards **TR0–TR7** are on the design canvas, page "Teacher requests & trial le
 | S-1 | Boards TR0–TR7 for review | $0 |
 | S-2 | After approval: Point 1 (migration, server rules, teacher and parent screens, tests) | $0 |
 | S-3 | Phase 3: Point 2 with scheduling. Zoom stays **Blocked — Owner Budget Approval Required** | $0 unless a meeting service is approved |
+
+## 7. Point 1 as built (PR #81)
+
+| Item | Where |
+|---|---|
+| Request states on the existing link row: `pending` (waiting for AA Pro approval), `requested` (waiting for the teacher, 14-day expiry), `active`, `removed` with `ended_as` declined, expired or withdrawn | `db/migrations/0020_teacher_link_requests.sql` |
+| Database rules: a new row is always a request; only a waiting, unexpired request becomes active, while the teacher is active and the parent is still the guardian; ended requests never come back; message ≤ 500 and note ≤ 300 characters | migration 0020 trigger `teacher_student_links_lifecycle` |
+| Server rules: requests per child, 7-day wait on every route (add by email, directory, change children, send again), withdraw, accept, decline with reason, lazy expiry with an in-app notice and a queued email | `src/server/teacherLinks.ts` |
+| Teacher: "Requests from parents" with minimum details (Reading B), Accept and Decline dialogs; dashboard notice | `/teacher/students`, `/teacher` |
+| Parent: optional message when asking; every state on My teachers with dates, reason, note and the date to ask again; Withdraw and Send again; "New for you" | `/parent/teachers`, `/parent/teachers/new`, `/parent/teachers/find/[id]` |
+| Emails (queued only): `teacher_link_request`, `parent_link_request_accepted`, `parent_link_request_declined`, `parent_link_request_expired` | `src/server/auth/outbox.ts` |
+| Audit: `LINK_REQUEST_SENT`, `_ACCEPTED`, `_DECLINED` (reason only), `_EXPIRED`, `_WITHDRAWN`, `_REFUSED` | `src/lib/auditLabels.ts` |
+
+Known limits: expiry is applied when a parent or teacher page loads (there is no scheduler yet), so the expiry email is queued at that moment rather than exactly at 14 days. Real email sending is still off (OC-65, OC-91).
