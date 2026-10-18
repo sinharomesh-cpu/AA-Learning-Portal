@@ -1,9 +1,15 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { cleanDirectoryQuery, getDirectoryTeacher, searchTeachers } from '@/server/teacherDirectory';
-import { addTeacherFromDirectory, listLinkedStudents, teacherMaySee } from '@/server/teacherLinks';
+import {
+  acceptLinkRequest,
+  addTeacherFromDirectory,
+  listLinkedStudents,
+  listLinkRequests,
+  teacherMaySee,
+} from '@/server/teacherLinks';
 import { getTeacherProfile, setHiddenFromSearch } from '@/server/teacherProfile';
-import { createAdult, createChild, testDb, uniq } from './helpers';
+import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
 /** PR3: teacher directory (board 65; OC-48, OC-54, OC-62; C-1 option (a)). */
 const sql = testDb();
@@ -138,8 +144,7 @@ describe('searching (board 65)', () => {
     const b = await family();
     const t = tag();
     const x = await teacher(`Teacher ${t} Linked`);
-    await sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
-              VALUES (${x.id}, ${a.kiran}, ${a.parent}, 'parent_added', 'active', ${['maths']})`;
+    await activeLink(sql, { teacher: x.id, child: a.kiran, parent: a.parent, subjects: ['maths'] });
     expect((await searchTeachers(sql, a.parent, { name: t })).teachers[0]!.alreadyMine).toBe(true);
     expect((await searchTeachers(sql, b.parent, { name: t })).teachers[0]!.alreadyMine).toBe(false);
   });
@@ -160,8 +165,7 @@ describe('hide from search (OC-54)', () => {
     const { parent, kiran } = await family();
     const t = tag();
     const x = await teacher(`Teacher ${t} Toggle`);
-    await sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
-              VALUES (${x.id}, ${kiran}, ${parent}, 'parent_added', 'active', ${['maths']})`;
+    await activeLink(sql, { teacher: x.id, child: kiran, parent: parent, subjects: ['maths'] });
     expect(await setHiddenFromSearch(sql, x.id, true)).toEqual({ ok: true });
     expect((await getTeacherProfile(sql, x.id))!.hiddenFromSearch).toBe(true);
     expect((await searchTeachers(sql, parent, { name: t })).teachers).toEqual([]);
@@ -186,19 +190,23 @@ describe('hide from search (OC-54)', () => {
 });
 
 describe('Add as my teacher from the directory (C-1 option (a))', () => {
-  it('links at once for allowed subjects, emails the teacher, never needs the email from the parent', async () => {
+  it('sends a request for allowed subjects, emails the teacher, never needs the email from the parent', async () => {
     const { parent, kiran } = await family();
     const x = await teacher(`Teacher ${tag()} Add`);
     const r = await addTeacherFromDirectory(sql, parent, x.id, [{ childId: kiran, subjects: ['maths'] }]);
-    expect(r).toEqual({ ok: true, teacherName: expect.stringContaining('Add') });
+    expect(r).toEqual({ ok: true, teacherName: expect.stringContaining('Add'), expiresAt: expect.any(Date) });
+    // CR-12: nothing is visible until the teacher accepts.
+    expect(await teacherMaySee(sql, x.id, kiran)).toBe(false);
+    const [request] = await listLinkRequests(sql, x.id);
+    expect(await acceptLinkRequest(sql, x.id, request!.id, 'http://aa.test')).toMatchObject({ ok: true });
     expect(await teacherMaySee(sql, x.id, kiran, 'maths')).toBe(true);
     expect(await teacherMaySee(sql, x.id, kiran, 'english')).toBe(false);
     expect((await listLinkedStudents(sql, x.id)).map((s) => s.id)).toEqual([kiran]);
     const [mail] = await sql<{ template: string }[]>`
       SELECT template FROM email_outbox WHERE to_address = ${x.email} ORDER BY created_at DESC LIMIT 1`;
-    expect(mail!.template).toBe('teacher_linked_to_child');
+    expect(mail!.template).toBe('teacher_link_request');
     const [audit] = await sql<{ details: { from: string } }[]>`
-      SELECT details FROM audit_events WHERE event_type = 'TEACHER_LINKED' AND subject_id = ${x.id}`;
+      SELECT details FROM audit_events WHERE event_type = 'LINK_REQUEST_SENT' AND subject_id = ${x.id}`;
     expect(audit!.details.from).toBe('directory');
   });
 
@@ -280,6 +288,9 @@ describe('Add as my teacher from the directory (C-1 option (a))', () => {
       addTeacherFromDirectory(sql, b.parent, x.id, [{ childId: b.kiran, subjects: ['maths'] }]),
     ]);
     expect(ra.ok && rb.ok).toBe(true);
+    const requests = await listLinkRequests(sql, x.id);
+    expect(requests).toHaveLength(2);
+    for (const r of requests) expect((await acceptLinkRequest(sql, x.id, r.id, '')).ok).toBe(true);
     expect((await listLinkedStudents(sql, x.id)).map((s) => s.id).sort()).toEqual([a.kiran, b.kiran].sort());
   });
 });

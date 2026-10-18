@@ -392,7 +392,7 @@ async function parentWithChild(browser: Browser, ip: string, child: string, subj
   return { context, page: p };
 }
 
-test('a parent adds a new teacher; after approval the teacher sees only the ticked child and subjects (OC-36, OC-41)', async ({
+test('a parent asks a new teacher; after approval the teacher accepts and sees only the ticked child and subjects (OC-36, OC-41, CR-12)', async ({
   page,
   browser,
 }) => {
@@ -409,12 +409,14 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await p.getByLabel("Teacher's name").fill('Teacher H. Kapoor');
   await p.getByLabel("Teacher's email").fill(teacherEmail);
   // Nothing ticked: a clear message.
-  await p.getByRole('button', { name: 'Add teacher' }).click();
+  await p.getByRole('button', { name: 'Send request' }).click();
   await expect(p.getByText('Tick at least one child and one subject.')).toBeVisible();
   await p.getByRole('group', { name: 'Subjects for Asha' }).getByRole('checkbox', { name: 'Maths' }).check();
-  await p.getByRole('button', { name: 'Add teacher' }).click();
-  await expect(p.getByText(/Request sent. Teacher H. Kapoor is waiting for AA Pro approval/)).toBeVisible();
-  await expect(p.getByText('Waiting for AA Pro approval', { exact: true })).toBeVisible();
+  await p.getByLabel('Message to the teacher (optional)').fill('Help with fractions, please.');
+  await p.getByRole('button', { name: 'Send request' }).click();
+  await expect(p.getByText(/Request saved. Teacher H. Kapoor is waiting for AA Pro approval/)).toBeVisible();
+  await expect(p.getByText('Waiting for AA Pro approval', { exact: true }).first()).toBeVisible();
+  await noSeriousA11yIssues(p);
 
   // OC-75: the teacher sets a password from the email, completes the profile and sends it.
   const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.14' } });
@@ -438,8 +440,22 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await card.getByRole('button', { name: 'Approve Teacher H. Kapoor' }).click();
   await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
 
+  // CR-12 (Reading A): after approval the teacher gets a request with the minimum details only.
+  await t.goto('/teacher');
+  await expect(t.getByText('1 request is waiting for your answer.', { exact: false })).toBeVisible();
+  await t.getByRole('link', { name: 'Answer requests' }).click();
+  const request = t.getByRole('article').filter({ hasText: 'Child 1 · Grade 5' });
+  await expect(request).toContainText('Request from Test (parent)');
+  await expect(request).toContainText('Help with fractions, please.');
+  expect(await t.content()).not.toContain('Asha');
+  await expect(t.getByText('When you accept a parent', { exact: false })).toBeVisible();
+  await noSeriousA11yIssues(t);
+  await request.getByRole('button', { name: 'Accept' }).click();
+  await expect(t.getByRole('dialog')).toContainText('Only Maths.');
+  await t.getByRole('dialog').getByRole('button', { name: 'Accept' }).click();
+  await expect(t.getByText(/Accepted. Asha is now in My students for Maths/)).toBeVisible();
+
   // The teacher sees Asha for Maths only.
-  await t.goto('/teacher/students');
   await expect(t.getByText('Grade 5 · Subjects with you: Maths')).toBeVisible();
   await noSeriousA11yIssues(t);
   await t.getByRole('link', { name: 'Open Asha' }).click();
@@ -448,7 +464,9 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
 
   // The parent changes the subject: the teacher sees the change at once.
   await p.goto('/parent/teachers');
-  await expect(p.getByText('Active', { exact: true })).toBeVisible();
+  await expect(p.getByText('Accepted', { exact: true })).toBeVisible();
+  await expect(p.getByText(/Teacher H. Kapoor accepted your request for Asha \(Maths\)/)).toBeVisible();
+  await noSeriousA11yIssues(p);
   await p.getByRole('link', { name: 'Change children and subjects' }).click();
   const subjects = p.getByRole('group', { name: 'Subjects for Asha' });
   await subjects.getByRole('checkbox', { name: 'Maths' }).uncheck();
@@ -476,7 +494,7 @@ test('a parent adds a new teacher; after approval the teacher sees only the tick
   await t.goto(studentUrl);
   await expect(t.getByRole('heading', { level: 1 })).toHaveText("You can't open this");
   await t.goto('/teacher/students');
-  await expect(t.getByText('When a parent adds you as their child')).toBeVisible();
+  await expect(t.getByText('When you accept a parent', { exact: false })).toBeVisible();
   await tc.close();
   await fam.context.close();
 });
@@ -495,8 +513,8 @@ test('CR-07 H-2b: a teacher shares a worksheet; only the linked child and their 
   await p.getByLabel("Teacher's name").fill('Teacher S. Menon');
   await p.getByLabel("Teacher's email").fill(teacherEmail);
   await p.getByRole('group', { name: 'Subjects for Nila' }).getByRole('checkbox', { name: 'Science' }).check();
-  await p.getByRole('button', { name: 'Add teacher' }).click();
-  await expect(p.getByText(/Request sent/)).toBeVisible();
+  await p.getByRole('button', { name: 'Send request' }).click();
+  await expect(p.getByText(/Request saved/)).toBeVisible();
 
   const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.41' } });
   const t = await tc.newPage();
@@ -516,6 +534,12 @@ test('CR-07 H-2b: a teacher shares a worksheet; only the linked child and their 
   await card.getByLabel('Decision note (required)').fill('Added by a parent; checked');
   await card.getByRole('button', { name: 'Approve Teacher S. Menon' }).click();
   await expect(page.getByText(/Approved/)).toBeVisible();
+
+  // CR-12: the teacher accepts Nila's request before sharing anything.
+  await t.goto('/teacher/students');
+  await t.getByRole('article').filter({ hasText: 'Child 1' }).getByRole('button', { name: 'Accept' }).click();
+  await t.getByRole('dialog').getByRole('button', { name: 'Accept' }).click();
+  await expect(t.getByText(/Accepted. Nila is now in My students/)).toBeVisible();
 
   // The teacher uploads a 5 MB PDF (sent in two pieces) and shares it with Nila.
   await t.goto('/teacher/resources');
@@ -584,7 +608,7 @@ test('CR-07 H-2b: a teacher shares a worksheet; only the linked child and their 
   await fam.context.close();
 });
 
-test('board 65: a parent finds an approved teacher and adds them; hidden teachers are not listed (OC-54, C-1)', async ({
+test('board 65: a parent finds an approved teacher and asks them; a decline starts the 7-day wait (OC-54, C-1, CR-12)', async ({
   page,
   browser,
 }) => {
@@ -647,7 +671,7 @@ test('board 65: a parent finds an approved teacher and adds them; hidden teacher
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await p.setViewportSize({ width: 1280, height: 900 });
 
-  // "Add as my teacher" (C-1 option (a)): only subjects both have; the link starts at once.
+  // "Add as my teacher" (C-1 option (a)): only subjects both have; a request the teacher answers (CR-12).
   await result.getByRole('link', { name: 'Add as my teacher' }).click();
   await expect(p.getByRole('heading', { level: 1, name: `Add ${teacherName}` })).toBeVisible();
   await noSeriousA11yIssues(p);
@@ -656,25 +680,51 @@ test('board 65: a parent finds an approved teacher and adds them; hidden teacher
   await expect(subjects.getByRole('checkbox', { name: 'English' })).toHaveCount(0);
   await expect(subjects.getByRole('checkbox', { name: 'Science' })).toHaveCount(0);
   await subjects.getByRole('checkbox', { name: 'Maths' }).check();
-  await p.getByRole('button', { name: 'Add teacher' }).click();
-  await expect(
-    p.getByText(`${teacherName} can now see the children and subjects you ticked. We've emailed them.`),
-  ).toBeVisible();
+  await p.getByRole('button', { name: 'Send request' }).click();
+  await expect(p.getByText(`Request sent to ${teacherName}.`, { exact: false })).toBeVisible();
+  await expect(p.getByText('Waiting for the teacher', { exact: true })).toBeVisible();
+  await noSeriousA11yIssues(p);
   // Queued only (shown in the development mailbox); nothing is sent for real.
   await p.goto('/dev/mailbox');
   await expect(
     p
       .getByTestId('mail')
       .filter({ has: p.getByTestId('mail-to').getByText(teacherEmail, { exact: true }) })
-      .filter({ has: p.getByTestId('mail-template').getByText('teacher_linked_to_child', { exact: true }) }),
+      .filter({ has: p.getByTestId('mail-template').getByText('teacher_link_request', { exact: true }) }),
   ).toHaveCount(1);
 
-  await t.goto('/teacher/students');
-  await expect(t.getByText('Grade 5 · Subjects with you: Maths')).toBeVisible();
-
-  // Listed again as already this family's teacher.
+  // While the request waits the family sees "already your teacher" in the directory.
   await p.goto(`/parent/teachers/find?name=${encodeURIComponent(teacherName)}`);
   await expect(p.getByRole('link', { name: 'Already your teacher · Change children' })).toBeVisible();
+
+  // The teacher declines with a reason (TR4); no access is granted.
+  await t.goto('/teacher/students');
+  const request = t.getByRole('article').filter({ hasText: 'Child 1 · Grade 5' });
+  await request.getByRole('button', { name: 'Decline' }).click();
+  const dialog = t.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Decline' }).click();
+  await expect(dialog.getByText('Choose a reason.')).toBeVisible();
+  await dialog.getByRole('radio', { name: 'No time at the moment' }).check();
+  await dialog.getByLabel('Note to the parent (optional)').fill('Full until December, sorry!');
+  await noSeriousA11yIssues(t);
+  await dialog.getByRole('button', { name: 'Decline' }).click();
+  await expect(t.getByText('Declined. The parent can see your reason.', { exact: false })).toBeVisible();
+  await expect(t.getByText('No students yet')).toBeVisible();
+
+  // The parent sees the answer and when they may ask again; asking again now is refused.
+  await p.goto('/parent/teachers');
+  await expect(p.getByText('Declined', { exact: true })).toBeVisible();
+  await expect(p.getByText('Full until December, sorry!', { exact: false })).toBeVisible();
+  await expect(p.getByText(/You can ask this teacher again for Isha from/)).toBeVisible();
+  await expect(p.getByRole('link', { name: 'Find another teacher' })).toBeVisible();
+  await noSeriousA11yIssues(p);
+  await p.goto(`/parent/teachers/find?name=${encodeURIComponent(teacherName)}`);
+  await p.getByRole('article').getByRole('link', { name: 'Add as my teacher' }).click();
+  await p.getByRole('group', { name: 'Subjects for Isha' }).getByRole('checkbox', { name: 'Maths' }).check();
+  await p.getByRole('button', { name: 'Send request' }).click();
+  await expect(
+    p.getByText(/declined your request for Isha recently. You can ask them again for Isha from/),
+  ).toBeVisible();
 
   // Unknown or unlisted teachers can't be opened directly.
   const missing = await p.goto('/parent/teachers/find/00000000-0000-4000-8000-000000000000');

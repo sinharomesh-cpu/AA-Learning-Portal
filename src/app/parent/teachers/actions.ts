@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
+import { dayAndTime, MESSAGE_MAX } from '@/lib/linkRequests';
 import { db } from '@/server/db/client';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getRealSession } from '@/server/session';
@@ -11,7 +12,9 @@ import {
   addTeacherFromDirectory,
   type ChildSubjects,
   removeTeacher,
+  resendLinkRequest,
   updateTeacherLinks,
+  withdrawLinkRequest,
 } from '@/server/teacherLinks';
 
 /**
@@ -21,7 +24,7 @@ import {
 export interface TeacherFormState {
   error?: string;
   fieldErrors?: Record<string, string>;
-  values?: { name?: string; email?: string; picks?: Record<string, string[]> };
+  values?: { name?: string; email?: string; message?: string; picks?: Record<string, string[]> };
   at?: number;
 }
 
@@ -30,11 +33,24 @@ const str = (fd: FormData, key: string) => {
   return typeof v === 'string' ? v : '';
 };
 
-async function parentId(): Promise<string> {
+async function parentSession(): Promise<{ id: string; timeZone: string }> {
   const real = await getRealSession();
   if (!real || real.session.role !== 'parent' || real.session.status !== 'active') redirect('/sign-in');
-  return real.session.accountId;
+  return { id: real.session.accountId, timeZone: real.session.timeZone };
 }
+
+async function parentId(): Promise<string> {
+  return (await parentSession()).id;
+}
+
+const MESSAGE_TOO_LONG = `Keep the message to ${MESSAGE_MAX} characters or fewer.`;
+
+/** FR-038.8: the 7-day wait after a decline, with the date it ends. */
+const waitText = (teacher: string, child: string, until: Date, timeZone: string) =>
+  `${teacher || 'This teacher'} declined your request for ${child} recently. You can ask them again for ${child} from ${dayAndTime(until, timeZone)}. You can ask any other teacher now.`;
+
+const ALREADY = (teacher: string) =>
+  `${teacher} already has a request or a link for the children you ticked. See My teachers, where you can change subjects or withdraw a request.`;
 
 /** Reads "child" checkboxes and "subjects:<childId>" ticks; an unticked child counts as no subjects. */
 function readPicks(fd: FormData): { choice: ChildSubjects[]; picks: Record<string, string[]> } {
@@ -49,12 +65,13 @@ function readPicks(fd: FormData): { choice: ChildSubjects[]; picks: Record<strin
 const CHOOSE = 'Tick at least one child and one subject.';
 
 export async function addTeacherAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
-  const parent = await parentId();
+  const parent = await parentSession();
   const { choice, picks } = readPicks(fd);
-  const values = { name: str(fd, 'name'), email: str(fd, 'email'), picks };
-  const r = await addTeacher(db(), parent, {
+  const values = { name: str(fd, 'name'), email: str(fd, 'email'), message: str(fd, 'message'), picks };
+  const r = await addTeacher(db(), parent.id, {
     name: values.name,
     email: values.email,
+    message: values.message,
     children: choice,
     baseUrl: await siteBaseUrl(),
   });
@@ -87,6 +104,12 @@ export async function addTeacherAction(_prev: TeacherFormState, fd: FormData): P
       };
     case 'cannot_add':
       return { values, at, error: "We couldn't add this teacher. Check the email address, or contact support." };
+    case 'message':
+      return { values, at, fieldErrors: { message: MESSAGE_TOO_LONG } };
+    case 'already':
+      return { values, at, error: ALREADY(r.teacherName) };
+    case 'wait':
+      return { values, at, error: waitText(r.teacherName, r.child, r.until, parent.timeZone) };
     default:
       return { values, at, error: "We couldn't add this teacher. Please reload the page and try again." };
   }
@@ -94,16 +117,26 @@ export async function addTeacherAction(_prev: TeacherFormState, fd: FormData): P
 
 /** Board 65 "Add as my teacher": the teacher comes from the directory, so no email is typed or shown. */
 export async function addFromDirectoryAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
-  const parent = await parentId();
+  const parent = await parentSession();
   const teacherId = str(fd, 'teacherId');
   const { choice, picks } = readPicks(fd);
-  const r = await addTeacherFromDirectory(db(), parent, teacherId, choice);
+  const message = str(fd, 'message');
+  const r = await addTeacherFromDirectory(db(), parent.id, teacherId, choice, {
+    message,
+    baseUrl: await siteBaseUrl(),
+  });
   if (r.ok) {
     revalidatePath('/parent/teachers');
-    redirect(`/parent/teachers?done=linked&who=${encodeURIComponent(r.teacherName)}`);
+    redirect(`/parent/teachers?done=sent&who=${encodeURIComponent(r.teacherName)}`);
   }
   const at = Date.now();
   switch (r.reason) {
+    case 'message':
+      return { values: { picks, message }, at, fieldErrors: { message: MESSAGE_TOO_LONG } };
+    case 'already':
+      return { values: { picks, message }, at, error: ALREADY(r.teacherName) };
+    case 'wait':
+      return { values: { picks, message }, at, error: waitText(r.teacherName, r.child, r.until, parent.timeZone) };
     case 'choose':
     case 'subjects':
       return { values: { picks }, at, fieldErrors: { children: CHOOSE } };
@@ -123,13 +156,16 @@ export async function addFromDirectoryAction(_prev: TeacherFormState, fd: FormDa
 }
 
 export async function updateLinksAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
-  const parent = await parentId();
+  const parent = await parentSession();
   const teacherId = str(fd, 'teacherId');
   const { choice, picks } = readPicks(fd);
-  const r = await updateTeacherLinks(db(), parent, teacherId, choice);
+  const r = await updateTeacherLinks(db(), parent.id, teacherId, choice, new Date(), await siteBaseUrl());
   if (r.ok) {
     revalidatePath('/parent/teachers');
-    redirect(`/parent/teachers?done=${r.removed ? 'removed' : 'changed'}`);
+    redirect(`/parent/teachers?done=${r.removed ? 'removed' : r.requested ? 'changed_requested' : 'changed'}`);
+  }
+  if (r.reason === 'wait') {
+    return { values: { picks }, at: Date.now(), error: waitText('', r.child, r.until, parent.timeZone) };
   }
   if (r.reason === 'subjects') {
     return {
@@ -149,4 +185,47 @@ export async function removeTeacherAction(_prev: TeacherFormState, fd: FormData)
     redirect('/parent/teachers?done=removed');
   }
   return { error: 'This teacher is no longer linked to your children.', at: Date.now() };
+}
+
+/** TR2 "Withdraw request": one waiting request, after a confirmation. */
+export async function withdrawRequestAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
+  const parent = await parentId();
+  const r = await withdrawLinkRequest(db(), parent, str(fd, 'requestId'));
+  if (r.ok) {
+    revalidatePath('/parent/teachers');
+    redirect('/parent/teachers?done=withdrawn');
+  }
+  return {
+    error:
+      r.reason === 'answered'
+        ? 'The teacher has already answered, or the request has ended. The page now shows the latest status.'
+        : 'This request is no longer available.',
+    at: Date.now(),
+  };
+}
+
+/** TR2 "Send again": after an expiry, a withdrawal, or once the 7-day wait after a decline is over. */
+export async function resendRequestAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
+  const parent = await parentSession();
+  const r = await resendLinkRequest(db(), parent.id, str(fd, 'requestId'), await siteBaseUrl());
+  if (r.ok) {
+    revalidatePath('/parent/teachers');
+    redirect(`/parent/teachers?done=${r.outcome}&who=${encodeURIComponent(r.teacherName)}`);
+  }
+  const at = Date.now();
+  switch (r.reason) {
+    case 'wait':
+      return { at, error: `You can send this again from ${dayAndTime(r.until, parent.timeZone)}.` };
+    case 'already':
+      return { at, error: 'There is already a request or a link for this child with this teacher.' };
+    case 'subjects':
+      return {
+        at,
+        error: 'This teacher no longer teaches the subjects you asked for. Use Add a teacher to choose others.',
+      };
+    case 'cannot_add':
+      return { at, error: 'This teacher can no longer be asked on AA Pro.' };
+    default:
+      return { at, error: 'This request is no longer available.' };
+  }
 }

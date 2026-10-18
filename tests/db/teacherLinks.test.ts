@@ -3,8 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { decideProfileChange, decideTeacher } from '@/server/admin';
 import { saveTeacherProfile } from '@/server/teacherProfile';
 import {
+  acceptLinkRequest,
   addTeacher,
   listLinkedStudents,
+  listLinkRequests,
   listMyTeachers,
   NEW_TEACHERS_PER_DAY,
   removeTeacher,
@@ -68,6 +70,14 @@ async function sendProfile(teacherId: string, subjects: string[]) {
   if (!r.ok) throw new Error(JSON.stringify(r));
 }
 
+/** The teacher accepts every waiting request (CR-12): links start only then. */
+async function acceptAll(teacherId: string) {
+  for (const r of await listLinkRequests(sql, teacherId, T0)) {
+    const a = await acceptLinkRequest(sql, teacherId, r.id, BASE, T0);
+    if (!a.ok) throw new Error(JSON.stringify(a));
+  }
+}
+
 async function lastTemplate(to: string) {
   const [row] = await sql<{ template: string }[]>`
     SELECT template FROM email_outbox WHERE to_address = ${to} ORDER BY created_at DESC, id DESC LIMIT 1`;
@@ -75,7 +85,7 @@ async function lastTemplate(to: string) {
 }
 
 describe('adding a teacher (board 58)', () => {
-  it('an approved teacher is linked at once for the ticked children and subjects, and emailed', async () => {
+  it('an approved teacher gets a request per child, and is linked for those subjects only on accepting', async () => {
     const { parent, kiran, meera } = await family();
     const t = await approvedTeacher();
     const r = await addTeacher(
@@ -89,12 +99,14 @@ describe('adding a teacher (board 58)', () => {
       },
       T0,
     );
-    expect(r).toEqual({ ok: true, outcome: 'linked', teacherName: 'Teacher A. Rao' });
+    expect(r).toMatchObject({ ok: true, outcome: 'sent', teacherName: 'Teacher A. Rao' });
+    expect(await teacherMaySee(sql, t.id, kiran)).toBe(false);
+    expect(await lastTemplate(t.email)).toBe('teacher_link_request');
+    await acceptAll(t.id);
     expect(await teacherMaySee(sql, t.id, kiran)).toBe(true);
     expect(await teacherMaySee(sql, t.id, kiran, 'science')).toBe(true);
     expect(await teacherMaySee(sql, t.id, kiran, 'maths')).toBe(false);
     expect(await teacherMaySee(sql, t.id, meera)).toBe(false);
-    expect(await lastTemplate(t.email)).toBe('teacher_linked_to_child');
     expect((await listLinkedStudents(sql, t.id)).map((s) => [s.id, s.subjects])).toEqual([[kiran, ['science']]]);
     const [mine] = await listMyTeachers(sql, parent);
     expect(mine).toMatchObject({ id: t.id, state: 'active', teaches: ['science', 'maths'] });
@@ -109,7 +121,7 @@ describe('adding a teacher (board 58)', () => {
       { name: 'Teacher H. Kapoor', email: address, children: [{ childId: kiran, subjects: ['maths'] }], baseUrl: BASE },
       T0,
     );
-    expect(r).toMatchObject({ ok: true, outcome: 'requested' });
+    expect(r).toMatchObject({ ok: true, outcome: 'waiting_approval' });
     const [teacher] = await sql<{ id: string; status: string; password_hash: string | null }[]>`
       SELECT id, status, password_hash FROM accounts WHERE email = ${address}`;
     expect(teacher).toMatchObject({ status: 'pending_approval', password_hash: null });
@@ -129,10 +141,21 @@ describe('adding a teacher (board 58)', () => {
     expect(
       (await decideTeacher(sql, owner, teacher!.id, { decision: 'approve', note: 'Checked', baseUrl: BASE }, T0)).ok,
     ).toBe(true);
+    // Reading A (OC-101): approval sends the request to the teacher; nothing starts by itself.
+    expect(await teacherMaySee(sql, teacher!.id, kiran, 'maths')).toBe(false);
+    const sentTo = await sql<{ template: string }[]>`SELECT template FROM email_outbox WHERE to_address = ${address}`;
+    expect(sentTo.map((m) => m.template)).toEqual(
+      expect.arrayContaining(['teacher_approved_set_password', 'teacher_link_request']),
+    );
+    await acceptAll(teacher!.id);
     expect(await teacherMaySee(sql, teacher!.id, kiran, 'maths')).toBe(true);
-    expect(await lastTemplate(address)).toBe('teacher_approved_set_password');
     const [parentRow] = await sql<{ email: string }[]>`SELECT email FROM accounts WHERE id = ${parent}`;
-    expect(await lastTemplate(parentRow!.email)).toBe('parent_teacher_approved');
+    const toParent = await sql<
+      { template: string }[]
+    >`SELECT template FROM email_outbox WHERE to_address = ${parentRow!.email}`;
+    expect(toParent.map((m) => m.template)).toEqual(
+      expect.arrayContaining(['parent_teacher_approved', 'parent_link_request_accepted']),
+    );
   });
 
   it('a rejected teacher gives no access; the parent is told and sees "Not approved"', async () => {
@@ -232,7 +255,7 @@ describe('adding a teacher (board 58)', () => {
 });
 
 describe('changing and removing links (board 57)', () => {
-  it('unticking a subject or a child ends access at once; adding a child links it', async () => {
+  it('unticking a subject or a child ends access at once; adding a child sends a request for it', async () => {
     const { parent, kiran, meera } = await family();
     const t = await approvedTeacher();
     await addTeacher(
@@ -241,22 +264,33 @@ describe('changing and removing links (board 57)', () => {
       { name: 'Rao', email: t.email, children: [{ childId: kiran, subjects: ['science', 'maths'] }], baseUrl: BASE },
       T0,
     );
+    await acceptAll(t.id);
     expect(
-      await updateTeacherLinks(sql, parent, t.id, [
-        { childId: kiran, subjects: ['science'] },
-        { childId: meera, subjects: ['science'] },
-      ]),
-    ).toEqual({ ok: true, removed: false });
+      await updateTeacherLinks(
+        sql,
+        parent,
+        t.id,
+        [
+          { childId: kiran, subjects: ['science'] },
+          { childId: meera, subjects: ['science'] },
+        ],
+        T0,
+      ),
+    ).toEqual({ ok: true, removed: false, requested: 1 });
     expect(await teacherMaySee(sql, t.id, kiran, 'maths')).toBe(false);
+    expect(await teacherMaySee(sql, t.id, kiran, 'science')).toBe(true);
+    expect(await teacherMaySee(sql, t.id, meera, 'science')).toBe(false);
+    await acceptAll(t.id);
     expect(await teacherMaySee(sql, t.id, meera, 'science')).toBe(true);
 
-    expect(await updateTeacherLinks(sql, parent, t.id, [{ childId: meera, subjects: ['science'] }])).toEqual({
+    expect(await updateTeacherLinks(sql, parent, t.id, [{ childId: meera, subjects: ['science'] }], T0)).toEqual({
       ok: true,
       removed: false,
+      requested: 0,
     });
     expect(await teacherMaySee(sql, t.id, kiran)).toBe(false);
 
-    expect(await updateTeacherLinks(sql, parent, t.id, [])).toEqual({ ok: true, removed: true });
+    expect(await updateTeacherLinks(sql, parent, t.id, [], T0)).toEqual({ ok: true, removed: true, requested: 0 });
     expect(await teacherMaySee(sql, t.id, meera)).toBe(false);
     expect(await listMyTeachers(sql, parent)).toEqual([]);
   });
@@ -271,6 +305,7 @@ describe('changing and removing links (board 57)', () => {
       { name: 'Rao', email: t.email, children: [{ childId: kiran, subjects: ['science'] }], baseUrl: BASE },
       T0,
     );
+    await acceptAll(t.id);
     expect(await removeTeacher(sql, stranger.parent, t.id)).toEqual({ ok: false, reason: 'not_found' });
     expect(
       await updateTeacherLinks(sql, stranger.parent, t.id, [{ childId: kiran, subjects: ['maths'] }]),
@@ -299,7 +334,7 @@ describe('changing and removing links (board 57)', () => {
         { name: 'Teacher C', email: address, children: [{ childId: kiran, subjects: ['maths'] }], baseUrl: BASE },
         T0,
       ),
-    ).toMatchObject({ ok: true, outcome: 'requested' });
+    ).toMatchObject({ ok: true, outcome: 'waiting_approval' });
   });
 });
 
@@ -313,6 +348,7 @@ describe('the shared access check', () => {
       { name: 'Rao', email: t.email, children: [{ childId: kiran, subjects: ['science'] }], baseUrl: BASE },
       T0,
     );
+    await acceptAll(t.id);
     await sql`UPDATE accounts SET status = 'deactivated', status_reason = 'Test' WHERE id = ${t.id}`;
     expect(await teacherMaySee(sql, t.id, kiran)).toBe(false);
     expect(await listLinkedStudents(sql, t.id)).toEqual([]);
@@ -327,6 +363,7 @@ describe('the shared access check', () => {
       { name: 'Rao', email: t.email, children: [{ childId: kiran, subjects: ['science'] }], baseUrl: BASE },
       T0,
     );
+    await acceptAll(t.id);
     await sql`UPDATE accounts SET status = 'suspended' WHERE id = ${kiran}`;
     expect(await teacherMaySee(sql, t.id, kiran)).toBe(false);
     await sql`UPDATE accounts SET status = 'active' WHERE id = ${kiran}`;
@@ -383,6 +420,7 @@ describe('OC-75: subjects must be on the teacher’s approved profile', () => {
       { name: 'Rao', email: t.email, children: [{ childId: kiran, subjects: ['science'] }], baseUrl: BASE },
       T0,
     );
+    await acceptAll(t.id);
     expect(await updateTeacherLinks(sql, parent, t.id, [{ childId: kiran, subjects: ['science', 'maths'] }])).toEqual({
       ok: false,
       reason: 'subjects',
@@ -413,13 +451,17 @@ describe('OC-75: subjects must be on the teacher’s approved profile', () => {
     // No active link while waiting, whatever is ticked; the database refuses one too.
     await expect(
       sql`UPDATE teacher_student_links SET status = 'active' WHERE teacher_id = ${teacher!.id}`,
-    ).rejects.toThrow(/approved teacher/);
+    ).rejects.toThrow(/only a request waiting for the teacher can be accepted/);
     for (const s of ['maths', 'english', undefined])
       expect(await teacherMaySee(sql, teacher!.id, kiran, s)).toBe(false);
 
     await sendProfile(teacher!.id, ['maths', 'science']);
     const owner = await createAdult(sql, 'superadmin');
     await decideTeacher(sql, owner, teacher!.id, { decision: 'approve', note: 'Checked', baseUrl: BASE }, T0);
+    expect(await teacherMaySee(sql, teacher!.id, kiran, 'maths')).toBe(false);
+    const [request] = await listLinkRequests(sql, teacher!.id, T0);
+    expect(request?.subjects).toEqual(['maths']);
+    await acceptAll(teacher!.id);
     expect(await teacherMaySee(sql, teacher!.id, kiran, 'maths')).toBe(true);
     expect(await teacherMaySee(sql, teacher!.id, kiran, 'english')).toBe(false);
     const [parentRow] = await sql<{ email: string }[]>`SELECT email FROM accounts WHERE id = ${parent}`;
@@ -467,6 +509,7 @@ describe('OC-75: subjects must be on the teacher’s approved profile', () => {
       },
       T0,
     );
+    await acceptAll(t.id);
     await saveTeacherProfile(
       sql,
       t.id,
@@ -505,6 +548,7 @@ describe('OC-75: subjects must be on the teacher’s approved profile', () => {
       { name: 'Rao', email: t.email, children: [{ childId: kiran, subjects: ['science', 'maths'] }], baseUrl: BASE },
       T0,
     );
+    await acceptAll(t.id);
     await sql`UPDATE teacher_profiles SET subjects = ${['science']} WHERE account_id = ${t.id}`;
     expect(await teacherMaySee(sql, t.id, kiran, 'maths')).toBe(false);
     expect((await listLinkedStudents(sql, t.id))[0]?.subjects).toEqual(['science']);

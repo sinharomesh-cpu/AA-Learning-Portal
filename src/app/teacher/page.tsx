@@ -436,6 +436,25 @@ export default async function TeacherHomePage() {
   return (
     <div className="flex flex-col gap-8">
       <Masthead home={home} now={now} />
+      {home.linkRequests > 0 ? (
+        <section
+          aria-labelledby="link-requests"
+          className="flex flex-col gap-3 rounded-lg border border-human-border bg-primary-fixed/40 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        >
+          <div className="flex flex-col gap-1">
+            <h2 id="link-requests" className="font-headline text-headline-sm font-bold">
+              Requests from parents
+            </h2>
+            <p className="text-body-md text-on-surface-variant">
+              {home.linkRequests === 1
+                ? '1 request is waiting for your answer.'
+                : `${home.linkRequests} requests are waiting for your answer.`}{' '}
+              You answer for each child.
+            </p>
+          </div>
+          <LinkButton href="/teacher/students">Answer requests</LinkButton>
+        </section>
+      ) : null}
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
         <Sessions home={home} now={now} />
         <Availability home={home} now={now} />

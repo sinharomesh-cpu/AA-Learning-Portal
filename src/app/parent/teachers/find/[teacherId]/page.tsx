@@ -13,7 +13,7 @@ import { listChildren } from '@/server/children';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getDirectoryTeacher } from '@/server/teacherDirectory';
-import { DirectoryAddForm } from '../../TeacherForms';
+import { DirectoryAddForm, RequestSteps } from '../../TeacherForms';
 
 export const metadata: Metadata = { title: 'Add as my teacher' };
 export const dynamic = 'force-dynamic';
@@ -58,9 +58,10 @@ export default async function AddFromDirectoryPage({ params }: { params: Promise
       ) : (
         <>
           <FormMessage tone="info">
-            {teacher.name} is already approved by AA Pro, so they can see the children and subjects you tick straight
-            away. We&apos;ll email them to say you added them. You can change or remove this at any time.
+            {teacher.name} is approved by AA Pro. They answer for each child you tick, and see nothing about your
+            children until they accept. You can withdraw a request while it waits.
           </FormMessage>
+          <RequestSteps />
           <DirectoryAddForm
             teacherId={teacher.id}
             // OC-75: only subjects the teacher is approved for and the child studies.

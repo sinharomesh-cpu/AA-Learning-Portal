@@ -36,3 +36,21 @@ export async function createChild(sql: Sql, parentId: string) {
   await sql`INSERT INTO guardian_links (parent_id, student_id) VALUES (${parentId}, ${row!.id})`;
   return row!.id;
 }
+
+/**
+ * An accepted teacher–child link (CR-12): since migration 0020 a link starts as a request and
+ * becomes active only when the teacher accepts it, so fixtures go through the same two steps.
+ */
+export async function activeLink(
+  sql: Sql,
+  link: { teacher: string; child: string; parent: string; subjects: string[] },
+): Promise<string> {
+  const [row] = await sql<{ id: string }[]>`
+    INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects,
+                                       requested_at, expires_at)
+    VALUES (${link.teacher}, ${link.child}, ${link.parent}, 'parent_added', 'requested', ${link.subjects},
+            now(), now() + interval '14 days')
+    RETURNING id`;
+  await sql`UPDATE teacher_student_links SET status = 'active', answered_at = now() WHERE id = ${row!.id}`;
+  return row!.id;
+}

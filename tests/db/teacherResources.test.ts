@@ -14,7 +14,7 @@ import {
   shareWithMore,
   unshareResource,
 } from '@/server/teacherResources';
-import { createAdult, createChild, testDb, uniq } from './helpers';
+import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
 /** CR-07 H-2b: teacher-shared resources (T-R1 to T-R5, file access, FR-027.2). */
 const sql = testDb();
@@ -44,8 +44,7 @@ async function family(childName = 'Kiran') {
 }
 
 async function link(teacherId: string, f: { parent: string; child: string }, subjects: string[]) {
-  await sql`INSERT INTO teacher_student_links (teacher_id, student_id, created_by_parent_id, source, status, subjects)
-            VALUES (${teacherId}, ${f.child}, ${f.parent}, 'parent_added', 'active', ${subjects})`;
+  await activeLink(sql, { teacher: teacherId, child: f.child, parent: f.parent, subjects });
 }
 
 async function upload(owner: string) {

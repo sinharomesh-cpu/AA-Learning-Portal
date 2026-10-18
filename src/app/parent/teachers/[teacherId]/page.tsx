@@ -8,7 +8,7 @@ import { requireRole } from '@/server/authz';
 import { listChildren } from '@/server/children';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { listMyTeachers } from '@/server/teacherLinks';
+import { isLive, listMyTeachers } from '@/server/teacherLinks';
 import { ChangeLinksForm, RemoveTeacherButton } from '../TeacherForms';
 
 export const metadata: Metadata = { title: 'Change children and subjects' };
@@ -22,9 +22,10 @@ export default async function ChangeTeacherPage({ params }: { params: Promise<{ 
   const { teacherId } = await params;
   const teacher = (await listMyTeachers(db(), access.viewer.id)).find((t) => t.id === teacherId);
   // Another family's teacher, an unknown id or a removed link: the same "not found".
-  if (!teacher || teacher.state === 'not_approved') notFound();
+  const live = teacher?.children.filter((c) => isLive(c.status)) ?? [];
+  if (!teacher || teacher.state === 'not_approved' || live.length === 0) notFound();
   const kids = (await listChildren(db(), access.viewer.id)).filter((k) => k.status === 'active');
-  const initial = Object.fromEntries(teacher.children.map((c) => [c.childId, c.subjects]));
+  const initial = Object.fromEntries(live.map((c) => [c.childId, c.subjects]));
   return (
     <div className="flex max-w-[760px] flex-col gap-6">
       <Link href="/parent/teachers" className="inline-flex min-h-11 items-center font-bold">
@@ -34,12 +35,13 @@ export default async function ChangeTeacherPage({ params }: { params: Promise<{ 
       {teacher.state === 'active' ? (
         <p className="text-sm leading-5 text-on-surface-variant">
           Teaches on AA Pro: {teacher.teaches.map((x) => SUBJECTS[x as SubjectId]?.name ?? x).join(', ')}. You can
-          choose only these subjects.
+          choose only these subjects. Changing the subjects of a child the teacher already accepted needs no new answer;
+          a child you add becomes a new request.
         </p>
       ) : (
         <p className="text-sm leading-5 text-on-surface-variant">
-          Waiting for AA Pro approval. Your choices are saved and start only for the subjects the teacher is approved
-          for.
+          Waiting for AA Pro approval. Your choices are saved. After approval they go to the teacher as requests, only
+          for the subjects the teacher is approved for.
         </p>
       )}
       <Card className="flex flex-col gap-5 p-4 sm:p-6">
@@ -57,10 +59,10 @@ export default async function ChangeTeacherPage({ params }: { params: Promise<{ 
       </Card>
       <RemoveTeacherButton
         teacherId={teacher.id}
-        label={teacher.state === 'waiting' ? 'Cancel request' : 'Remove teacher'}
+        label={live.some((c) => c.status === 'active') ? 'Remove teacher' : 'Cancel requests'}
         title={`Remove ${teacher.name}?`}
         confirmLabel="Remove"
-        body="They will stop seeing your children and their books straight away."
+        body="They will stop seeing your children and their books straight away, and waiting requests are withdrawn."
       />
     </div>
   );

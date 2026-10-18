@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { FormMessage } from '@/components/forms/FormMessage';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { EmptyState } from '@/components/states/States';
@@ -9,7 +8,8 @@ import { requireRole } from '@/server/authz';
 import { listChildren } from '@/server/children';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { AddTeacherForm } from '../TeacherForms';
+import { Card } from '@/components/Card';
+import { AddTeacherForm, RequestSteps } from '../TeacherForms';
 
 export const metadata: Metadata = { title: 'Add a teacher' };
 export const dynamic = 'force-dynamic';
@@ -41,10 +41,19 @@ export default async function AddTeacherPage() {
         </EmptyState>
       ) : (
         <>
-          <FormMessage tone="info">
-            AA Pro checks every new teacher before they can see your children. We email the teacher now, and again when
-            they&apos;re approved.
-          </FormMessage>
+          <p className="text-sm leading-5 text-on-surface-variant">
+            The teacher answers for each child. Nothing is shared with them until they accept.
+          </p>
+          <Card as="section" aria-labelledby="next" className="flex max-w-[760px] flex-col gap-2 p-4 sm:p-6">
+            <h2 id="next" className="text-sm font-bold leading-5">
+              What happens next
+            </h2>
+            <RequestSteps />
+            <p className="text-sm leading-5 text-on-surface-variant">
+              Teacher new to AA Pro? AA Pro checks every new teacher first. The request waits for that approval, and the
+              teacher then has 14 days to answer.
+            </p>
+          </Card>
           <AddTeacherForm kids={kids.map((k) => ({ id: k.id, name: k.name, grade: k.grade, subjects: k.subjects }))} />
         </>
       )}
