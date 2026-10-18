@@ -15,8 +15,8 @@ import sharp, { type Sharp } from 'sharp';
 export const FILE_MAX_BYTES = 20 * 1024 * 1024;
 /** Pictures larger than this many pixels are refused ("decompression bombs"). */
 const MAX_INPUT_PIXELS = 50_000_000;
-/** Long side of a stored picture; enough to read a handwritten page when zoomed. */
-export const IMAGE_MAX_SIDE = 3000;
+/** Long side of a stored picture (FR-021.8); enough to read a handwritten page when zoomed. */
+export const IMAGE_MAX_SIDE = 2400;
 
 export type FileKind = 'pdf' | 'jpeg' | 'png' | 'webp' | 'heic';
 export type StoredMediaType = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp';
@@ -67,14 +67,20 @@ function checkPdf(bytes: Uint8Array): FileProblem | null {
   return null;
 }
 
-async function reencode(input: Sharp, kind: 'jpeg' | 'png' | 'webp'): Promise<Buffer> {
-  const resized = input
-    .rotate() // apply the camera's orientation, then forget it
-    .resize(IMAGE_MAX_SIDE, IMAGE_MAX_SIDE, { fit: 'inside', withoutEnlargement: true });
-  // No withMetadata(): sharp writes no EXIF, XMP or GPS data unless asked to.
-  if (kind === 'png') return resized.png({ compressionLevel: 9 }).toBuffer();
-  if (kind === 'webp') return resized.webp({ quality: 85 }).toBuffer();
-  return resized.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+/**
+ * Every picture is stored as one viewable format (FR-021.8): JPEG, longest side at most
+ * 2,400 px, transparent areas on white.
+ */
+async function reencode(input: Sharp): Promise<Buffer> {
+  return (
+    input
+      .rotate() // apply the camera's orientation, then forget it
+      .resize(IMAGE_MAX_SIDE, IMAGE_MAX_SIDE, { fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#ffffff' })
+      // No withMetadata(): sharp writes no EXIF, XMP or GPS data unless asked to.
+      .jpeg({ quality: 85, mozjpeg: true })
+      .toBuffer()
+  );
 }
 
 async function heicToSharp(bytes: Uint8Array): Promise<Sharp | null> {
@@ -112,20 +118,17 @@ export async function prepareFile(bytes: Uint8Array, originalName?: string | nul
 
   try {
     let input: Sharp | null;
-    let out: 'jpeg' | 'png' | 'webp';
     if (kind === 'heic') {
       input = await heicToSharp(bytes);
-      out = 'jpeg';
     } else {
       input = sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error', animated: false });
       const meta = await input.metadata();
       if (!meta.width || !meta.height) input = null;
-      out = kind;
     }
     if (!input) return { ok: false, problem: 'unreadable' };
-    const body = await reencode(input, out);
+    const body = await reencode(input);
     if (body.length === 0 || body.length > FILE_MAX_BYTES) return { ok: false, problem: 'too_big' };
-    const mediaType: StoredMediaType = `image/${out}`;
+    const mediaType: StoredMediaType = 'image/jpeg';
     return { ok: true, mediaType, body, fileName: safeFileName(originalName, mediaType) };
   } catch {
     return { ok: false, problem: 'unreadable' };

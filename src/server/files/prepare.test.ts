@@ -81,8 +81,11 @@ describe('photos are re-encoded without metadata (T-F5)', () => {
     const r = await prepareFile(big, 'scan.png');
     if (!r.ok) throw new Error(r.problem);
     const meta = await sharp(r.body).metadata();
-    expect(meta.format).toBe('png');
+    // One viewable format for every picture (FR-021.8): JPEG, longest side 2,400 px.
+    expect(meta.format).toBe('jpeg');
     expect(meta.width).toBe(IMAGE_MAX_SIDE);
+    expect(IMAGE_MAX_SIDE).toBe(2400);
+    expect(r.fileName).toBe('scan.jpg');
   });
 
   it('refuses a broken picture', async () => {
