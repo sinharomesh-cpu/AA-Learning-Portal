@@ -41,3 +41,18 @@ the Stitch designs). The icons are distributed under the Apache License, Version
 > License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 > express or implied. See the License for the specific language governing permissions and
 > limitations under the License.
+
+## HEIC photo decoder
+
+iPhone HEIC/HEIF photos uploaded for homework (CR-07, OC-90 Q-4) are converted to JPEG on the
+server with `heic-decode` 2.1.0 (ISC licence), which uses `libheif-js` 1.23.2. `libheif-js` is
+a WebAssembly build of libheif and libde265, distributed under the **GNU Lesser General Public
+License, version 3** (https://www.gnu.org/licenses/lgpl-3.0.html). AA Pro uses it unmodified,
+as a separate npm package loaded at run time (`serverExternalPackages` in `next.config.ts`), so
+it can be replaced with any compatible build. Its source code is available from
+https://github.com/catdad-experiments/libheif-js and https://github.com/strukturag/libheif.
+
+> heic-decode — ISC License. Copyright (c) Kiril Vatev.
+> Permission to use, copy, modify, and/or distribute this software for any purpose with or
+> without fee is hereby granted, provided that the above copyright notice and this permission
+> notice appear in all copies.

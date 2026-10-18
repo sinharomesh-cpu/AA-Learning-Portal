@@ -22,6 +22,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The HEIC decoder (CR-07 H-1) ships its own WebAssembly; load it with Node's require.
+  serverExternalPackages: ['heic-decode', 'libheif-js'],
   // The common-password list is read from disk by the server (OC-35); make sure every server
   // route's trace includes it on hosted deployments.
   outputFileTracingIncludes: {
