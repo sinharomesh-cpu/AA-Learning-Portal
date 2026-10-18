@@ -82,13 +82,18 @@ export async function takeRememberedConnect(
 
 // ------------------------------------------------------------------ the connect page
 
-interface LiveListing {
+export interface LiveListing {
   listing_id: string;
   teacher_id: string;
   published: ListingSnapshot;
 }
 
-async function liveListing(sql: Db, publicId: string, now: Date, lock = false): Promise<LiveListing | undefined> {
+export async function liveListing(
+  sql: Db,
+  publicId: string,
+  now: Date,
+  lock = false,
+): Promise<LiveListing | undefined> {
   if (!PUBLIC_ID.test(publicId)) return undefined;
   const [row] = await sql<LiveListing[]>`
     SELECT l.id AS listing_id, l.teacher_id, l.published

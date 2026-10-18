@@ -8,6 +8,7 @@ export const ADMIN_MENU: MenuItem[] = [
   { href: '/admin/admins', label: 'Admins', icon: 'admin_panel_settings' },
   { href: '/admin/audit-log', label: 'Audit log', icon: 'receipt_long' },
   { href: '/admin/storage', label: 'Storage', icon: 'cloud_upload' },
+  { href: '/admin/rate-proposals', label: 'Rate proposals', icon: 'forum' },
   { href: '/admin/security', label: 'Security', icon: 'security' },
 ];
 
@@ -21,8 +22,8 @@ const PERMISSION_PAGE: Record<string, string> = {
 export function adminMenuFor(role: 'superadmin' | 'admin', permissions: readonly string[] = []): MenuItem[] {
   if (role === 'superadmin') return ADMIN_MENU;
   return ADMIN_MENU.filter((item) => {
-    // Admins and the storage limits (OC-96) are the Super Admin's alone.
-    if (item.href === '/admin/admins' || item.href === '/admin/storage') return false;
+    // Admins, the storage limits (OC-96) and the rate proposal limits (CR-13) are the Super Admin's alone.
+    if (['/admin/admins', '/admin/storage', '/admin/rate-proposals'].includes(item.href)) return false;
     const needed = PERMISSION_PAGE[item.href];
     return !needed || permissions.includes(needed);
   });

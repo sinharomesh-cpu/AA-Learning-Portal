@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.62 · 18 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.63 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.63 changes (owner, 19 Oct 2026, 02:09 IST — "you can start rate negotiations build"):**
+- **CR-13 / FR-040 is built** (migration 0021, PR #82) under OC-98, OC-99, OC-100 and OC-101. No earlier decision is changed: OC-77(8) "information only" holds for agreed rates too. Claude's five build readings are listed in CR-13 v1.4 §10 for the owner to confirm or change.
 
 **v1.62 changes (CR-12 Point 1 built, no new owner decision):**
 - **FR-038 is built** (migration 0020, PR #81). OC-36(6), OC-54 (board 65 "add from the directory") and OC-75(3) are now **amended by OC-97 in practice**: new links start as requests per child, and approval of a teacher sends waiting requests to them (Reading A). Existing active links are unchanged (decision 4).

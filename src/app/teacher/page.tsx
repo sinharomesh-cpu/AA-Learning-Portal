@@ -18,6 +18,7 @@ import { LESSON_RULES_TEXT } from '@/lib/lessonRules';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { getTeacherHome, type TeacherHome } from '@/server/teacherHome';
+import { RateNegotiationPanel } from './RateNegotiationPanel';
 import { StudentRoster } from './StudentRoster';
 
 export const metadata: Metadata = { title: 'Dashboard' };
@@ -459,6 +460,9 @@ export default async function TeacherHomePage() {
         <Sessions home={home} now={now} />
         <Availability home={home} now={now} />
       </div>
+      {home.rates ? (
+        <RateNegotiationPanel on={home.rates.on} openPrices={home.rates.openPrices} waiting={home.rates.waiting} />
+      ) : null}
       <StudentRoster students={home.students} realAccount={home.mode === 'real'} />
       <Resources home={home} />
     </div>

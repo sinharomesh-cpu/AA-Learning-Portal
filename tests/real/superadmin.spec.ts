@@ -389,7 +389,7 @@ async function parentWithChild(browser: Browser, ip: string, child: string, subj
   await p.getByLabel('Username').fill(child);
   await p.getByRole('button', { name: 'Add child' }).click();
   await expect(p.getByTestId('child-credentials')).toBeVisible();
-  return { context, page: p };
+  return { context, page: p, email: address };
 }
 
 test('a parent asks a new teacher; after approval the teacher accepts and sees only the ticked child and subjects (OC-36, OC-41, CR-12)', async ({
@@ -1117,5 +1117,143 @@ test('PR-D4a: a visitor connects with a teacher, signs up, sends an enquiry; the
   await t.goto((await d.evaluate(() => location.origin)) + '/teachers');
   await vc.close();
   await dc.close();
+  await tc.close();
+});
+
+test('CR-13: a parent proposes a rate; the teacher counters; the parent accepts; the agreed rate is separate (RN1–RN7)', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(300_000);
+  const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
+  const teacherName = `Teacher Rate ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.80' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('rate-teacher');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['English'], [4, 5]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.81' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for rate proposals');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+  await t.goto('/teacher/profile');
+  await t.getByLabel('Name shown to families').fill(teacherName);
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText('Your profile is saved.')).toBeVisible();
+
+  // RN4: a Monthly price with its "Proposals" switch on; the dashboard control is still off.
+  await t.goto('/teacher/listing');
+  await t.getByRole('button', { name: 'Add a price' }).click();
+  await t.getByLabel('Plan (price 1)').selectOption({ label: 'Monthly' });
+  await t.getByLabel('Amount per plan (price 1)').fill('4000');
+  await t.getByLabel('Sessions in the plan (price 1)').fill('8');
+  await t.getByRole('switch', { name: 'Rate proposals for price 1' }).check();
+  await expect(t.getByText('Rate proposals are off on your dashboard', { exact: false })).toBeVisible();
+  await t.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+  await t.getByRole('button', { name: 'Publish' }).click();
+  await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
+
+  // RN1, AC-1: off by default, so the price is fixed.
+  const vc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.82' } });
+  const v = await vc.newPage();
+  await v.goto('/teachers');
+  await v.getByRole('link', { name: `View profile: ${teacherName}` }).click();
+  await expect(v).toHaveURL(/\/teachers\/t-[a-z0-9]{10}$/);
+  const publicUrl = v.url();
+  await expect(v.getByText('Fixed price', { exact: true })).toBeVisible();
+  await expect(v.getByRole('link', { name: 'Propose a rate' })).toHaveCount(0);
+
+  await t.goto('/teacher');
+  const panel = t.getByRole('region', { name: 'Rate negotiation' });
+  await expect(panel.getByText('Prices open for proposals: Monthly', { exact: false })).toBeVisible();
+  await panel.getByRole('button', { name: 'Accept rate proposals' }).click();
+  await expect(panel.getByText('Accepting rate proposals', { exact: true })).toBeVisible();
+  await noSeriousA11yIssues(t);
+
+  // AC-2: a signed-out visitor is sent to sign in and comes back to the same teacher and price.
+  await v.goto(publicUrl);
+  await v.getByRole('link', { name: 'Propose a rate' }).click();
+  await expect(v.getByRole('heading', { level: 1, name: `Propose a rate to ${teacherName}` })).toBeVisible();
+  await expect(v.getByText(`${teacherName} · Monthly`)).toBeVisible();
+  await noSeriousA11yIssues(v);
+  const fam = await parentWithChild(browser, '10.200.0.83', 'Rhea', ['English']);
+  await v.getByRole('link', { name: 'I already have an account — sign in' }).click();
+  await expect(v.getByText(`Sign in to propose a rate to ${teacherName}`, { exact: false })).toBeVisible();
+  await v.getByLabel('Email').fill(fam.email);
+  await v.getByLabel('Password').fill(ADULT_PHRASE);
+  await v.getByRole('button', { name: 'Sign in' }).click();
+  await expect(v).toHaveURL(/\/teachers\/t-[a-z0-9]{10}\/propose\?price=0$/);
+
+  // RN2: propose for the parent's own child; invalid amounts are refused with a clear message.
+  await expect(v.getByRole('heading', { level: 1, name: `Propose a rate to ${teacherName}` })).toBeVisible();
+  await v.getByLabel('Subject').selectOption({ label: 'English' });
+  await v.getByLabel(/Your offer/).fill('0');
+  await v.getByRole('button', { name: 'Send proposal' }).click();
+  await expect(v.getByText('Enter an amount above zero', { exact: false })).toBeVisible();
+  await v.getByLabel(/Your offer/).fill('3,400');
+  await v.getByLabel('Message to the teacher (optional)').fill('Could we start in November at this rate?');
+  await expect(v.getByText('AA Pro does not collect or process payments.', { exact: false }).first()).toBeVisible();
+  await noSeriousA11yIssues(v);
+  await v.getByRole('button', { name: 'Send proposal' }).click();
+  await expect(v).toHaveURL(/\/parent\/enquiries\/rates\?sent=/);
+  await expect(v.getByText(`Proposal sent. ${teacherName} has until`, { exact: false })).toBeVisible();
+  await expect(v.getByText('Pending · waiting for the teacher')).toBeVisible();
+  await noSeriousA11yIssues(v);
+
+  // RN5: the teacher sees grade and curriculum only, never the child's name, and counters.
+  await t.goto('/teacher/enquiries');
+  await t.getByRole('link', { name: 'Rate proposals (1 waiting)' }).click();
+  const proposal = t.getByTestId('rate-negotiation').first();
+  await expect(proposal).toContainText('Pending · your turn');
+  await expect(proposal).toContainText('Offer 1 of 6');
+  await expect(proposal).toContainText('Could we start in November at this rate?');
+  expect(await t.content()).not.toContain('Rhea');
+  await noSeriousA11yIssues(t);
+  await proposal.getByText('Counter-offer', { exact: true }).click();
+  await proposal.getByLabel(/Your offer/).fill('3700');
+  await proposal.getByLabel('Message (optional)').fill('I can do 3,700 from November.');
+  await proposal.getByRole('button', { name: 'Send counter-offer' }).click();
+  await expect(t.getByText('Counter-offer sent (offer 2 of 6)', { exact: false })).toBeVisible();
+  await expect(t.getByText('Counter-proposed · waiting for the parent')).toBeVisible();
+
+  // RN3/RN6: the parent accepts; the agreed rate shows beside the asking price; nothing is linked.
+  await v.goto('/parent/enquiries/rates');
+  const mine = v.getByTestId('rate-negotiation').first();
+  await expect(mine).toContainText('Counter-proposed · your turn');
+  await mine.getByRole('button', { name: 'Accept ₹3,700' }).click();
+  await expect(v.getByRole('dialog')).toContainText("doesn't link the teacher");
+  await v.getByRole('dialog').getByRole('button', { name: 'Accept' }).click();
+  await expect(v.getByText('Agreed. The rate is recorded for you both.', { exact: false })).toBeVisible();
+  await expect(mine.getByText('Accepted', { exact: true })).toBeVisible();
+  await expect(mine.getByRole('table')).toContainText('₹4,000 a month · 8 lessons × 40 min');
+  await expect(mine.getByRole('table')).toContainText('₹3,700 a month · 8 lessons × 40 min');
+  await expect(mine.getByRole('link', { name: 'Ask this teacher to teach Rhea' })).toBeVisible();
+  await noSeriousA11yIssues(v);
+  await t.goto('/teacher/students');
+  await expect(t.getByText('No students yet')).toBeVisible();
+
+  // Queued only (development mailbox); nothing is sent for real.
+  await v.goto('/dev/mailbox');
+  await expect(
+    v
+      .getByTestId('mail')
+      .filter({ has: v.getByTestId('mail-to').getByText(teacherEmail, { exact: true }) })
+      .filter({ has: v.getByTestId('mail-template').getByText('rate_proposal_received', { exact: true }) }),
+  ).toHaveCount(1);
+
+  // The AA Pro team sees counts only.
+  await page.goto('/admin/rate-proposals');
+  await expect(page.getByRole('heading', { level: 1, name: 'Rate proposals' })).toBeVisible();
+  expect(await page.content()).not.toContain(teacherName);
+  await noSeriousA11yIssues(page);
+
+  await fam.context.close();
+  await vc.close();
   await tc.close();
 });

@@ -9,6 +9,7 @@ import { getPublicListing } from '@/server/publicListings';
 import { realAuthEnabled } from '@/server/realAuth';
 import { getViewer } from '@/server/session';
 import { connectForm, takeRememberedConnect } from '@/server/teacherEnquiries';
+import { negotiablePriceFlags } from '@/server/rateNegotiations';
 import { EnquiryForm } from './EnquiryForm';
 
 export const metadata: Metadata = { title: 'Connect with a teacher', robots: { index: false, follow: false } };
@@ -67,11 +68,22 @@ export default async function ConnectPage({ params }: { params: Promise<{ public
     );
   } else {
     const form = await connectForm(db(), viewer.id, publicId);
+    // CR-13: a parent who came here from "Propose a rate" (e.g. after creating an account) can go on.
+    const canPropose = form ? (await negotiablePriceFlags(db(), publicId)).some(Boolean) : false;
     body = form ? (
       <div className="flex max-w-[860px] flex-col gap-5">
         <h1 className="font-headline text-[30px] font-extrabold leading-[38px] md:text-[38px] md:leading-[46px]">
           Send an enquiry to {form.teacherName}
         </h1>
+        {canPropose ? (
+          <p className="text-[15px]">
+            Want to offer a different rate for one of the teacher&apos;s prices?{' '}
+            <Link href={`/teachers/${form.publicId}/propose`} className="font-bold underline">
+              Propose a rate instead
+            </Link>
+            .
+          </p>
+        ) : null}
         <div className="pub-card rounded-lg p-5 md:p-8">
           <EnquiryForm
             publicId={form.publicId}

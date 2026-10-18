@@ -19,6 +19,7 @@ export function ListingDetails({
   headingLevel = 3,
   timesNote,
   timesSlot,
+  priceActions,
 }: {
   listing: ListingSnapshot;
   /** URL of the approved photo the viewer may see, or null for the initial. */
@@ -28,6 +29,8 @@ export function ListingDetails({
   timesNote: string;
   /** Replaces the list of usual times (e.g. converted to the viewer's time zone). */
   timesSlot?: ReactNode;
+  /** CR-13 RN1: "Propose a rate" or "Fixed price" beside each asking price (public page only). */
+  priceActions?: ReactNode[];
 }) {
   const H = headingLevel === 1 ? 'h1' : headingLevel === 2 ? 'h2' : 'h3';
   const Sub = headingLevel === 1 ? 'h2' : headingLevel === 2 ? 'h3' : 'h4';
@@ -123,6 +126,7 @@ export function ListingDetails({
               >
                 <span className="font-bold">{PRICE_MODEL_LABEL[p.model]}</span>
                 <span>{describePrice(p)}</span>
+                {priceActions?.[i] ? <span className="ml-auto pt-1">{priceActions[i]}</span> : null}
               </li>
             ))}
           </ul>
@@ -130,8 +134,9 @@ export function ListingDetails({
           <p className="text-[15px] text-on-surface-variant">No prices given. Ask the teacher.</p>
         )}
         <p className="text-sm text-on-surface-variant">
-          Set by the teacher. You agree the final price with the teacher and pay them directly. AA Pro doesn&apos;t
-          take, hold or refund payments.
+          Set by the teacher.{priceActions ? ' "Propose a rate" appears only where the teacher accepts offers.' : ''}{' '}
+          You agree the final price with the teacher and pay them directly. AA Pro doesn&apos;t take, hold or refund
+          payments.
         </p>
       </section>
     </div>

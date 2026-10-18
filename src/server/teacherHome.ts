@@ -11,6 +11,8 @@ import { db } from './db/client';
 import { isDemoMode } from './demo';
 import { listTeacherEnquiries } from './teacherEnquiries';
 import { listLinkRequests } from './teacherLinks';
+import { getTeacherRateSettings, teacherWaitingCount } from './rateNegotiations';
+import { PRICE_MODEL_LABEL } from '@/lib/listing';
 import { getOwnListing, type ListingStatus } from './teacherListings';
 import { ownPhotoState } from './teacherPhotos';
 import { getTeacherProfile } from './teacherProfile';
@@ -63,6 +65,8 @@ export interface TeacherHome {
   students: HomeStudent[];
   /** CR-12 TR3: requests from parents waiting for this teacher's answer. */
   linkRequests: number;
+  /** CR-13 RN4: the rate negotiation panel (real accounts only). */
+  rates: { on: boolean; openPrices: string[]; waiting: number } | null;
   shared: Array<{ title: string; studentName: string; subject: string }>;
   /** The masthead's "This week" panel. */
   summary: Array<{ label: string; value: string; href?: string }>;
@@ -112,6 +116,7 @@ function demoHome(viewer: Persona, now: Date): TeacherHome | null {
     weekRows,
     weekNote: `Slots are ${TEACHER_SLOT_MINUTES} minutes. Families see these times in their own time zone.`,
     linkRequests: 0,
+    rates: null,
     students: data.students.map((s) => {
       const next = data.lessons.find((l) => l.studentId === s.id);
       const shared = data.shared.find((r) => r.studentName === s.name);
@@ -142,12 +147,14 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
   const sql = db();
   const profile = await getTeacherProfile(sql, viewer.id);
   if (!profile || profile.approvalStatus !== 'approved') return null;
-  const [photo, times, listing, enquiries, requests, recent] = await Promise.all([
+  const [photo, times, listing, enquiries, requests, rateSettings, rateWaiting, recent] = await Promise.all([
     ownPhotoState(sql, viewer.id),
     getUsualTimes(sql, viewer.id),
     getOwnListing(sql, viewer.id, now),
     listTeacherEnquiries(sql, viewer.id, now),
     listLinkRequests(sql, viewer.id, now),
+    getTeacherRateSettings(sql, viewer.id),
+    teacherWaitingCount(sql, viewer.id, now),
     // CR-07 H-2b: the three newest shared resources (board HW1 "Recently shared").
     sql<Array<{ title: string; names: string | null; subject: string }>>`
       SELECT r.title, r.subject,
@@ -198,6 +205,11 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
       'These are your usual weekly times, shown to families as a guide. Nothing is booked from them until scheduling opens.',
     students: [],
     linkRequests: requests.length,
+    rates: {
+      on: rateSettings.on,
+      openPrices: rateSettings.models.map((m) => PRICE_MODEL_LABEL[m]),
+      waiting: rateWaiting,
+    },
     shared: recent.map((r) => ({
       title: r.title,
       studentName: r.names ?? 'no one right now',

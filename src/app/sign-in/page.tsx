@@ -60,6 +60,8 @@ export default async function SignInPage({
   // D11: back to a chosen teacher after signing in (only a live listing's public address).
   const connectId = typeof params.connect === 'string' && /^t-[a-z0-9]{10}$/.test(params.connect) ? params.connect : '';
   const connectName = real && connectId ? (await getPublicListing(db(), connectId))?.name : undefined;
+  // CR-13 RN1: back to the same teacher and price to propose a rate.
+  const rate = typeof params.rate === 'string' && /^[0-2]$/.test(params.rate) ? params.rate : undefined;
   const viewer = await getViewer();
   if (viewer) redirect(ROLE_HOME[viewer.role]);
   const demo = isDemoMode();
@@ -110,10 +112,11 @@ export default async function SignInPage({
                 {notice ? <FormMessage tone={notice.tone}>{notice.text}</FormMessage> : null}
                 {connectName ? (
                   <FormMessage tone="info">
-                    Sign in to connect with <strong>{connectName}</strong>. We&apos;ll take you straight back.
+                    Sign in to {rate ? 'propose a rate to' : 'connect with'} <strong>{connectName}</strong>. We&apos;ll
+                    take you straight back.
                   </FormMessage>
                 ) : null}
-                <RealSignInForm connect={connectName ? connectId : undefined} />
+                <RealSignInForm connect={connectName ? connectId : undefined} rate={connectName ? rate : undefined} />
               </>
             ) : (
               <p className="text-body-md text-on-surface-variant">Sign-in is not available yet.</p>

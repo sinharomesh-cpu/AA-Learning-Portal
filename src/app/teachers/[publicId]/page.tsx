@@ -8,7 +8,13 @@ import { cx } from '@/lib/cx';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getPublicListing, type PublicListing } from '@/server/publicListings';
+import { StatusChip } from '@/components/StatusChip';
+import { PRICE_MODEL_LABEL } from '@/lib/listing';
+import { dayAndTime } from '@/lib/linkRequests';
+import { listChildren } from '@/server/children';
+import { negotiablePriceFlags, parentWaitsForListing, prospectiveLabel } from '@/server/rateNegotiations';
 import { realAuthEnabled } from '@/server/realAuth';
+import { getViewer } from '@/server/session';
 
 export const metadata: Metadata = { title: 'Teacher', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -22,6 +28,33 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
   const { publicId } = await params;
   let listing: PublicListing | null = null;
   if (!isDemoMode() && realAuthEnabled()) listing = await getPublicListing(db(), publicId);
+  // CR-13 RN1: "Propose a rate" only where the teacher's global and price switches are both on.
+  const flags = listing ? await negotiablePriceFlags(db(), listing.publicId) : [];
+  const viewer = listing ? await getViewer() : null;
+  let waits: string[] = [];
+  if (listing && viewer?.role === 'parent' && flags.some(Boolean)) {
+    const found = await parentWaitsForListing(db(), viewer.id, listing.publicId);
+    if (found.length) {
+      const kids = new Map((await listChildren(db(), viewer.id)).map((k) => [`child:${k.id}`, k.name]));
+      waits = found.map(
+        (w) =>
+          `You can propose again for ${kids.has(w.childKey) ? `${kids.get(w.childKey)}'s` : `${prospectiveLabel(w.childKey)}'s`} ${PRICE_MODEL_LABEL[w.model]} price from ${dayAndTime(w.until, viewer.timeZone)}.`,
+      );
+    }
+  }
+  const priceActions = listing
+    ? listing.prices.map((_, i) =>
+        flags[i] ? (
+          <LinkButton key={i} href={`/teachers/${listing!.publicId}/propose?price=${i}`} variant="secondary">
+            Propose a rate
+          </LinkButton>
+        ) : (
+          <StatusChip key={i} kind="neutral">
+            Fixed price
+          </StatusChip>
+        ),
+      )
+    : undefined;
   return (
     <PublicShell>
       <main className={cx(PUBLIC_WRAP, 'flex flex-col gap-6 py-10 md:py-14')}>
@@ -44,7 +77,16 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
                 photoSrc={listing.photoId ? `/teacher-photo/${listing.photoId}` : null}
                 timesNote=""
                 timesSlot={<LocalUsualTimes times={listing.usualTimes} teacherZone={listing.timeZone} />}
+                priceActions={priceActions}
               />
+              {waits.map((w) => (
+                <p
+                  key={w}
+                  className="mt-3 rounded-[14px] border border-warning-border bg-warning-container px-3 py-2 text-sm"
+                >
+                  {w}
+                </p>
+              ))}
             </div>
             <aside aria-labelledby="connect" className="pub-card flex flex-col gap-3 rounded-lg p-5 md:p-6">
               <h2 id="connect" className="text-[20px] font-bold leading-7">

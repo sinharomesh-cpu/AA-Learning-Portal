@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { EnquiryTabs } from '@/components/rates/EnquiryTabs';
 import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -58,6 +59,7 @@ export default async function ParentEnquiriesPage({
           Enquiries you sent to teachers. Sending one books nothing and shares nothing beyond the grade, curriculum and
           subjects.
         </p>
+        <EnquiryTabs base="/parent/enquiries" current="enquiries" />
       </div>
       {sent ? (
         <FormMessage tone="success">
