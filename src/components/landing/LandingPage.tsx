@@ -99,7 +99,12 @@ export function LandingPage({
 }: {
   marketplace?: MarketplaceSwitches;
   /** Newest public listings for the teachers section (PR-D3). */
-  teachers?: { listings: PublicListingCard[]; loadError: boolean; more: boolean };
+  teachers?: {
+    listings: PublicListingCard[];
+    loadError: boolean;
+    more: boolean;
+    curricula?: Array<{ curriculum: string; count: number | null }>;
+  };
 } = {}) {
   return (
     <PublicShell onHome>
@@ -252,6 +257,7 @@ export function LandingPage({
           listings={teachers.listings}
           loadError={teachers.loadError}
           more={teachers.more}
+          curricula={teachers.curricula}
         />
 
         <section aria-labelledby="how" className="pub-band border-y border-card-border">

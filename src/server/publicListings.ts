@@ -69,36 +69,77 @@ const toPublic = (r: Row): PublicListing => ({
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
+/** The filters as SQL (shared by the results, the count and the curriculum options). */
+function filterSql(sql: Db, f: PublicFilters, now: Date, skip: { curriculum?: boolean } = {}) {
+  return sql`
+    l.status = 'published' AND l.expires_at > ${now}
+    AND a.status = 'active' AND t.approval_status = 'approved'
+    ${f.subject ? sql`AND l.published -> 'subjects' ? ${f.subject}` : sql``}
+    ${f.grade ? sql`AND l.published -> 'grades' @> ${sql.json([f.grade])}` : sql``}
+    ${f.curriculum && !skip.curriculum ? sql`AND l.published -> 'curricula' ? ${f.curriculum}` : sql``}
+    ${f.minExperience ? sql`AND (l.published ->> 'experienceYears')::int >= ${f.minExperience}` : sql``}
+    ${f.name ? sql`AND l.published ->> 'name' ILIKE ${`%${escapeLike(f.name)}%`}` : sql``}`;
+}
+
 export async function searchPublicListings(
   sql: Db,
   filters: PublicFilters,
   now: Date = new Date(),
   pageSize: number = PAGE_SIZE,
-): Promise<{ listings: PublicListing[]; more: boolean }> {
+): Promise<{ listings: PublicListing[]; more: boolean; total: number }> {
   const f = filters;
   const offset = (f.page - 1) * pageSize;
-  const rows = await sql<Row[]>`
+  const rows = await sql<Array<Row & { total: number }>>`
     SELECT l.public_id, l.published,
            EXISTS (SELECT 1 FROM teacher_photos p
                    WHERE p.teacher_id = l.teacher_id AND p.status = 'approved'
-                     AND p.id::text = l.published ->> 'photoId') AS photo_ok
+                     AND p.id::text = l.published ->> 'photoId') AS photo_ok,
+           -- OC-105: the real number of matching teachers, from the same query (never typed in).
+           count(*) OVER ()::int AS total
     FROM teacher_listings l
     JOIN accounts a ON a.id = l.teacher_id
     JOIN teacher_profiles t ON t.account_id = a.id
-    WHERE l.status = 'published' AND l.expires_at > ${now}
-      AND a.status = 'active' AND t.approval_status = 'approved'
-      ${f.subject ? sql`AND l.published -> 'subjects' ? ${f.subject}` : sql``}
-      ${f.grade ? sql`AND l.published -> 'grades' @> ${sql.json([f.grade])}` : sql``}
-      ${f.curriculum ? sql`AND l.published -> 'curricula' ? ${f.curriculum}` : sql``}
-      ${f.minExperience ? sql`AND (l.published ->> 'experienceYears')::int >= ${f.minExperience}` : sql``}
-      ${f.name ? sql`AND l.published ->> 'name' ILIKE ${`%${escapeLike(f.name)}%`}` : sql``}
+    WHERE ${filterSql(sql, f, now)}
     ORDER BY ${
       f.sort === 'experience'
         ? sql`(l.published ->> 'experienceYears')::int DESC NULLS LAST, l.published_at DESC`
         : sql`l.published_at DESC`
     }, l.public_id
     LIMIT ${pageSize + 1} OFFSET ${offset}`;
-  return { listings: rows.slice(0, pageSize).map(toPublic), more: rows.length > pageSize };
+  // Past the last page the window has no rows; count separately then.
+  const total = rows.length ? Number(rows[0]!.total) : offset > 0 ? await countPublicListings(sql, f, now) : 0;
+  return { listings: rows.slice(0, pageSize).map(toPublic), more: rows.length > pageSize, total };
+}
+
+/** OC-105: how many published teachers match (the phone filter sheet's "Show N teachers"). */
+export async function countPublicListings(sql: Db, f: PublicFilters, now: Date = new Date()): Promise<number> {
+  const [r] = await sql<Array<{ n: number }>>`
+    SELECT count(*)::int AS n FROM teacher_listings l
+    JOIN accounts a ON a.id = l.teacher_id
+    JOIN teacher_profiles t ON t.account_id = a.id
+    WHERE ${filterSql(sql, f, now)}`;
+  return r?.n ?? 0;
+}
+
+/**
+ * OC-105: the curricula that published teachers actually list, with how many match the other
+ * filters. Only supported curricula; never an option no teacher has.
+ */
+export async function curriculumOptions(
+  sql: Db,
+  f: PublicFilters,
+  now: Date = new Date(),
+): Promise<Array<{ curriculum: string; count: number }>> {
+  const rows = await sql<Array<{ c: string; n: number }>>`
+    SELECT c, count(*)::int AS n
+    FROM teacher_listings l
+    JOIN accounts a ON a.id = l.teacher_id
+    JOIN teacher_profiles t ON t.account_id = a.id
+    CROSS JOIN LATERAL jsonb_array_elements_text(l.published -> 'curricula') AS c
+    WHERE ${filterSql(sql, f, now, { curriculum: true })}
+    GROUP BY c`;
+  const counts = new Map(rows.map((r) => [r.c, Number(r.n)]));
+  return CURRICULA.filter((c) => counts.has(c)).map((c) => ({ curriculum: c, count: counts.get(c)! }));
 }
 
 /** One public listing by its public address, or null (paused, ended, not eligible, unknown). */

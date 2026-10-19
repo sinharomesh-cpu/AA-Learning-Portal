@@ -980,16 +980,54 @@ test('PR-D3: visitors browse published teachers on the homepage and /teachers wi
   await section.getByRole('navigation', { name: 'Subjects' }).getByRole('link', { name: 'Science' }).click();
   await expect(v).toHaveURL(/\/teachers\?subject=science/);
   await expect(v.getByRole('article', { name: teacherName })).toBeVisible();
+  // OC-105 (SF1): filters apply at once; a real count; removable chips; Clear all.
   const search = v.getByRole('search', { name: 'Search teachers' });
-  await search.getByLabel('Grade').selectOption({ label: 'Grade 3' });
-  await search.getByRole('button', { name: 'Show teachers' }).click();
-  await expect(v.getByRole('heading', { name: 'No teachers match' })).toBeVisible();
-  await search.getByLabel('Grade').selectOption({ label: 'Grade 8' });
-  await search.getByLabel('Curriculum').selectOption({ label: 'ICSE' });
-  await search.getByLabel('Experience').selectOption({ label: '5+ years' });
-  await search.getByRole('button', { name: 'Show teachers' }).click();
+  await search.getByRole('button', { name: 'Grade: All grades' }).click();
+  await search.getByRole('group', { name: 'Grade' }).getByRole('button', { name: 'Grade 3', exact: true }).click();
+  await expect(v).toHaveURL(/grade=3/);
+  await expect(v.getByText('0 teachers found')).toBeVisible();
+  await search.getByRole('button', { name: 'Grade: Grade 3' }).click();
+  await v.keyboard.press('Escape');
+  await expect(search.getByRole('group', { name: 'Grade' })).toHaveCount(0);
+  await search.getByRole('button', { name: 'Grade: Grade 3' }).click();
+  await search.getByRole('group', { name: 'Grade' }).getByRole('button', { name: 'Grade 8', exact: true }).click();
+  await expect(v).toHaveURL(/grade=8/);
+  await search.getByRole('button', { name: 'Curriculum: All curricula' }).click();
+  // Only curricula that published teachers list, with real counts.
+  await search.getByRole('group', { name: 'Curriculum' }).getByRole('button', { name: /ICSE/ }).click();
+  await expect(v).toHaveURL(/curriculum=ICSE/);
+  await search.getByRole('button', { name: 'Experience: Any experience' }).click();
+  await search.getByRole('group', { name: 'Experience' }).getByRole('button', { name: '5+ years' }).click();
+  await expect(v).toHaveURL(/experience=5/);
   await expect(v.getByRole('article', { name: teacherName })).toBeVisible();
+  await expect(v.getByText(/^\d+ teachers? found/)).toBeVisible();
+  if (process.env.CR15_SHOTS) await v.screenshot({ path: `${process.env.CR15_SHOTS}/sf-desktop.png`, fullPage: true });
+  await v.getByRole('link', { name: 'Remove 5+ years' }).click();
+  await expect(v).not.toHaveURL(/experience=/);
+  await expect(v).toHaveURL(/grade=8/);
   await noSeriousA11yIssues(v);
+  await v.getByRole('link', { name: 'Clear all' }).click();
+  await expect(v).toHaveURL(/\/teachers#results$/);
+  await expect(search.getByRole('button', { name: 'Grade: All grades' })).toBeVisible();
+  // Name search updates the results after typing stops.
+  await search.getByLabel('Search teachers by name').fill(teacherName);
+  await expect(v).toHaveURL(new RegExp(`name=${encodeURIComponent(teacherName).replace(/%20/g, '\\+')}`));
+  await expect(v.getByText('1 teacher found')).toBeVisible();
+  await search.getByRole('button', { name: 'Clear search' }).click();
+  await expect(v).not.toHaveURL(/name=/);
+  // Phone: a Filters sheet with Reset and the real count.
+  await v.setViewportSize({ width: 390, height: 844 });
+  await search.getByRole('button', { name: /^Filters/ }).click();
+  const sheet = v.getByRole('dialog', { name: 'Filters' });
+  await sheet.getByRole('button', { name: 'Grade 8', exact: true }).click();
+  await expect(sheet.getByRole('button', { name: /^Show \d+ teachers?$/ })).toBeVisible();
+  if (process.env.CR15_SHOTS) await v.screenshot({ path: `${process.env.CR15_SHOTS}/sf-phone-sheet.png` });
+  await sheet.getByRole('button', { name: /^Show \d+ teachers?$/ }).click();
+  await expect(v).toHaveURL(/grade=8/);
+  await expect(search.getByRole('button', { name: /^Filters, 1 active/ })).toBeVisible();
+  expect(await v.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await noSeriousA11yIssues(v);
+  await v.setViewportSize({ width: 1280, height: 900 });
 
   // The listing page: only public details; usual times in the visitor's time zone (Wed 4–6 pm India = 6:30–8:30 pm Singapore).
   await v.getByRole('link', { name: `View profile: ${teacherName}` }).click();

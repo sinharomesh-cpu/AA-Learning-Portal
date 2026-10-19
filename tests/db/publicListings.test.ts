@@ -5,6 +5,8 @@ import { snapshotKey } from '@/lib/listing';
 import { createAdmin } from '@/server/admin';
 import {
   cleanPublicFilters,
+  countPublicListings,
+  curriculumOptions,
   getPublicListing,
   NO_FILTERS,
   readPublicPhoto,
@@ -156,6 +158,40 @@ describe('search and filters work on the published data', () => {
     expect(sorted).toEqual(['Teacher Alpha', 'Teacher Beta']);
     // "%" and "_" in a name search are plain characters.
     expect(await mine({ ...NO_FILTERS, name: `%${TAG}` })).toEqual([]);
+  });
+
+  it('OC-105: the count and curriculum options come from the real filtered results', async () => {
+    await publish(
+      await teacher('Teacher Delta', { subjects: ['english'], grades: [7], curricula: ['CBSE'], years: 6 }),
+    );
+    await publish(
+      await teacher('Teacher Epsilon', {
+        subjects: ['english'],
+        grades: [7, 8],
+        curricula: ['CBSE', 'ICSE'],
+        years: 2,
+      }),
+    );
+    const f = { ...NO_FILTERS, name: TAG, subject: 'english' };
+    const r = await searchPublicListings(sql, f, T0, 1);
+    // The count is all matches, not the page size.
+    expect(r.listings).toHaveLength(1);
+    expect(r.total).toBe(2);
+    expect(r.more).toBe(true);
+    expect(await countPublicListings(sql, f, T0)).toBe(2);
+    expect(await countPublicListings(sql, { ...f, minExperience: 5 }, T0)).toBe(1);
+    // Past the last page the count is still right.
+    expect((await searchPublicListings(sql, { ...f, page: 5 }, T0, 1)).total).toBe(2);
+    // Only curricula these teachers list, counted with the other filters (curriculum itself ignored).
+    expect(await curriculumOptions(sql, { ...f, curriculum: 'ICSE' }, T0)).toEqual([
+      { curriculum: 'CBSE', count: 2 },
+      { curriculum: 'ICSE', count: 1 },
+    ]);
+    expect(await curriculumOptions(sql, { ...f, grade: 8 }, T0)).toEqual([
+      { curriculum: 'CBSE', count: 1 },
+      { curriculum: 'ICSE', count: 1 },
+    ]);
+    expect(await countPublicListings(sql, { ...f, grade: 12 }, T0)).toBe(0);
   });
 
   it('cleans address-bar values and ignores anything unknown', () => {

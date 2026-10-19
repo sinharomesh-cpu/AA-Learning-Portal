@@ -4,6 +4,9 @@ import { MARKETPLACE } from '@/config/landing';
 import { LandingPage } from './LandingPage';
 import { TeachersSection } from './TeachersSection';
 
+// The search toolbar navigates with the App Router; there is none in these component tests.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+
 /** Boards H1/H2 (approved 16 Oct 2026): the home page teachers section, now "Meet Our Subject Specialists" (OC-84). */
 
 const WRAP = 'mx-auto';
@@ -75,8 +78,7 @@ describe('home page once listings and enquiries are live', () => {
     expect(within(card).getByText('CBSE')).toBeInTheDocument();
     expect(within(card).getByText('Online')).toBeInTheDocument();
     expect(within(card).getByText('Maths · Science')).toBeInTheDocument();
-    expect(within(card).getByText('(as stated by the teacher)')).toBeInTheDocument();
-    expect(card.textContent).toMatch(/8 years teaching/);
+    expect(card.textContent).toMatch(/8 years \(as stated\)/);
     expect(within(card).getByText('₹600 per hour · 40-minute sessions')).toBeInTheDocument();
     expect(screen.getByText(/How connecting works/)).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/@|rating|review/i);
