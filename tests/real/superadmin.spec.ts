@@ -648,27 +648,34 @@ test('board 65: a parent finds an approved teacher and asks them; a decline star
   await expect(p.getByRole('heading', { level: 1, name: 'Find a teacher' })).toBeVisible();
   await noSeriousA11yIssues(p);
   const search = p.getByRole('search', { name: 'Search teachers' });
-  await search.getByLabel('Name (optional)').fill(teacherName);
-  await search.getByRole('button', { name: 'Show teachers' }).click();
+  // OC-106 (4): the modern search look; typing searches by itself.
+  await search.getByLabel('Search teachers by name').fill(teacherName);
+  await expect(p).toHaveURL(/name=/);
   await expect(p.getByRole('heading', { name: 'No results' })).toBeVisible();
 
   // Visible again: listed with the OC-54 fields only.
   await t.getByRole('button', { name: 'Show me in search' }).click();
   await expect(t.getByText(/You are visible again/)).toBeVisible();
-  await search.getByLabel('Subject').selectOption({ label: 'Maths' });
-  await search.getByLabel('Grade').selectOption({ label: 'Grade 5' });
-  await search.getByRole('button', { name: 'Show teachers' }).click();
+  await p.getByRole('navigation', { name: 'Subjects' }).getByRole('link', { name: 'Maths', exact: true }).click();
+  await expect(p).toHaveURL(/subject=maths/);
+  await search.getByRole('button', { name: 'Grade: All grades' }).click();
+  await search.getByRole('button', { name: 'Grade 5', exact: true }).click();
   await expect(p).toHaveURL(/subject=maths&grade=5/);
+  await expect(p.getByText(/^(1 teacher|\d+ teachers) found/)).toBeVisible();
+  await expect(p.getByRole('link', { name: 'Remove Grade 5' })).toBeVisible();
   const result = p.getByRole('article').filter({ has: p.getByRole('heading', { name: teacherName }) });
   await expect(result.getByText('Grades 4–5 · Asia/Kolkata')).toBeVisible();
   await expect(result.getByText('I have taught primary classes for eight years.')).toBeVisible();
   await expect(result.getByRole('button', { name: 'See available times' })).toHaveCount(0);
   expect(await p.content()).not.toContain(teacherEmail);
   await noSeriousA11yIssues(p);
+  if (process.env.CR15_SHOTS)
+    await p.screenshot({ path: `${process.env.CR15_SHOTS}/find-desktop.png`, fullPage: true });
 
   // Phone width: no sideways scrolling.
   await p.setViewportSize({ width: 390, height: 844 });
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  if (process.env.CR15_SHOTS) await p.screenshot({ path: `${process.env.CR15_SHOTS}/find-phone.png`, fullPage: true });
   await p.setViewportSize({ width: 1280, height: 900 });
 
   // "Add as my teacher" (C-1 option (a)): only subjects both have; a request the teacher answers (CR-12).
