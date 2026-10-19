@@ -4,6 +4,7 @@ import { describeGrades } from '@/lib/grades';
 import { describePrice, type ListingSnapshot, PRICE_MODEL_LABEL } from '@/lib/listing';
 import { formatMinute, WEEKDAYS } from '@/lib/usualTimes';
 import { HourlyOfferBox, type OfferSlot, PackageOfferBox } from './Offers';
+import { VerifiedTick } from './VerifiedTick';
 
 /**
  * The public details of a listing (boards D5 "What parents see", D3, D9): only the fields the
@@ -23,6 +24,7 @@ export function ListingDetails({
   priceActions,
   offers,
   convertTimes = false,
+  verified = false,
 }: {
   listing: ListingSnapshot;
   /** URL of the approved photo the viewer may see, or null for the initial. */
@@ -41,6 +43,8 @@ export function ListingDetails({
   offers?: { slots: OfferSlot[]; packageNegotiable: boolean; slotActions?: ReactNode[]; packageAction?: ReactNode };
   /** Convert offer times to the viewer's time zone (public pages). */
   convertTimes?: boolean;
+  /** CR-15 §5.1: show the "AA Pro Verified" tick with its explanation (worked out live by the page). */
+  verified?: boolean;
 }) {
   const H = headingLevel === 1 ? 'h1' : headingLevel === 2 ? 'h2' : 'h3';
   const Sub = headingLevel === 1 ? 'h2' : headingLevel === 2 ? 'h3' : 'h4';
@@ -83,6 +87,7 @@ export function ListingDetails({
           </span>
         </div>
       </div>
+      {verified ? <VerifiedTick variant="full" /> : null}
 
       <dl className="m-0 grid gap-x-6 gap-y-3 text-[15px] sm:grid-cols-[auto_1fr]">
         <dt className="font-bold">Grades</dt>

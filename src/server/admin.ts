@@ -242,7 +242,7 @@ export function teacherClaims(curricula: string[], experienceYears: number | nul
   return parts.length ? parts.join(' · ') : null;
 }
 
-function teacherDetail(subjects: string[] | null, grades: number[] | null): string {
+export function teacherDetail(subjects: string[] | null, grades: number[] | null): string {
   const s = (subjects ?? []).map((x) => SUBJECT_NAME[x] ?? x).join(', ');
   const g = grades?.length ? `Grades ${[...grades].sort((a, b) => a - b).join(', ')}` : '';
   return [s, g].filter(Boolean).join(' · ') || 'Profile not completed';

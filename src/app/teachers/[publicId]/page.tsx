@@ -16,6 +16,7 @@ import { negotiablePriceFlags, parentWaitsForListing, prospectiveLabel } from '@
 import { liveOfferFlags } from '@/server/pricingModel';
 import { realAuthEnabled } from '@/server/realAuth';
 import { getViewer } from '@/server/session';
+import { verifiedPublicIds } from '@/server/teacherVerification';
 
 export const metadata: Metadata = { title: 'Teacher', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,8 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
   const { publicId } = await params;
   let listing: PublicListing | null = null;
   if (!isDemoMode() && realAuthEnabled()) listing = await getPublicListing(db(), publicId);
+  // CR-15 §5.1: the "AA Pro Verified" tick, read live (it disappears at expiry or removal).
+  const verified = listing ? (await verifiedPublicIds(db(), [listing.publicId])).has(listing.publicId) : false;
   // CR-13 RN1: "Propose a rate" only where the teacher's global and price switches are both on.
   const flags = listing ? await negotiablePriceFlags(db(), listing.publicId) : [];
   const viewer = listing ? await getViewer() : null;
@@ -110,6 +113,7 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
                 priceActions={priceActions}
                 offers={offers}
                 convertTimes
+                verified={verified}
               />
               {waits.map((w) => (
                 <p

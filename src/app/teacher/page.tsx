@@ -20,6 +20,7 @@ import { requireRole } from '@/server/authz';
 import { getTeacherHome, type TeacherHome } from '@/server/teacherHome';
 import { RateNegotiationPanel } from './RateNegotiationPanel';
 import { StudentRoster } from './StudentRoster';
+import { VerificationPanel } from './VerificationPanel';
 
 export const metadata: Metadata = { title: 'Dashboard' };
 export const dynamic = 'force-dynamic';
@@ -433,6 +434,16 @@ export default async function TeacherHomePage() {
   const now = clockNow();
   const home = await getTeacherHome(access.viewer, now);
   if (!home) return <AccessDenied viewerRole="teacher" />;
+  const day = (d: Date | null) =>
+    d
+      ? new Intl.DateTimeFormat('en-GB', {
+          timeZone: home.timeZone,
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(d)
+      : null;
+  const vf = home.verification;
 
   return (
     <div className="flex flex-col gap-8">
@@ -477,6 +488,16 @@ export default async function TeacherHomePage() {
         <Sessions home={home} now={now} />
         <Availability home={home} now={now} />
       </div>
+      {vf ? (
+        <VerificationPanel
+          state={vf.state}
+          requestedOn={day(vf.requestedAt)}
+          verifiedOn={day(vf.decidedAt)}
+          expiresOn={day(vf.expiresAt)}
+          canRequest={vf.canRequest}
+          blocked={vf.blocked}
+        />
+      ) : null}
       {home.rates ? (
         <RateNegotiationPanel on={home.rates.on} openPrices={home.rates.openPrices} waiting={home.rates.waiting} />
       ) : null}

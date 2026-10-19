@@ -175,6 +175,9 @@ test('the Super Admin adds an Admin who can only read the audit log', async ({ p
   await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
   await a.goto('/admin/storage');
   await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
+  // CR-15 §5.1: verification decisions are the Super Admin's alone.
+  await a.goto('/admin/verification');
+  await expect(a.getByRole('heading', { level: 1 })).toHaveText('Not available to you');
   await a.goto('/admin/audit-log');
   await expect(a.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
   await expect(a.getByTestId('audit-row').filter({ hasText: 'Admin added' }).first()).toBeVisible();
@@ -1578,4 +1581,149 @@ test('CR-15 A5: the Super Admin sees a read-only dry run of the price conversion
   await back.getByRole('button', { name: 'Turn off and roll back' }).click();
   await expect(back.getByText(/Turned the new pricing model off and restored/)).toBeVisible();
   await expect(page.getByText('Already converted earlier (skipped): 0.')).toBeVisible();
+});
+
+const VF_EXPLANATION =
+  "AA Pro checked this teacher's email, reviewed their profile and confirmed their identity on a video call. This does not independently verify teaching qualifications, experience or background checks.";
+
+test('CR-15 §5.1: an approved teacher asks for "AA Pro Verified"; the Super Admin verifies, the public tick shows, then is removed', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
+  const teacherName = `Teacher Vf ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.100' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('verify');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths'], [5]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.101' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const approval = page.getByRole('article').filter({ hasText: teacherEmail });
+  await approval.getByLabel('Decision note (required)').fill('Checked for verification');
+  await approval.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+
+  // A published listing, so there is a public profile and card.
+  await t.goto('/teacher/profile');
+  await t.getByLabel('Name shown to families').fill(teacherName);
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText('Your profile is saved.')).toBeVisible();
+  await t.goto('/teacher/availability');
+  const times = t.getByRole('region', { name: 'Your usual weekly times' });
+  await addTimes(times, ['Thursday'], 960, 1080);
+  await times.getByRole('button', { name: 'Save times' }).click();
+  await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
+  await t.goto('/teacher/listing');
+  await t.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+  await t.getByRole('button', { name: 'Publish' }).click();
+  await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
+
+  // The teacher asks on their dashboard.
+  await t.goto('/teacher');
+  const panel = t.getByRole('region', { name: 'AA Pro Verified' });
+  await expect(panel.getByText('Not started', { exact: true })).toBeVisible();
+  await expect(panel.getByText(VF_EXPLANATION)).toBeVisible();
+  await panel.getByRole('button', { name: 'Request verification' }).click();
+  await expect(panel.getByText(/Request sent/)).toBeVisible();
+  await expect(panel.getByText('Waiting for review', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: /Request verification/ })).toHaveCount(0);
+  await noSeriousA11yIssues(t);
+  await shot(t, 'vf-teacher');
+
+  // No tick before the decision.
+  const vc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.102' } });
+  const v = await vc.newPage();
+  await v.goto(`/teachers?name=${encodeURIComponent(teacherName)}`);
+  await expect(v.getByRole('article', { name: teacherName })).toBeVisible();
+  await expect(v.getByTestId('verified-tick')).toHaveCount(0);
+
+  // The Super Admin: the email check comes from the account; all three checks are needed.
+  await page.goto('/admin');
+  await page
+    .getByRole('navigation', { name: 'Super Admin menu', exact: true })
+    .getByRole('link', { name: 'Verification' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: /Verification/ })).toBeVisible({ timeout: 30_000 });
+  const req = page.getByRole('article', { name: teacherName });
+  await expect(req.getByRole('checkbox', { name: /Email address confirmed/ })).toBeChecked();
+  await expect(req.getByRole('checkbox', { name: /Email address confirmed/ })).toBeDisabled();
+  await expect(req.getByText('Confirmed', { exact: true })).toBeVisible();
+  await expect(req.getByText('Do not type ID numbers.')).toBeVisible();
+  await req.getByLabel('Decision note (required)').fill('Profile and video call done');
+  await req.getByRole('checkbox', { name: /I reviewed this teacher/ }).check();
+  await req.getByRole('button', { name: `Mark ${teacherName} verified` }).click();
+  await expect(req.getByText('Tick both checks you did before marking the teacher verified.')).toBeVisible();
+  await req.getByRole('checkbox', { name: /I checked this teacher.s identity on a video call/ }).check();
+  await noSeriousA11yIssues(page);
+  await shot(page, 'vf-admin');
+  await req.getByRole('button', { name: `Mark ${teacherName} verified` }).click();
+  await expect(page.getByText(/Marked verified for 12 months/)).toBeVisible();
+  const done = page
+    .getByRole('region', { name: 'Verified teachers' })
+    .getByRole('article')
+    .filter({ hasText: teacherName });
+  await expect(done.getByText(/Re-check due/)).toBeVisible();
+  await expect(done.getByTestId('vf-history').first()).toContainText('Profile and video call done');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // The teacher sees it; the public profile and card show the tick and its exact explanation.
+  await t.reload();
+  await expect(panel.getByText('Verified', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/Re-check due/)).toBeVisible();
+  await t.setViewportSize({ width: 390, height: 844 });
+  expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await t.setViewportSize({ width: 1280, height: 900 });
+
+  await v.reload();
+  const card = v.getByRole('article', { name: teacherName });
+  const cardTick = card.getByTestId('verified-tick');
+  await expect(cardTick).toContainText('AA Pro Verified');
+  await cardTick.getByText('What this means').click();
+  await expect(cardTick.getByText(VF_EXPLANATION)).toBeVisible();
+  // The homepage keeps its approved design (OC-110): no tick there until the owner approves.
+  await v.goto('/');
+  await expect(v.locator('#teachers').getByTestId('verified-tick')).toHaveCount(0);
+  await v.goto(`/teachers?name=${encodeURIComponent(teacherName)}`);
+  await card.getByRole('link', { name: `View profile: ${teacherName}` }).click();
+  await expect(v).toHaveURL(/\/teachers\/t-[a-z0-9]{10}$/);
+  await expect(v.getByRole('heading', { level: 1, name: teacherName })).toBeVisible();
+  const tick = v.getByTestId('verified-tick');
+  await expect(tick).toContainText('AA Pro Verified');
+  await expect(tick.getByText(VF_EXPLANATION, { exact: true })).toBeVisible();
+  await expect(v).toHaveTitle(/\S/);
+  await noSeriousA11yIssues(v);
+  await shot(v, 'vf-public');
+  const profileUrl = v.url();
+  await v.setViewportSize({ width: 390, height: 844 });
+  await v.reload();
+  expect(await v.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await shot(v, 'vf-public-phone');
+  await v.setViewportSize({ width: 1280, height: 900 });
+
+  // Removal needs a reason; the tick goes at once and the teacher may ask again.
+  await done.getByRole('button', { name: `Remove verification: ${teacherName}` }).click();
+  await done.getByRole('button', { name: 'Remove verification', exact: true }).click();
+  await expect(done.getByText('Write the reason (required).')).toBeVisible();
+  await done.getByLabel('Reason (required)').fill('Removed for the test');
+  await done.getByRole('button', { name: 'Remove verification', exact: true }).click();
+  await expect(page.getByText('Verification removed. The tick no longer shows anywhere.')).toBeVisible();
+  await v.goto(profileUrl);
+  await expect(v.getByRole('heading', { level: 1, name: teacherName })).toBeVisible();
+  await expect(v.getByTestId('verified-tick')).toHaveCount(0);
+  await v.goto(`/teachers?name=${encodeURIComponent(teacherName)}`);
+  await expect(v.getByRole('article', { name: teacherName })).toBeVisible();
+  await expect(v.getByTestId('verified-tick')).toHaveCount(0);
+  await t.reload();
+  await expect(panel.getByText('Removed', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Request verification again' })).toBeVisible();
+  await vc.close();
+  await tc.close();
 });

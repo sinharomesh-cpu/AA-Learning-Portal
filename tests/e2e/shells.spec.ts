@@ -64,6 +64,7 @@ test.describe('Super Admin shell (M-26/35, M-27)', () => {
       'Home',
       'Accounts',
       'Teacher approvals',
+      'Verification',
       'Admins',
       'Audit log',
       'Storage',

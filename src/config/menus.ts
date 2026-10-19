@@ -5,6 +5,8 @@ export const ADMIN_MENU: MenuItem[] = [
   { href: '/admin', label: 'Home', icon: 'dashboard', exact: true },
   { href: '/admin/accounts', label: 'Accounts', icon: 'manage_accounts' },
   { href: '/admin/approvals', label: 'Teacher approvals', icon: 'how_to_reg' },
+  // CR-15 §5.1 (OC-106 (2)): "AA Pro Verified" checks, the Super Admin's alone.
+  { href: '/admin/verification', label: 'Verification', icon: 'verified' },
   { href: '/admin/admins', label: 'Admins', icon: 'admin_panel_settings' },
   { href: '/admin/audit-log', label: 'Audit log', icon: 'receipt_long' },
   { href: '/admin/storage', label: 'Storage', icon: 'cloud_upload' },
@@ -24,8 +26,16 @@ export function adminMenuFor(role: 'superadmin' | 'admin', permissions: readonly
   if (role === 'superadmin') return ADMIN_MENU;
   return ADMIN_MENU.filter((item) => {
     // Admins, the storage limits (OC-96), the rate proposal limits (CR-13) and the pricing
-    // migration (CR-15) are the Super Admin's alone.
-    if (['/admin/admins', '/admin/storage', '/admin/rate-proposals', '/admin/pricing-migration'].includes(item.href))
+    // migration and teacher verification (CR-15) are the Super Admin's alone.
+    if (
+      [
+        '/admin/admins',
+        '/admin/storage',
+        '/admin/rate-proposals',
+        '/admin/pricing-migration',
+        '/admin/verification',
+      ].includes(item.href)
+    )
       return false;
     const needed = PERMISSION_PAGE[item.href];
     return !needed || permissions.includes(needed);

@@ -6,12 +6,14 @@ import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { EmptyState } from '@/components/states/States';
 import { DirectorySearch } from '@/components/listing/DirectorySearch';
+import { VerifiedTick } from '@/components/listing/VerifiedTick';
 import { SUBJECTS } from '@/fixtures/subjects';
 import { describeGrades } from '@/lib/grades';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { cleanDirectoryQuery, DIRECTORY_LIMIT, NAME_QUERY_MAX, searchTeachers } from '@/server/teacherDirectory';
+import { verifiedTeacherIds } from '@/server/teacherVerification';
 
 export const metadata: Metadata = { title: 'Find a teacher' };
 export const dynamic = 'force-dynamic';
@@ -48,6 +50,11 @@ export default async function FindTeacherPage({
     name: typeof raw.name === 'string' ? raw.name : undefined,
   });
   const { teachers, more } = await searchTeachers(db(), access.viewer.id, query);
+  // CR-15 §5.1: the "AA Pro Verified" tick, read live for the teachers shown.
+  const verified = await verifiedTeacherIds(
+    db(),
+    teachers.map((t) => t.id),
+  );
   const searched = Boolean(query.subject || query.grade || query.name);
   const count =
     teachers.length === 1 ? '1 teacher' : `${more ? `More than ${DIRECTORY_LIMIT}` : teachers.length} teachers`;
@@ -108,6 +115,7 @@ export default async function FindTeacherPage({
                       </p>
                     </div>
                   </div>
+                  {verified.has(t.id) ? <VerifiedTick /> : null}
                   <p className="m-0 flex flex-wrap gap-1.5" aria-label="Subjects">
                     {t.subjects.map((s) => (
                       <span
