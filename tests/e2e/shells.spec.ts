@@ -68,6 +68,7 @@ test.describe('Super Admin shell (M-26/35, M-27)', () => {
       'Audit log',
       'Storage',
       'Rate proposals',
+      'Pricing migration',
       'Security',
     ]);
     const text = (await page.locator('body').innerText()).toLowerCase();
