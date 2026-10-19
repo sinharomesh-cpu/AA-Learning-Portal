@@ -1486,3 +1486,21 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
   }
   await tc.close();
 });
+
+test('CR-15 A5: the Super Admin sees a read-only dry run of the price conversion (PM8)', async ({ page }) => {
+  await ownerSignedIn(page);
+  await page.goto('/admin');
+  await page.getByRole('link', { name: 'Pricing migration' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Pricing migration (CR-15)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dry run — nothing has changed' })).toBeVisible();
+  await expect(page.getByText('Listings to convert')).toBeVisible();
+  // Applying needs the typed word; a wrong word changes nothing.
+  const apply = page.getByRole('region', { name: 'Apply' });
+  await apply.getByLabel('Type CONVERT to confirm').fill('yes');
+  await apply.getByRole('button', { name: 'Apply the conversion' }).click();
+  await expect(apply.getByText('Type CONVERT to confirm.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Already converted earlier (skipped): 0.')).toBeVisible();
+  if (process.env.CR15_SHOTS)
+    await page.screenshot({ path: `${process.env.CR15_SHOTS}/pm8-dry-run.png`, fullPage: true });
+  await noSeriousA11yIssues(page);
+});

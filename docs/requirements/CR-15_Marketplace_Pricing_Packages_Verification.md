@@ -137,17 +137,16 @@ Legend: **[Confirmed]** = owner decision. Items marked **[Recommended]** in v0.4
 | Open `rate_negotiations` (any basis) | `kind = legacy` | Continue to their natural end under CR-13 rules; shown "earlier price type" | No new legacy proposals |
 | Published copy `prices` | `published.hourly`, `published.package` | Rebuilt from the mapped values; the old array kept in history | Listing stays published with whatever is valid |
 
-### 6.2 Procedure
-1. **Dry run** (read-only script) against the test database: counts per outcome (converted, hidden, needs review) and a list of review items; the report goes to the owner before anything changes.
-2. Apply in one database transaction per teacher (additive: new columns/tables and new rows only; no deletes, no updates to `listing_prices`).
-3. Post-checks: every published listing has a valid public copy; no `needs_review` package is public; counts match the dry run.
-4. Teacher notices in AA Pro (emails queued only).
+### 6.2 Procedure (as built, step A5)
+1. **Dry run** — Admin → **Pricing migration** (Super Admin only). The page itself is the read-only report: per listing, what happens to the hourly price, which weekly / fortnightly prices are hidden, whether a monthly price becomes a package in *Needs review* (and why), and whether the public copy changes; listings of teachers no longer approved or active are listed as skipped. Listings with nothing to convert are not shown. The owner reviews this report on the test site.
+2. **Apply** — only after the owner's approval; the Super Admin types CONVERT. Each listing is converted in its own transaction (a failure on one never affects another and is reported); each change is logged in `pricing_migration_log` with the earlier public copy and hourly fields. Running it again changes nothing. `listing_prices` is never changed or deleted.
+3. **Outcome** — hourly price → hourly rate with the same amount, currency and length (offered only if a usual time fits a lesson); monthly → **Fixed** learning package at the same price in **Needs review** (`details_missing`, plus `classes_below_minimum` under 22), never public until the teacher completes it; the public copy loses the earlier prices and shows the hourly rate when offered.
+4. Apply and the "New pricing model" switch belong together: apply, then switch on (both after owner approval). Teacher notices (PM8 wording) appear in the editor's package card.
 
 ### 6.3 Rollback and integrity
-- Additive design: rolling back = deploying the previous code and dropping the new tables/columns; legacy `listing_prices` rows and published history are untouched, so the old listing display returns unchanged.
-- Each converted row keeps `legacy_price_id`; a reverse report can list every conversion.
-- The migration is idempotent (re-running skips converted rows).
-- Test environment only; there is no production deployment (production stays unchanged until separately approved).
+- **Roll back** (Super Admin types ROLL BACK): restores each logged listing's public copy and hourly fields and removes packages still in *Needs review* that the conversion created; packages a teacher has since completed are kept and counted. The earlier prices were never touched, so the switch can then be turned off to return to the CR-13 display.
+- Schema changes (migrations 0022–0024) are additive; reverting the code leaves unused columns and tables, which hold no personal data beyond what listings already hold.
+- Tested in `tests/db/pricingMigration.test.ts`: dry run is read-only; Super Admin only; amounts never recalculated; nothing invented; history kept; skipped teachers untouched; idempotent; rollback restores the copy and keeps completed packages.
 
 ## 7. Draft terms template (P-3, P-4) — **for owner approval; ⚖ = needs legal review**
 
