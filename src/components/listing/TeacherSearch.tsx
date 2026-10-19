@@ -33,7 +33,7 @@ const expText = (e: number | null) => (e ? `${e}+ years` : 'Any experience');
 const sortText = (s: SearchValues['sort']) => SORTS.find(([v]) => v === s)![1];
 
 /** A filter button with a small panel: Esc and outside clicks close it; focus returns. */
-function FilterPopover({
+export function FilterPopover({
   label,
   value,
   active,
@@ -144,12 +144,12 @@ function FilterPopover({
   );
 }
 
-const OPTION =
+export const OPTION =
   'flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-[12px] border-0 bg-transparent px-3 text-left text-[15px] font-bold text-on-surface hover:bg-surface-container-low aria-pressed:bg-primary-fixed/50 aria-pressed:text-on-primary-fixed-variant';
 const GRADE_BTN =
   'flex h-11 cursor-pointer items-center justify-center rounded-[12px] border border-card-border bg-surface-container-lowest text-[15px] font-bold text-on-surface hover:border-outline aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-on-primary';
 
-function GradeGrid({ value, onPick }: { value: number | null; onPick: (g: number | null) => void }) {
+export function GradeGrid({ value, onPick }: { value: number | null; onPick: (g: number | null) => void }) {
   return (
     <>
       <button type="button" className={OPTION} aria-pressed={value === null} onClick={() => onPick(null)}>
