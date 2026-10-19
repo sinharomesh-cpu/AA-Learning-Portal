@@ -5,7 +5,13 @@ import { useSyncExternalStore } from 'react';
 import { StatusChip } from '@/components/StatusChip';
 import { cx } from '@/lib/cx';
 import { formatAmount } from '@/lib/listing';
-import { describePackage, type HourlyOffer, lessonPriceMinor, type PackageTerms } from '@/lib/pricing';
+import {
+  describePackage,
+  type HourlyOffer,
+  lessonPriceMinor,
+  lessonRoundingNote,
+  type PackageTerms,
+} from '@/lib/pricing';
 import { convertUsualTimes, formatMinute, type UsualTime, WEEKDAYS, WEEKDAYS_SHORT } from '@/lib/usualTimes';
 
 /**
@@ -70,6 +76,7 @@ export function HourlyOfferBox({
   rows.sort((a, b) => a.t.weekday - b.t.weekday || a.t.start - b.t.start);
   const shown = maxSlots ? rows.slice(0, maxSlots) : rows;
   const lesson = formatAmount(hourly.currency, lessonPriceMinor(hourly.rateMinor, hourly.minutes));
+  const rounding = lessonRoundingNote(hourly.currency, hourly.rateMinor, hourly.minutes);
   return (
     <section
       aria-label="Hourly lessons"
@@ -79,6 +86,7 @@ export function HourlyOfferBox({
       <p className="text-[15px] leading-[22px]">
         <span className="font-headline text-[20px] font-bold">{formatAmount(hourly.currency, hourly.rateMinor)}</span>{' '}
         per hour · <strong>{lesson}</strong> a {hourly.minutes}-minute lesson
+        {rounding ? <span className="text-[13px] text-on-surface-variant"> ({rounding})</span> : null}
       </p>
       {shown.length ? (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">

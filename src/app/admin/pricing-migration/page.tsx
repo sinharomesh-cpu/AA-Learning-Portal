@@ -6,6 +6,7 @@ import { requireAdmin } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { type PlanItem, planPricingMigration } from '@/server/pricingMigration';
+import { describeLessonPrice } from '@/lib/pricing';
 import { isPricingV2 } from '@/server/pricingModel';
 import { describePrice, formatAmount } from '@/lib/listing';
 import { MigrationForm } from './MigrationForms';
@@ -131,8 +132,7 @@ export default async function PricingMigrationPage() {
                       {i.newHourly ? (
                         <strong className="block">
                           {formatAmount(i.newHourly.currency, i.newHourly.rateMinor)} per hour ·{' '}
-                          {formatAmount(i.newHourly.currency, i.newHourly.lessonMinor)} a {i.newHourly.minutes}-min
-                          lesson
+                          {describeLessonPrice(i.newHourly.currency, i.newHourly.rateMinor, i.newHourly.minutes)}
                         </strong>
                       ) : null}
                       {HOURLY[i.hourly]}
@@ -183,21 +183,22 @@ export default async function PricingMigrationPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card as="section" aria-labelledby="apply" className="flex flex-col gap-3 p-4 sm:p-6">
           <h2 id="apply" className="text-[20px] font-bold leading-7">
-            Apply
+            Convert and turn on
           </h2>
           <p className="text-[15px] leading-[22px]">
-            Only after the owner has approved this report. Each listing is converted in its own step and logged, so it
-            can be rolled back. Running it again changes nothing.
+            Only after the owner has approved this report. Download the backup first. Each listing is converted in its
+            own step and logged, then the new pricing model is turned on in the same step. If any listing fails, the
+            model stays off. Running it again changes nothing.
           </p>
           <MigrationForm kind="apply" disabled={plan.items.length === 0} />
         </Card>
         <Card as="section" aria-labelledby="rollback" className="flex flex-col gap-3 p-4 sm:p-6">
           <h2 id="rollback" className="text-[20px] font-bold leading-7">
-            Roll back
+            Turn off and roll back
           </h2>
           <p className="text-[15px] leading-[22px]">
-            Restores every converted listing&apos;s public copy and hourly fields and removes packages still in Needs
-            review. Packages a teacher has completed are kept.
+            Turns the new pricing model off, then restores every converted listing&apos;s public copy and hourly fields
+            and removes packages still in Needs review. Packages a teacher has completed are kept.
           </p>
           <MigrationForm kind="rollback" disabled={plan.alreadyConverted === 0} />
         </Card>

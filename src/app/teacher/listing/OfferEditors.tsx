@@ -6,7 +6,7 @@ import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { StatusChip } from '@/components/StatusChip';
 import { cx } from '@/lib/cx';
-import { CURRENCIES, type Currency, formatAmount, parseAmount } from '@/lib/listing';
+import { CURRENCIES, type Currency, parseAmount } from '@/lib/listing';
 import {
   checkPackage,
   defaultWeeks,
@@ -17,7 +17,7 @@ import {
   PACKAGE_CLASSES_MIN,
   PACKAGE_PROBLEM_TEXT,
   PACKAGE_TERMS_VERSION,
-  lessonPriceMinor,
+  describeLessonPrice,
   PER_WEEK_MAX,
   TERMS_NOTE_MAX,
   WEEKS_MAX,
@@ -130,7 +130,7 @@ export function HourlyEditor({
   const mins = Number(minutes);
   const lessonText =
     rateMinor && Number.isInteger(mins) && mins >= 10 && mins <= 40
-      ? `${formatAmount(currency, lessonPriceMinor(rateMinor, mins))} a ${mins}-minute lesson`
+      ? describeLessonPrice(currency, rateMinor, mins)
       : null;
   return (
     <Card as="section" aria-labelledby="hl-title" className="flex flex-col gap-4 p-4 sm:p-6">

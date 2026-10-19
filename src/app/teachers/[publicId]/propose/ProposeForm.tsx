@@ -81,7 +81,8 @@ export function ProposeForm({
   const wait = waits.find((w) => w.childKey === childKey && w.model === price.model);
   const offerMinor = parseOfferAmount(amount);
   const perLesson = (minor: number, n: number | null) =>
-    n && n > 0 ? formatAmount(price.currency, Math.round(minor / n)) : '—';
+    // OC-107 (1): never rounded silently; an uneven split is marked "about".
+    n && n > 0 ? `${minor % n ? 'about ' : ''}${formatAmount(price.currency, Math.round(minor / n))}` : '—';
 
   return (
     <form action={action} onSubmit={keepValuesOnSubmit(action)} className="flex flex-col gap-6" noValidate>

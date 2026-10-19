@@ -1454,7 +1454,7 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await expect(pp.getByRole('radio', { name: /Hourly lessons · Monday/ })).toBeChecked();
     await pp.getByLabel('Subject').selectOption({ label: 'Maths' });
     await pp.getByLabel(/Your hourly rate offer/).fill('525');
-    await expect(pp.getByText('= ₹350 for a 40-minute lesson', { exact: false })).toBeVisible();
+    await expect(pp.getByText('= ₹350 a 40-minute lesson', { exact: false })).toBeVisible();
     await noSeriousA11yIssues(pp);
     await pp.getByRole('button', { name: 'Send proposal' }).click();
     await expect(pp).toHaveURL(/\/parent\/enquiries\/rates\?sent=/);
@@ -1505,12 +1505,24 @@ test('CR-15 A5: the Super Admin sees a read-only dry run of the price conversion
   await expect(page.getByRole('heading', { name: 'Dry run — nothing has changed' })).toBeVisible();
   await expect(page.getByText('Listings to convert')).toBeVisible();
   // Applying needs the typed word; a wrong word changes nothing.
-  const apply = page.getByRole('region', { name: 'Apply' });
+  // OC-107 (3): converting and turning the model on are one step.
+  const apply = page.getByRole('region', { name: 'Convert and turn on' });
   await apply.getByLabel('Type CONVERT to confirm').fill('yes');
-  await apply.getByRole('button', { name: 'Apply the conversion' }).click();
+  await apply.getByRole('button', { name: 'Convert and turn on' }).click();
   await expect(apply.getByText('Type CONVERT to confirm.', { exact: true })).toBeVisible();
   await expect(page.getByText('Already converted earlier (skipped): 0.')).toBeVisible();
   if (process.env.CR15_SHOTS)
     await page.screenshot({ path: `${process.env.CR15_SHOTS}/pm8-dry-run.png`, fullPage: true });
   await noSeriousA11yIssues(page);
+
+  // OC-107 (3), synthetic data only: convert and turn on in one step, then turn off and roll back.
+  await apply.getByLabel('Type CONVERT to confirm').fill('CONVERT');
+  await apply.getByRole('button', { name: 'Convert and turn on' }).click();
+  await expect(apply.getByText(/and turned the new pricing model on/)).toBeVisible();
+  await expect(page.getByText('New pricing model: on', { exact: false })).toBeVisible();
+  const back = page.getByRole('region', { name: 'Turn off and roll back' });
+  await back.getByLabel('Type ROLL BACK to confirm').fill('ROLL BACK');
+  await back.getByRole('button', { name: 'Turn off and roll back' }).click();
+  await expect(back.getByText(/Turned the new pricing model off and restored/)).toBeVisible();
+  await expect(page.getByText('Already converted earlier (skipped): 0.')).toBeVisible();
 });

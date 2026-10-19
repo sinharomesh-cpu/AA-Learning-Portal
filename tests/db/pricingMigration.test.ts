@@ -7,7 +7,7 @@ import {
   planPricingMigration,
   rollbackPricingMigration,
 } from '@/server/pricingMigration';
-import { getTeacherOffers, savePackage } from '@/server/pricingModel';
+import { getTeacherOffers, packageNeedsDetails, savePackage, setPricingV2 } from '@/server/pricingModel';
 import { type ListingInput, previewListing, saveListing } from '@/server/teacherListings';
 import { saveUsualTimes } from '@/server/teacherUsualTimes';
 import { createAdult, testDb, uniq } from './helpers';
@@ -139,6 +139,18 @@ describe('CR-15 A5: converting the earlier prices (P-9)', () => {
     await expect(
       sql`UPDATE learning_packages SET status = 'offered' WHERE teacher_id = ${a.teacherId}`,
     ).rejects.toThrow();
+  });
+
+  it('OC-107 (2): the teacher home asks the teacher to finish a converted package, only while the model is on', async () => {
+    const t = await teacher([HOURLY, MONTHLY8]);
+    await applyPricingMigration(sql, admin, T0);
+    expect(await packageNeedsDetails(sql, t.teacherId)).toBe(false);
+    expect(await setPricingV2(sql, admin, true, T0)).toEqual({ ok: true });
+    try {
+      expect(await packageNeedsDetails(sql, t.teacherId)).toBe(true);
+    } finally {
+      await setPricingV2(sql, admin, false, T0);
+    }
   });
 
   it('listings of teachers no longer approved are reported and left unchanged', async () => {

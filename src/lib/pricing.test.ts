@@ -3,13 +3,17 @@ import {
   checkHourly,
   checkPackage,
   defaultWeeks,
+  describeLessonPrice,
   describePackage,
   lessonPriceMinor,
+  lessonRoundingNote,
   minPerWeekFor,
   minWeeks,
   type PackageTerms,
   PACKAGE_TERMS_VERSION,
 } from './pricing';
+import { formatAmount, parseAmount } from './listing';
+import { parseOfferAmount } from './rateNegotiation';
 
 const USUAL = [
   { weekday: 1, start: 1020, end: 1080 }, // Mon 5–6 pm
@@ -160,5 +164,28 @@ describe('CR-15 hourly rules (FR-041)', () => {
     expect(checkHourly({ currency: 'EUR' as 'INR', rateMinor: 100, minutes: 40 }, USUAL)).toEqual(['currency']);
     expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 50 }, USUAL)).toEqual(['minutes']);
     expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 40 }, [])).toEqual(['times']);
+  });
+});
+
+describe('OC-107 (1): amounts with paise, never rounded silently', () => {
+  it('shows whole rupees without decimals and paise with two decimals', () => {
+    expect(formatAmount('INR', 20000)).toBe('₹200');
+    expect(formatAmount('INR', 13333)).toBe('₹133.33');
+    expect(formatAmount('INR', 13330)).toBe('₹133.30');
+    expect(formatAmount('INR', 150000)).toBe('₹1,500');
+  });
+  it('accepts up to two decimals and refuses more instead of rounding', () => {
+    expect(parseAmount('133.33')).toBe(13333);
+    expect(parseAmount('133.3')).toBe(13330);
+    expect(parseAmount('133.333')).toBeNull();
+    expect(parseOfferAmount('1,500.50')).toBe(150050);
+    expect(parseOfferAmount('1500.505')).toBeNull();
+  });
+  it('says when a lesson price had to be rounded from the hourly rate', () => {
+    expect(describeLessonPrice('INR', 60000, 40)).toBe('₹400 a 40-minute lesson');
+    expect(describeLessonPrice('INR', 20000, 40)).toBe('₹133.33 a 40-minute lesson (rounded to the nearest paisa)');
+    expect(describeLessonPrice('SGD', 4550, 30)).toBe('S$22.75 a 30-minute lesson');
+    expect(lessonRoundingNote('USD', 1000, 40)).toBe('rounded to the nearest cent');
+    expect(lessonRoundingNote('INR', 20050, 30)).toBeNull();
   });
 });
