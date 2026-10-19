@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Card } from '@/components/Card';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { requireAdmin } from '@/server/authz';
@@ -43,42 +44,42 @@ export default async function AdminRateProposalsPage() {
   return (
     <div className="mx-auto flex max-w-[820px] flex-col gap-6">
       <h1 className="text-headline-lg-mobile lg:text-headline-lg">Rate proposals</h1>
-      <Card as="section" aria-labelledby="limits" className="flex flex-col gap-4 p-4 sm:p-6">
-        <h2 id="limits" className="text-[20px] font-bold leading-7">
-          Limits per parent
-        </h2>
-        <p className="text-[15px] leading-[22px] text-on-surface-variant">
-          Open means Pending or Counter-proposed. A day runs from midnight to midnight in the parent&apos;s own time
-          zone. Counter-offers are not new proposals. Changes apply to the next proposal.
-        </p>
-        <RateLimitsForm activePerParent={limits.activePerParent} newPerDay={limits.newPerDay} />
-      </Card>
-      <Card as="section" aria-labelledby="pricing-model" className="flex flex-col gap-3 p-4 sm:p-6">
-        <h2 id="pricing-model" className="text-[20px] font-bold leading-7">
-          New pricing model (CR-15): {v2 ? 'on' : 'off'}
-        </h2>
-        <p className="text-[15px] leading-[22px] text-on-surface-variant">
-          Hourly lessons and learning packages instead of weekly, fortnightly and monthly prices. Keep this off until
-          the owner approves the release. Old prices are never deleted.
-        </p>
-        <PricingModelForm on={v2} />
-      </Card>
-      <Card as="section" aria-labelledby="counts" className="flex flex-col gap-3 p-4 sm:p-6">
-        <h2 id="counts" className="text-[20px] font-bold leading-7">
-          Counts
-        </h2>
-        <p className="text-sm text-on-surface-variant">
-          Counts only. Negotiations are private to the parent and the teacher (FR-040.20).
-        </p>
-        <dl className="m-0 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {LABELS.map(([key, label]) => (
-            <div key={key} className="rounded-[14px] bg-surface-container-low p-3">
-              <dt className="text-sm text-on-surface-variant">{label}</dt>
-              <dd className="m-0 text-[22px] font-bold">{counts[key]}</dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
+      <section aria-labelledby="limits" className={SHELL}>
+        <PanelHead id="limits" title="Limits per parent" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <p className="text-[15px] leading-[22px] text-on-surface-variant">
+            Open means Pending or Counter-proposed. A day runs from midnight to midnight in the parent&apos;s own time
+            zone. Counter-offers are not new proposals. Changes apply to the next proposal.
+          </p>
+          <RateLimitsForm activePerParent={limits.activePerParent} newPerDay={limits.newPerDay} />
+        </div>
+      </section>
+      <section aria-labelledby="pricing-model" className={SHELL}>
+        <PanelHead id="pricing-model" title={<>New pricing model (CR-15): {v2 ? 'on' : 'off'}</>} />
+        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+          <p className="text-[15px] leading-[22px] text-on-surface-variant">
+            Hourly lessons and learning packages instead of weekly, fortnightly and monthly prices. Keep this off until
+            the owner approves the release. Old prices are never deleted.
+          </p>
+          <PricingModelForm on={v2} />
+        </div>
+      </section>
+      <section aria-labelledby="counts" className={SHELL}>
+        <PanelHead id="counts" title="Counts" />
+        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+          <p className="text-sm text-on-surface-variant">
+            Counts only. Negotiations are private to the parent and the teacher (FR-040.20).
+          </p>
+          <dl className="m-0 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {LABELS.map(([key, label]) => (
+              <div key={key} className="rounded-[14px] bg-surface-container-low p-3">
+                <dt className="text-sm text-on-surface-variant">{label}</dt>
+                <dd className="m-0 text-[22px] font-bold">{counts[key]}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
     </div>
   );
 }

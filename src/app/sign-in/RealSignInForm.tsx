@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { TILE } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { useActionState, useState } from 'react';
 import { resendConfirmationAction, signInWithPasswordAction, type FormState } from '@/app/account/actions';
 import { Button } from '@/components/Button';
@@ -19,8 +21,8 @@ export function RealSignInForm({ connect, rate }: { connect?: string; rate?: str
         {connect && rate ? <input type="hidden" name="rate" value={rate} /> : null}
         {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
         {/* OC-59: a guide only. The account's own role decides which portal opens, so either choice works. */}
-        <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0" aria-describedby="sign-in-as-hint">
-          <legend className="mb-2.5 p-0 text-[15px] font-bold">I am signing in as…</legend>
+        <fieldset className={cx(TILE, 'm-0')} aria-describedby="sign-in-as-hint">
+          <legend className="float-left w-full mb-2.5 p-0 text-[15px] font-bold">I am signing in as…</legend>
           <div className="grid gap-3 sm:grid-cols-2">
             {(
               [

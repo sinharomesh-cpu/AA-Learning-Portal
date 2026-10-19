@@ -83,7 +83,7 @@ export default async function ParentEnquiriesPage({
               <li key={e.id}>
                 <Card as="article" aria-labelledby={`enq-${e.id}`} className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 id={`enq-${e.id}`} className="text-[20px] font-bold leading-7">
+                    <h2 id={`enq-${e.id}`} className="font-headline text-[20px] font-bold leading-7">
                       {e.teacherName} · {who} · {subjects}
                     </h2>
                     <StatusChip kind={kind}>{chip}</StatusChip>

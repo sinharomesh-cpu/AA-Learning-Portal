@@ -1,6 +1,8 @@
 'use client';
 
 import { useActionState, useId, useRef, useState } from 'react';
+import { Chip } from '@/components/ui/Panel';
+import { TILE_KEY } from '@/components/ui/styles';
 import { Button, LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -34,7 +36,7 @@ function MessageField({ defaultValue, error }: { defaultValue?: string; error?: 
         defaultValue={defaultValue ?? ''}
         aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`}
         aria-invalid={error ? true : undefined}
-        className="box-border min-h-24 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface"
+        className="box-border min-h-24 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
       />
       <span id={`${id}-hint`} className="text-sm leading-5 text-on-surface-variant">
         Up to {MESSAGE_MAX} characters. Please don&apos;t include phone numbers, emails, addresses or your
@@ -97,7 +99,7 @@ function ChildSubjectPicker({
     setPicks((p) => ({ ...p, [id]: on ? [...(p[id] ?? []), s] : (p[id] ?? []).filter((x) => x !== s) }));
   return (
     <fieldset className="m-0 flex flex-col gap-3 border-0 p-0" aria-describedby={error ? 'pick-error' : undefined}>
-      <legend className="mb-1 p-0 text-sm font-bold leading-5">
+      <legend className={cx(TILE_KEY, 'float-left mb-1 p-0')}>
         Which children, and which subjects will this teacher teach?
       </legend>
       <p className="text-sm leading-5 text-on-surface-variant">
@@ -129,20 +131,15 @@ function ChildSubjectPicker({
             {on ? (
               <div role="group" aria-label={`Subjects for ${k.name}`} className="flex flex-wrap gap-2">
                 {k.subjects.map((s) => (
-                  <label
+                  <Chip
                     key={s}
-                    className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border-2 border-outline bg-surface-container-lowest px-3.5 text-sm font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed has-[:checked]:text-on-primary-fixed has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary"
+                    name={`subjects:${k.id}`}
+                    value={s}
+                    checked={(picks[k.id] ?? []).includes(s)}
+                    onChange={(e) => toggleSubject(k.id, s, e.target.checked)}
                   >
-                    <input
-                      type="checkbox"
-                      name={`subjects:${k.id}`}
-                      value={s}
-                      checked={(picks[k.id] ?? []).includes(s)}
-                      onChange={(e) => toggleSubject(k.id, s, e.target.checked)}
-                      className="h-[18px] w-[18px] accent-primary"
-                    />
                     {SUBJECTS[s as SubjectId]?.name ?? s}
-                  </label>
+                  </Chip>
                 ))}
                 <button
                   type="button"

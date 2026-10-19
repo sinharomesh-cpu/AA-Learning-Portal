@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Card } from '@/components/Card';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
@@ -37,15 +38,15 @@ export default async function AdminSecurityPage({ searchParams }: { searchParams
           now.
         </FormMessage>
       ) : null}
-      <Card as="section" aria-labelledby="sec-codes" className="flex flex-col gap-4">
-        <h2 id="sec-codes" className="text-[20px] font-bold leading-7">
-          Security code and recovery codes
-        </h2>
-        <p className="text-[15px]">
-          Security codes are on. Recovery codes left: <strong data-testid="codes-left">{left}</strong>
-        </p>
-        <SecuritySettings />
-      </Card>
+      <section aria-labelledby="sec-codes" className={SHELL}>
+        <PanelHead id="sec-codes" title="Security code and recovery codes" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <p className="text-[15px]">
+            Security codes are on. Recovery codes left: <strong data-testid="codes-left">{left}</strong>
+          </p>
+          <SecuritySettings />
+        </div>
+      </section>
     </div>
   );
 }

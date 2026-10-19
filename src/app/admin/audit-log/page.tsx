@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PillSelect } from '@/components/ui/PillSelect';
 import { auditLabel } from '@/lib/auditLabels';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
@@ -13,7 +14,6 @@ import { isDemoMode } from '@/server/demo';
 export const metadata: Metadata = { title: 'Audit log' };
 export const dynamic = 'force-dynamic';
 
-const SELECT = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-3.5 text-[15px]';
 const OUTCOME_KIND = { success: 'success', failure: 'warning', denied: 'error' } as const;
 
 function parseDay(v: string | undefined): Date | undefined {
@@ -72,35 +72,40 @@ export default async function AdminAuditLogPage({
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5">
       <h1 className="text-headline-lg-mobile lg:text-headline-lg">Audit log</h1>
-      <form method="get" className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end" role="search">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="al-type" className="text-sm font-bold">
-            Type of event
-          </label>
-          <select id="al-type" name="type" defaultValue={type ?? ''} className={SELECT}>
-            <option value="">All</option>
-            {types.map((t) => (
-              <option key={t} value={t}>
-                {auditLabel(t)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="al-from" className="text-sm font-bold">
-            From
-          </label>
-          <input id="al-from" type="date" name="from" defaultValue={fromRaw} className={SELECT} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="al-to" className="text-sm font-bold">
-            To
-          </label>
-          <input id="al-to" type="date" name="to" defaultValue={toRaw} className={SELECT} />
-        </div>
+      <form
+        method="get"
+        className="flex flex-wrap items-center gap-2 rounded-[24px] border border-card-border bg-surface-container-lowest p-3 shadow-[0_1px_2px_rgba(19,27,46,.04),0_12px_32px_-16px_rgba(19,27,46,.18)]"
+        role="search"
+        aria-label="Filter the audit log"
+      >
+        <PillSelect
+          name="type"
+          label="Type of event"
+          defaultValue={type ?? ''}
+          options={[['', 'All'] as const, ...types.map((t) => [t, auditLabel(t)] as const)]}
+          wide
+        />
+        <label className="flex items-center gap-2 text-sm font-bold text-on-surface-variant">
+          From
+          <input
+            type="date"
+            name="from"
+            defaultValue={fromRaw}
+            className="h-[52px] rounded-full border border-card-border bg-surface-container-lowest px-4 text-[15px] font-bold text-on-surface outline-none hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/15"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm font-bold text-on-surface-variant">
+          To
+          <input
+            type="date"
+            name="to"
+            defaultValue={toRaw}
+            className="h-[52px] rounded-full border border-card-border bg-surface-container-lowest px-4 text-[15px] font-bold text-on-surface outline-none hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/15"
+          />
+        </label>
         <button
           type="submit"
-          className="min-h-12 rounded-full border-2 border-outline bg-surface-container-lowest px-5 text-[15px] font-bold hover:bg-surface-container-low"
+          className="h-[52px] cursor-pointer rounded-full border-0 bg-primary px-6 text-[15px] font-bold text-on-primary ml-auto"
         >
           Show
         </button>

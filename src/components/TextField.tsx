@@ -1,5 +1,6 @@
 import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
 import { cx } from '@/lib/cx';
+import { INPUT } from './ui/styles';
 
 interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'className' | 'size'> {
   label: ReactNode;
@@ -28,9 +29,9 @@ export function TextField({ label, hint, error, invalid, size = 'md', className,
         aria-describedby={describedBy}
         aria-invalid={error || invalid ? true : undefined}
         className={cx(
-          'box-border w-full rounded-[16px] border-2 bg-surface-container-lowest px-4 font-body font-medium text-on-surface',
-          size === 'child' ? 'min-h-14 text-[18px]' : 'min-h-[52px] text-base',
-          error || invalid ? 'border-error' : 'border-outline',
+          INPUT,
+          size === 'child' ? 'min-h-14 text-[18px]' : 'min-h-[52px]',
+          error || invalid ? 'border-error' : '',
         )}
         {...inputProps}
       />

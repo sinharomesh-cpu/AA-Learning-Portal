@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import Link from 'next/link';
-import { Card } from '@/components/Card';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { SUBJECTS } from '@/fixtures/subjects';
 import { formatFileSize } from '@/lib/filePieces';
@@ -97,22 +98,22 @@ export default async function TeacherResourcesPage() {
           Your students see what you share on their homework page straight away. Their parents can see it too.
         </p>
       </div>
-      <Card aria-labelledby="share-new" className="flex flex-col gap-4">
-        <h2 id="share-new" className="m-0 text-[20px] font-bold leading-7">
-          Share a resource
-        </h2>
-        {students.length ? (
-          <ShareForm students={students} />
-        ) : (
-          <p className="m-0 text-[15px] leading-6">
-            No students linked yet. Students appear once a parent links you; then you can share with them.
+      <section aria-labelledby="share-new" className={SHELL}>
+        <PanelHead id="share-new" title="Share a resource" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          {students.length ? (
+            <ShareForm students={students} />
+          ) : (
+            <p className="m-0 text-[15px] leading-6">
+              No students linked yet. Students appear once a parent links you; then you can share with them.
+            </p>
+          )}
+          <p className="m-0 text-sm leading-5 text-on-surface-variant">
+            Who will see it: the students you choose, on &ldquo;From my teachers&rdquo;, and each child&apos;s parent.
+            Not other families, not other teachers, not AA Pro admins.
           </p>
-        )}
-        <p className="m-0 text-sm leading-5 text-on-surface-variant">
-          Who will see it: the students you choose, on &ldquo;From my teachers&rdquo;, and each child&apos;s parent. Not
-          other families, not other teachers, not AA Pro admins.
-        </p>
-      </Card>
+        </div>
+      </section>
       <OwnStorageMeter accountId={viewer.id} />
       <section aria-labelledby="own" className="flex flex-col gap-3">
         <h2 id="own" className="m-0 text-[20px] font-bold leading-7">

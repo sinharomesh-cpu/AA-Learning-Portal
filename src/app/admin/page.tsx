@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import { auditLabel } from '@/lib/auditLabels';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
@@ -88,29 +90,29 @@ export default async function AdminHomePage() {
         ))}
       </ul>
       {demo || recent.length ? (
-        <Card aria-labelledby="recent" className="flex flex-col gap-2">
-          <h2 id="recent" className="text-headline-sm">
-            Your recent actions
-          </h2>
-          <ul className="m-0 list-none p-0">
-            {recent.map((a, i) => (
-              <li
-                key={`${a.when}-${i}`}
-                className={`flex flex-wrap justify-between gap-2 py-3 ${i < recent.length - 1 ? 'border-b border-surface-container' : ''}`}
-              >
-                <span>
-                  {a.action} <strong>{a.subject}</strong>
-                </span>
-                <span className="text-body-sm text-on-surface-variant">{a.when}</span>
-              </li>
-            ))}
-          </ul>
-          {access.viewer.role === 'superadmin' || access.viewer.permissions?.includes('audit_log') ? (
-            <Link href="/admin/audit-log" className="font-bold">
-              Open audit log
-            </Link>
-          ) : null}
-        </Card>
+        <section aria-labelledby="recent" className={SHELL}>
+          <PanelHead id="recent" title="Your recent actions" />
+          <div className="flex flex-col gap-2 px-5 py-5 sm:px-6">
+            <ul className="m-0 list-none p-0">
+              {recent.map((a, i) => (
+                <li
+                  key={`${a.when}-${i}`}
+                  className={`flex flex-wrap justify-between gap-2 py-3 ${i < recent.length - 1 ? 'border-b border-surface-container' : ''}`}
+                >
+                  <span>
+                    {a.action} <strong>{a.subject}</strong>
+                  </span>
+                  <span className="text-body-sm text-on-surface-variant">{a.when}</span>
+                </li>
+              ))}
+            </ul>
+            {access.viewer.role === 'superadmin' || access.viewer.permissions?.includes('audit_log') ? (
+              <Link href="/admin/audit-log" className="font-bold">
+                Open audit log
+              </Link>
+            ) : null}
+          </div>
+        </section>
       ) : null}
       <p className="text-body-sm text-on-surface-variant">
         The home page shows counts only. No child names or learning content appear in the Super Admin portal.

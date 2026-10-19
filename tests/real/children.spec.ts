@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { confirmFromMailbox, createAccount, freshEmail, PHRASE, signIn } from './helpers';
+import { confirmFromMailbox, createAccount, freshEmail, PHRASE, signIn, choose } from './helpers';
 
 /** WP2-4: child accounts end to end (M-02, M-06, M-07, M-08; G1-08 §3). */
 
@@ -16,6 +16,11 @@ test.beforeEach(async ({ context }) => {
 async function noSeriousA11yIssues(page: Page) {
   // Next.js may stream the <title> in after first paint; wait for it before scanning.
   await expect(page).toHaveTitle(/\S/);
+  // Design audit (OC-110): AUDIT_SHOTS=<folder> saves every page these tests check.
+  if (process.env.AUDIT_SHOTS) {
+    const name = new URL(page.url()).pathname.replace(/[^a-z0-9]+/gi, '_') || '_';
+    await page.screenshot({ path: `${process.env.AUDIT_SHOTS}/${name}-${Date.now()}.png`, fullPage: true });
+  }
   const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   const serious = r.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(serious, JSON.stringify(serious.map((v) => [v.id, v.nodes.map((n) => n.target)]))).toEqual([]);
@@ -39,7 +44,7 @@ async function addChild(page: Page, name: string, password = '') {
   }
   await expect(page.getByRole('heading', { level: 1, name: 'Add a child' })).toBeVisible();
   await page.getByLabel('First name (shown in the app)').fill(name);
-  await page.getByLabel('Grade').selectOption('5');
+  await choose(page, 'Grade', 'Grade 5');
   await page.getByRole('checkbox', { name: 'Maths' }).check();
   await page.getByRole('checkbox', { name: 'English' }).check();
   await page.getByLabel('Username').fill(name);
@@ -204,7 +209,7 @@ test('profile edits are saved', async ({ page }) => {
   await addChild(page, 'Ishan');
   await page.goto('/parent/children');
   await page.getByRole('link', { name: "Edit Ishan's profile" }).click();
-  await page.getByLabel('Grade').selectOption('6');
+  await choose(page, 'Grade', 'Grade 6');
   await page.getByRole('checkbox', { name: 'Science' }).check();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('Changes saved.')).toBeVisible();
@@ -212,7 +217,7 @@ test('profile edits are saved', async ({ page }) => {
   await expect(page.getByText('Grade 6').first()).toBeVisible();
   await page.getByRole('link', { name: "Edit Ishan's profile" }).click();
   await expect(page.getByRole('checkbox', { name: 'Science' })).toBeChecked();
-  await expect(page.getByLabel('Grade')).toHaveValue('6');
+  await expect(page.getByRole('button', { name: 'Grade: Grade 6' })).toBeVisible();
 });
 
 test('private files answer "not found" to anyone not allowed, and are never cached (CR-07 H-1)', async ({ page }) => {

@@ -1,6 +1,10 @@
 'use client';
 
 import { useActionState, useId, useState } from 'react';
+import { SelectField } from '@/components/ui/SelectField';
+import { Chip } from '@/components/ui/Panel';
+import { TILE } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { Button, LinkButton } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
@@ -14,9 +18,9 @@ import { proposeAction, type ProposeFormState } from './actions';
 import type { ProposeKid, ProposeWait } from './ProposeForm';
 
 const FIELD =
-  'box-border min-h-12 w-full rounded-[14px] border-2 border-outline bg-surface-container-lowest px-3 text-base';
+  'box-border min-h-12 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15';
 const CHOICE =
-  'flex min-h-[52px] cursor-pointer items-center gap-3 rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-2 text-[15px] has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary';
+  'flex min-h-[52px] cursor-pointer items-center gap-3 rounded-[16px] border border-card-border hover:border-outline bg-surface-container-lowest px-4 py-2 text-[15px] has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary';
 
 function Err({ id, text }: { id: string; text?: string }) {
   return text ? (
@@ -87,24 +91,23 @@ export function ProposeOfferForm({
       <input type="hidden" name="slot" value={slotKey} />
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
 
-      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0" aria-describedby={`${id}-what-hint`}>
-        <legend className="mb-2 p-0 text-[15px] font-bold">What would you like to propose?</legend>
+      <fieldset className={cx(TILE, 'm-0')} aria-describedby={`${id}-what-hint`}>
+        <legend className="float-left w-full mb-2 p-0 text-[15px] font-bold">What would you like to propose?</legend>
         {hourly
           ? slots.map((t) => (
-              <label key={key(t)} className={CHOICE}>
-                <input
-                  type="radio"
-                  name="choice"
-                  value={`hourly|${key(t)}`}
-                  checked={choice === `hourly|${key(t)}`}
-                  onChange={() => setChoice(`hourly|${key(t)}`)}
-                  className="h-5 w-5 flex-none accent-primary"
-                />
+              <Chip
+                key={key(t)}
+                type="radio"
+                name="choice"
+                value={`hourly|${key(t)}`}
+                checked={choice === `hourly|${key(t)}`}
+                onChange={() => setChoice(`hourly|${key(t)}`)}
+              >
                 <span>
                   <strong>Hourly lessons</strong> · {range(t)} · {formatAmount(hourly.currency, hourly.rateMinor)} per
                   hour ({describeLessonPrice(hourly.currency, hourly.rateMinor, hourly.minutes)})
                 </span>
-              </label>
+              </Chip>
             ))
           : null}
         {pkg ? (
@@ -132,52 +135,32 @@ export function ProposeOfferForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${id}-who`} className="text-sm font-bold">
-            For which child?
-          </label>
-          <select
-            id={`${id}-who`}
+          <SelectField
             name="who"
-            className={FIELD}
+            label="For which child?"
             value={who}
-            aria-describedby={`${id}-who-hint`}
-            onChange={(ev) => {
-              setWho(ev.target.value);
+            onChange={(v) => {
+              setWho(v);
               setSubject('');
             }}
-          >
-            {kids.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.label}
-              </option>
-            ))}
-            <option value="new">A child I haven&apos;t added yet</option>
-          </select>
+            options={[...kids.map((k) => [k.id, k.label] as const), ['new', 'A child I haven’t added yet'] as const]}
+          />
           <span id={`${id}-who-hint`} className="text-sm leading-5 text-on-surface-variant">
             The teacher sees only the grade and curriculum, never a name.
           </span>
           <Err id={`${id}-who-err`} text={e.who} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${id}-subject`} className="text-sm font-bold">
-            Subject
-          </label>
-          <select
-            id={`${id}-subject`}
+          <SelectField
             name="subject"
-            className={FIELD}
+            label="Subject"
             value={subject}
-            aria-invalid={e.subject ? true : undefined}
-            aria-describedby={e.subject ? `${id}-subject-err` : undefined}
-            onChange={(ev) => setSubject(ev.target.value)}
-          >
-            <option value="">Choose a subject</option>
-            {offered.map((s) => (
-              <option key={s} value={s}>
-                {SUBJECTS[s as SubjectId]?.name ?? s}
-              </option>
-            ))}
-          </select>
+            onChange={setSubject}
+            options={[
+              ['', 'Choose a subject'] as const,
+              ...offered.map((x) => [x, SUBJECTS[x as SubjectId]?.name ?? x] as const),
+            ]}
+          />
           <Err id={`${id}-subject-err`} text={e.subject} />
         </div>
       </div>
@@ -185,43 +168,26 @@ export function ProposeOfferForm({
       {who === 'new' ? (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${id}-grade`} className="text-sm font-bold">
-              Grade
-            </label>
-            <select
-              id={`${id}-grade`}
+            <SelectField
               name="grade"
-              className={FIELD}
+              label="Grade"
               value={grade}
-              onChange={(ev) => setGrade(ev.target.value)}
-            >
-              <option value="">Choose a grade</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
-                <option key={g} value={g}>
-                  Grade {g}
-                </option>
-              ))}
-            </select>
+              onChange={setGrade}
+              options={[
+                ['', 'Choose a grade'] as const,
+                ...Array.from({ length: 12 }, (_, i) => [String(i + 1), `Grade ${i + 1}`] as const),
+              ]}
+            />
             <Err id={`${id}-grade-err`} text={e.grade} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${id}-curriculum`} className="text-sm font-bold">
-              Curriculum
-            </label>
-            <select
-              id={`${id}-curriculum`}
+            <SelectField
               name="curriculum"
-              className={FIELD}
+              label="Curriculum"
               value={curriculum}
-              onChange={(ev) => setCurriculum(ev.target.value)}
-            >
-              <option value="">Choose a curriculum</option>
-              {CURRICULA_LIST.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              onChange={setCurriculum}
+              options={[['', 'Choose a curriculum'] as const, ...CURRICULA_LIST.map((c) => [c, c] as const)]}
+            />
             <Err id={`${id}-curriculum-err`} text={e.curriculum} />
           </div>
         </div>
@@ -294,7 +260,7 @@ export function ProposeOfferForm({
           id={`${id}-message`}
           name="message"
           maxLength={MESSAGE_MAX}
-          className="box-border min-h-24 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base"
+          className="box-border min-h-24 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
           aria-describedby={`${id}-message-hint`}
         />
         <span id={`${id}-message-hint`} className="text-sm leading-5 text-on-surface-variant">

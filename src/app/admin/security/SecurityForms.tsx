@@ -31,7 +31,7 @@ function CodeField({ label = 'Security code' }: { label?: string }) {
         pattern="[0-9 ]*"
         maxLength={7}
         required
-        className="min-h-14 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-center font-mono text-[24px] font-bold tracking-[.3em]"
+        className="min-h-14 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 text-center font-mono text-[24px] font-bold tracking-[.3em] outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
       />
     </div>
   );

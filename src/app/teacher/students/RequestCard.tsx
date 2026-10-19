@@ -1,6 +1,8 @@
 'use client';
 
 import { useActionState, useId, useRef, useState } from 'react';
+import { TILE } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -33,7 +35,7 @@ export function RequestCard({ r }: { r: RequestView }) {
   return (
     <Card as="article" aria-labelledby={headingId} className="flex h-full flex-col gap-3 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-[19px] font-bold leading-7">
+        <h3 id={headingId} className="font-headline text-[19px] font-bold leading-7">
           {title}
         </h3>
         <StatusChip kind="neutral">
@@ -131,12 +133,14 @@ function DeclineButton({ r, title }: { r: RequestView; title: string }) {
           form.current?.requestSubmit();
         }}
       >
-        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0" aria-describedby={missing ? `${id}-err` : undefined}>
-          <legend className="mb-2 p-0 text-sm font-bold leading-5 text-on-surface">Reason (required)</legend>
+        <fieldset className={cx(TILE, 'm-0')} aria-describedby={missing ? `${id}-err` : undefined}>
+          <legend className="float-left w-full mb-2 p-0 text-sm font-bold leading-5 text-on-surface">
+            Reason (required)
+          </legend>
           {DECLINE_REASONS.map((reason) => (
             <label
               key={reason}
-              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-base text-on-surface has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
+              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-[16px] border border-card-border hover:border-outline bg-surface-container-lowest px-4 text-base text-on-surface has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
             >
               <input
                 type="radio"
@@ -163,7 +167,7 @@ function DeclineButton({ r, title }: { r: RequestView; title: string }) {
             name="note"
             maxLength={DECLINE_NOTE_MAX}
             aria-describedby={`${id}-note-hint`}
-            className="box-border min-h-20 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface"
+            className="box-border min-h-20 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
           />
           <span id={`${id}-note-hint`} className="text-sm leading-5">
             Up to {DECLINE_NOTE_MAX} characters. The parent sees your reason and this note. Please don&apos;t share

@@ -60,3 +60,54 @@
     }
   }
 }
+
+/*
+ * OC-110: native tick boxes and radio buttons in the signed-in design — rounded, 1.5x outline,
+ * filled with the primary colour and a white tick / dot when chosen. Still the browser's own
+ * controls (keyboard, forms and screen readers unchanged).
+ */
+@layer components {
+  input[type='checkbox'].accent-primary,
+  input[type='radio'].accent-primary {
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+    flex: none;
+    margin: 0;
+    border: 2px solid var(--color-outline);
+    border-radius: 7px;
+    background: var(--color-surface-container-lowest);
+    cursor: pointer;
+    transition:
+      background-color 120ms,
+      border-color 120ms;
+  }
+  input[type='radio'].accent-primary {
+    border-radius: 9999px;
+  }
+  input[type='checkbox'].accent-primary:checked,
+  input[type='radio'].accent-primary:checked {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+  }
+  input[type='checkbox'].accent-primary:checked::after {
+    content: '';
+    width: 40%;
+    height: 22%;
+    border-left: 2.5px solid var(--color-on-primary);
+    border-bottom: 2.5px solid var(--color-on-primary);
+    transform: translateY(-15%) rotate(-45deg);
+  }
+  input[type='radio'].accent-primary:checked::after {
+    content: '';
+    width: 0.45em;
+    height: 0.45em;
+    border-radius: 9999px;
+    background: var(--color-on-primary);
+  }
+  input[type='checkbox'].accent-primary:disabled,
+  input[type='radio'].accent-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}

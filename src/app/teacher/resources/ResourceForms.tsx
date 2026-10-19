@@ -1,6 +1,10 @@
 'use client';
 
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
+import { Chip, TileKey } from '@/components/ui/Panel';
+import { PillSelect } from '@/components/ui/PillSelect';
+import { TILE, TILE_KEY } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FileUploadField } from '@/components/files/FileUploadField';
@@ -23,27 +27,21 @@ export interface StudentOption {
   subjects: SubjectId[];
 }
 
-const SELECT =
-  'box-border min-h-[52px] w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-base font-medium text-on-surface';
 const AREA =
-  'box-border min-h-24 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface';
+  'box-border min-h-24 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base text-on-surface outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15';
 
 function StudentChecks({ students, subject }: { students: StudentOption[]; subject: SubjectId | '' }) {
   const linked = subject ? students.filter((s) => s.subjects.includes(subject)) : [];
   return (
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className="mb-1 text-sm font-bold leading-5">Share with</legend>
+    <fieldset className={cx(TILE, 'm-0')}>
+      <legend className={cx(TILE_KEY, 'float-left mb-1 p-0')}>Share with</legend>
       {linked.length ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="clear-both flex flex-wrap gap-2">
           {linked.map((s) => (
-            <label
-              key={s.studentId}
-              className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-2 border-outline bg-surface-container-lowest px-4 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
-            >
-              <input type="checkbox" name="studentIds" value={s.studentId} className="h-5 w-5 accent-primary" />
+            <Chip key={s.studentId} name="studentIds" value={s.studentId}>
               {s.name}
               {s.grade ? ` · Grade ${s.grade}` : ''}
-            </label>
+            </Chip>
           ))}
         </div>
       ) : null}
@@ -96,26 +94,18 @@ export function ShareForm({ students }: { students: StudentOption[] }) {
         onChange={(e) => setTitle(e.target.value)}
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${titleId}-subject`} className="text-sm font-bold leading-5">
-            Subject
-          </label>
-          <select
-            id={`${titleId}-subject`}
-            name="subject"
-            className={SELECT}
-            value={subject}
-            aria-describedby={`${titleId}-subject-hint`}
-            onChange={(e) => setSubject(e.target.value as SubjectId | '')}
-          >
-            <option value="">Choose a subject</option>
-            {subjects.map((s) => (
-              <option key={s} value={s}>
-                {SUBJECTS[s].name}
-              </option>
-            ))}
-          </select>
-          <span id={`${titleId}-subject-hint`} className="text-sm leading-5 text-on-surface-variant">
+        <div className={TILE}>
+          <TileKey>Subject</TileKey>
+          <div className="flex">
+            <PillSelect
+              name="subject"
+              label="Subject"
+              value={subject}
+              onChange={(v) => setSubject(v as SubjectId | '')}
+              options={[['', 'Choose a subject'] as const, ...subjects.map((x) => [x, SUBJECTS[x].name] as const)]}
+            />
+          </div>
+          <span className="text-[13px] leading-[18px] text-on-surface-variant">
             Only subjects a parent ticked for at least one of your students.
           </span>
         </div>
@@ -231,15 +221,11 @@ export function ShareMore({ resourceId, options }: { resourceId: string; options
       <form action={action} className="flex flex-col gap-3 pb-3 pt-1">
         <input type="hidden" name="resourceId" value={resourceId} />
         <Result state={state} />
-        <div className="flex flex-wrap gap-2">
+        <div className="clear-both flex flex-wrap gap-2">
           {options.map((s) => (
-            <label
-              key={s.studentId}
-              className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-2 border-outline bg-surface-container-lowest px-4"
-            >
-              <input type="checkbox" name="studentIds" value={s.studentId} className="h-5 w-5 accent-primary" />
+            <Chip key={s.studentId} name="studentIds" value={s.studentId}>
               {s.name}
-            </label>
+            </Chip>
           ))}
         </div>
         <div>

@@ -556,7 +556,7 @@ export function PackageEditor({
                   maxLength={TERMS_NOTE_MAX}
                   defaultValue={initial.termsNote ?? ''}
                   aria-describedby="pk-note-hint"
-                  className="box-border min-h-20 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base"
+                  className="box-border min-h-20 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
                 />
                 <span id="pk-note-hint" className="text-sm text-on-surface-variant">
                   Up to {TERMS_NOTE_MAX} characters. They can’t change the standard terms. No contact details, please.

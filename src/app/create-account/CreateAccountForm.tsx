@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { SelectField } from '@/components/ui/SelectField';
+import { TILE } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { useActionState } from 'react';
 import { signUpAction, type FormState } from '@/app/account/actions';
 import { Button } from '@/components/Button';
@@ -31,10 +34,10 @@ export function CreateAccountForm({ connect }: { connect?: { publicId: string; t
       <fieldset
         hidden={!!connect}
         disabled={!!connect}
-        className="m-0 flex flex-col gap-2.5 border-0 p-0"
+        className={cx(TILE, 'm-0')}
         aria-describedby={e.role ? 'role-error' : undefined}
       >
-        <legend className="mb-2.5 p-0 text-[15px] font-bold">I am…</legend>
+        <legend className="float-left w-full mb-2.5 p-0 text-[15px] font-bold">I am…</legend>
         {(
           [
             ['parent', 'A parent', 'Add your children, choose their teachers and share books.', 'Family account'],
@@ -103,24 +106,14 @@ export function CreateAccountForm({ connect }: { connect?: { publicId: string; t
         error={e.password}
         required
       />
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="timeZone" className="text-sm font-bold leading-5">
-          Time zone
-        </label>
-        <select
-          id="timeZone"
-          name="timeZone"
-          defaultValue={v.timeZone ?? 'Asia/Kolkata'}
-          className="min-h-[52px] rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-base text-on-surface"
-        >
-          {TIME_ZONES.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        {e.timeZone ? <span className="text-sm font-bold text-on-error-container">{e.timeZone}</span> : null}
-      </div>
+      <SelectField
+        name="timeZone"
+        label="Time zone"
+        options={TIME_ZONES}
+        defaultValue={v.timeZone ?? 'Asia/Kolkata'}
+        error={e.timeZone}
+        wide
+      />
       <label className="flex items-start gap-3 text-[15px] leading-[22px]">
         <input
           type="checkbox"
