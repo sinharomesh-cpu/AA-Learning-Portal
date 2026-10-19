@@ -1473,6 +1473,9 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await expect(t.getByTestId('rate-negotiation').filter({ hasText: 'Hourly lessons' })).toContainText(
       'Pending · your turn',
     );
+    // Checked on a fresh load: just after the counter-offer the page is still settling its redirect.
+    await t.goto('/teacher/enquiries/rates');
+    await expect(t.getByTestId('rate-negotiation')).toHaveCount(2);
     await noSeriousA11yIssues(t);
     await fam.context.close();
   } finally {
