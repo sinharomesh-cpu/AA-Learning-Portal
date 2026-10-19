@@ -1,7 +1,9 @@
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import type { PublicListingCard } from '@/components/listing/cards';
-import { type SearchValues, TeacherSearchPanel } from '@/components/listing/TeacherSearchPanel';
+import { HourlyOfferBox, PackageOfferBox } from '@/components/listing/Offers';
+import type { SearchValues } from '@/components/listing/searchHref';
+import { type CurriculumOption, TeacherSearch } from '@/components/listing/TeacherSearch';
 import type { MarketplaceSwitches } from '@/config/landing';
 import { Icon } from '@/components/public/icons';
 import { cx } from '@/lib/cx';
@@ -27,58 +29,77 @@ export type { PublicListingCard } from '@/components/listing/cards';
 export function ListingCard({ listing }: { listing: PublicListingCard }) {
   const headingId = `listing-${listing.id}`;
   const initial = [...listing.name.replace(/^(Teacher|Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')][0]?.toUpperCase() ?? '?';
+  const o = listing.offers;
   return (
-    <Card as="article" aria-labelledby={headingId} className="pub-card flex w-full flex-col gap-4 rounded-lg">
-      <div className="flex items-start gap-4">
+    <Card
+      as="article"
+      aria-labelledby={headingId}
+      className="pub-card flex w-full flex-col gap-3.5 rounded-[24px] p-5 shadow-[0_1px_2px_rgba(19,27,46,.04),0_8px_24px_-16px_rgba(19,27,46,.16)]"
+    >
+      <div className="flex items-start gap-3.5">
         {listing.photoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element -- small approved photo from our own route
           <img
             src={listing.photoSrc}
             alt=""
-            width={64}
-            height={64}
-            className="size-16 flex-none rounded-[18px] border border-card-border object-cover"
+            width={56}
+            height={56}
+            className="size-14 flex-none rounded-[18px] border border-card-border object-cover"
           />
         ) : (
           <span
             aria-hidden="true"
-            className="flex size-16 flex-none items-center justify-center rounded-[18px] bg-primary-fixed font-headline text-[26px] font-extrabold text-on-primary-fixed"
+            className="flex size-14 flex-none items-center justify-center rounded-[18px] bg-primary-fixed font-headline text-[24px] font-extrabold text-on-primary-fixed"
           >
             {initial}
           </span>
         )}
-        <div className="flex min-w-0 flex-col gap-1">
-          <h3 id={headingId} className="text-[20px] font-bold leading-7">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h3 id={headingId} className="text-[19px] font-bold leading-[26px]">
             {listing.name}
           </h3>
-          <p className="text-[15px] font-bold text-primary">{listing.subjects.join(' · ')}</p>
-          <span className="self-start rounded-full border border-success-border bg-success-container px-2.5 py-0.5 text-xs font-bold text-on-success-container">
-            Looking for students
-          </span>
+          <p className="text-[14px] font-bold text-primary">{listing.subjects.join(' · ')}</p>
+          {listing.experienceYears !== null ? (
+            <p className="flex items-center gap-1.5 text-[13px] text-on-surface-variant">
+              <Icon name="school" size={15} className="flex-none" />
+              {listing.experienceYears} {listing.experienceYears === 1 ? 'year' : 'years'} (as stated)
+            </p>
+          ) : null}
         </div>
       </div>
-      {listing.experienceYears !== null ? (
-        <p className="flex items-center gap-2 text-[15px]">
-          <Icon name="school" size={18} className="flex-none text-primary" />
-          <span>
-            <strong>
-              {listing.experienceYears} {listing.experienceYears === 1 ? 'year' : 'years'}
-            </strong>{' '}
-            teaching <span className="text-on-surface-variant">(as stated by the teacher)</span>
+      <p className="flex flex-wrap gap-1.5" aria-label="Teaches">
+        {[describeGrades(listing.grades), ...listing.curricula, 'Online'].map((c) => (
+          <span
+            key={c}
+            className="inline-flex h-7 items-center rounded-full bg-surface-container px-2.5 text-[13px] font-bold text-on-surface-variant"
+          >
+            {c}
           </span>
-        </p>
-      ) : null}
-      <div className="flex flex-col gap-2">
-        <span className="text-label-sm uppercase tracking-[.08em] text-on-surface-variant">Teaches</span>
-        <p className="flex flex-wrap gap-1.5">
-          {[describeGrades(listing.grades), ...listing.curricula, 'Online'].map((c) => (
-            <span key={c} className="rounded-full bg-surface-container px-2.5 py-0.5 text-[13px] font-bold">
-              {c}
-            </span>
-          ))}
-        </p>
-      </div>
-      {listing.prices.length ? (
+        ))}
+      </p>
+      {o ? (
+        <>
+          {o.hourly ? (
+            <HourlyOfferBox
+              hourly={o.hourly}
+              slots={o.slots}
+              teacherZone={o.teacherZone}
+              maxSlots={2}
+              moreHref={listing.href}
+              headingLevel={4}
+            />
+          ) : null}
+          {o.package ? (
+            <PackageOfferBox
+              pkg={o.package}
+              negotiable={o.packageNegotiable}
+              teacherZone={o.teacherZone}
+              headingLevel={4}
+              compact
+            />
+          ) : null}
+        </>
+      ) : listing.prices.length ? (
         <div className="flex flex-col gap-2 rounded-[18px] border border-card-border bg-surface-container-low p-3">
           <span className="text-[14px] font-bold">Asking prices</span>
           <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
@@ -94,12 +115,7 @@ export function ListingCard({ listing }: { listing: PublicListingCard }) {
         </div>
       ) : null}
       {listing.href ? (
-        <LinkButton
-          href={listing.href}
-          variant="secondary"
-          className="mt-auto w-full"
-          aria-label={`View profile: ${listing.name}`}
-        >
+        <LinkButton href={listing.href} className="mt-auto w-full" aria-label={`View profile: ${listing.name}`}>
           View profile
         </LinkButton>
       ) : null}
@@ -113,6 +129,7 @@ export function TeachersSection({
   listings = [],
   loadError = false,
   more = false,
+  curricula = [],
 }: {
   marketplace: MarketplaceSwitches;
   wrap: string;
@@ -121,6 +138,8 @@ export function TeachersSection({
   loadError?: boolean;
   /** More listings exist than are shown here. */
   more?: boolean;
+  /** Curricula that published teachers list (OC-105). */
+  curricula?: CurriculumOption[];
 }) {
   const shown = marketplace.listings ? listings : [];
   const anyFilters: SearchValues = {
@@ -178,7 +197,13 @@ export function TeachersSection({
         </div>
       ) : shown.length ? (
         <>
-          <TeacherSearchPanel values={anyFilters} idPrefix="home-ts" />
+          <TeacherSearch
+            values={anyFilters}
+            total={null}
+            curricula={curricula}
+            idPrefix="home-ts"
+            showResults={false}
+          />
           <ul className="m-0 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3" aria-label="Teachers">
             {shown.map((l) => (
               <li key={l.id} className="flex">

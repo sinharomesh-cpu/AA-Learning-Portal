@@ -1,5 +1,7 @@
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { describePrice, type ListingSnapshot } from '@/lib/listing';
+import type { HourlyOffer, PackageTerms } from '@/lib/pricing';
+import type { UsualTime } from '@/lib/usualTimes';
 
 /**
  * The public card for one listing (homepage and /teachers). Only fields the teacher agreed to
@@ -21,6 +23,17 @@ export interface PublicListingCard {
   href?: string;
   /** An approved photo the teacher agreed to show, or null for the initial. */
   photoSrc?: string | null;
+  /**
+   * CR-15: on copies made under the new pricing model, the two independent offers (shown
+   * instead of `prices`), with the live Fixed / Negotiable setting of each time and the package.
+   */
+  offers?: {
+    hourly: HourlyOffer | null;
+    package: PackageTerms | null;
+    slots: Array<UsualTime & { negotiable: boolean }>;
+    packageNegotiable: boolean;
+    teacherZone: string;
+  };
 }
 
 export function toListingCard(l: ListingSnapshot & { publicId: string }): PublicListingCard {

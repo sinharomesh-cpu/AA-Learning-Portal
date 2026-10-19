@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
-import { toListingCard } from '@/components/listing/cards';
-import { TeacherSearchPanel, teachersHref } from '@/components/listing/TeacherSearchPanel';
+import type { PublicListingCard } from '@/components/listing/cards';
+import { teachersHref } from '@/components/listing/searchHref';
+import { type CurriculumOption, TeacherSearch } from '@/components/listing/TeacherSearch';
 import { ListingCard } from '@/components/landing/TeachersSection';
 import { PUBLIC_WRAP, PublicShell } from '@/components/public/PublicShell';
-import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { cx } from '@/lib/cx';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { cleanPublicFilters, type PublicListing, searchPublicListings } from '@/server/publicListings';
+import { toCardsWithOffers } from '@/server/listingCards';
+import { cleanPublicFilters, curriculumOptions, searchPublicListings } from '@/server/publicListings';
 import { realAuthEnabled } from '@/server/realAuth';
 
 // Decided (C2): listing pages ask search engines not to list them at launch.
@@ -28,27 +29,22 @@ export default async function TeachersPage({
   const filters = cleanPublicFilters(await searchParams);
   const filtered =
     !!filters.name || !!filters.subject || !!filters.grade || !!filters.curriculum || !!filters.minExperience;
-  let listings: PublicListing[] = [];
+  let listings: PublicListingCard[] = [];
   let more = false;
+  let total = 0;
+  let curricula: CurriculumOption[] = [];
   let loadError = false;
   if (!isDemoMode() && realAuthEnabled()) {
     try {
       const r = await searchPublicListings(db(), filters);
-      listings = r.listings;
+      listings = await toCardsWithOffers(db(), r.listings);
       more = r.more;
+      total = r.total;
+      curricula = await curriculumOptions(db(), filters);
     } catch {
       loadError = true;
     }
   }
-  const summary = [
-    filters.subject ? SUBJECTS[filters.subject as SubjectId]?.name : null,
-    filters.grade ? `Grade ${filters.grade}` : null,
-    filters.curriculum,
-    filters.minExperience ? `${filters.minExperience}+ years` : null,
-    filters.name ? `“${filters.name}”` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
   return (
     <PublicShell>
       <main className={cx(PUBLIC_WRAP, 'flex flex-col gap-8 py-10 md:py-14')}>
@@ -67,16 +63,10 @@ export default async function TeachersPage({
             specialisations and available teaching arrangements.
           </p>
         </div>
-        <TeacherSearchPanel values={filters} />
+        <TeacherSearch values={filters} total={loadError ? null : total} curricula={curricula} />
         <section aria-labelledby="results" className="flex scroll-mt-24 flex-col gap-5" id="results">
-          <h2 id="results" className="text-[22px] font-bold leading-7">
-            {loadError
-              ? 'Teachers can’t be shown right now'
-              : listings.length
-                ? `Teachers${summary ? `: ${summary}` : ''}`
-                : filtered
-                  ? 'No teachers match'
-                  : 'No teachers are listed right now'}
+          <h2 id="results" className="sr-only">
+            Results
           </h2>
           {loadError ? (
             <div role="alert" className="pub-card flex flex-col items-start gap-3 rounded-lg p-6">
@@ -87,6 +77,7 @@ export default async function TeachersPage({
             </div>
           ) : listings.length === 0 ? (
             <div className="pub-card flex flex-col items-start gap-3 rounded-lg p-6">
+              {!filtered ? <p className="text-[17px] font-bold">No teachers are listed right now</p> : null}
               <p className="text-[15px]">
                 {filtered
                   ? 'No published teacher profiles match all your choices. Try fewer filters or another subject.'
@@ -94,7 +85,7 @@ export default async function TeachersPage({
               </p>
               {filtered ? (
                 <LinkButton href="/teachers" variant="secondary">
-                  Clear filters
+                  Clear all
                 </LinkButton>
               ) : (
                 <LinkButton href="/create-account">Create an account</LinkButton>
@@ -104,8 +95,8 @@ export default async function TeachersPage({
             <>
               <ul className="m-0 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3" aria-label="Teachers">
                 {listings.map((l) => (
-                  <li key={l.publicId} className="flex">
-                    <ListingCard listing={toListingCard(l)} />
+                  <li key={l.id} className="flex">
+                    <ListingCard listing={l} />
                   </li>
                 ))}
               </ul>
