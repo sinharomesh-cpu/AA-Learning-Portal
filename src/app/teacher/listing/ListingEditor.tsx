@@ -21,7 +21,9 @@ import {
   PRICES_MAX,
   snapshotKey,
 } from '@/lib/listing';
+import type { HourlyOffer, PackageTerms } from '@/lib/pricing';
 import type { UsualTime } from '@/lib/usualTimes';
+import type { OfferSlot } from '@/components/listing/Offers';
 import { type ListingFormState, saveListingAction } from './actions';
 
 const CHOICE =
@@ -69,6 +71,7 @@ export function ListingEditor({
   timeZoneLabel,
   shown,
   rateNegotiationOn,
+  pricingV2,
 }: {
   approvedSubjects: string[];
   approvedGrades: number[];
@@ -88,6 +91,16 @@ export function ListingEditor({
   timeZoneLabel: string;
   /** The listing is published or paused now. */
   shown: boolean;
+  /**
+   * CR-15 (switch on): old prices are hidden and the preview shows the saved hourly lessons and
+   * package, exactly as the server builds them (the editors above save them separately).
+   */
+  pricingV2?: {
+    hourly: HourlyOffer | null;
+    package: PackageTerms | null;
+    slots: OfferSlot[];
+    packageNegotiable: boolean;
+  };
 }) {
   const [state, action, pending] = useActionState<ListingFormState, FormData>(saveListingAction, {});
   const e = state.fieldErrors ?? {};
@@ -120,8 +133,9 @@ export function ListingEditor({
     bio: profile.bio,
     timeZone: profile.timeZone,
     usualTimes: profile.usualTimes,
-    prices: previewPrices,
+    prices: pricingV2 ? [] : previewPrices,
     photoId: profile.photoId,
+    ...(pricingV2 ? { hourly: pricingV2.hourly, package: pricingV2.package } : {}),
   };
 
   return (
@@ -243,166 +257,168 @@ export function ListingEditor({
           </p>
         </Card>
 
-        <Card as="section" aria-labelledby="ls-prices" className="flex flex-col gap-4 p-4 sm:p-6">
-          <div className="flex flex-col gap-1">
-            <h2 id="ls-prices" className="text-[20px] font-bold leading-7">
-              Asking prices (up to {PRICES_MAX}, optional)
-            </h2>
-            <p className="text-[15px] leading-[22px] text-on-surface-variant">
-              For information only. Parents pay you directly, as you agree with them. AA Pro never charges, collects or
-              pays out money.
-            </p>
-          </div>
-          <Err id="ls-prices-error" text={e.prices} />
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {rows.map((r, i) => (
-              <li
-                key={r.key}
-                className="grid gap-3 rounded-[18px] border border-card-border bg-surface-container-low p-3 sm:grid-cols-2"
-              >
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor={`ls-${r.key}-model`} className="text-sm font-bold">
-                    Plan (price {i + 1})
-                  </label>
-                  <select
-                    id={`ls-${r.key}-model`}
-                    name="priceModel"
-                    value={r.model}
-                    onChange={(ev) => setRow(r.key, { model: ev.target.value as PriceModel })}
-                    className={FIELD}
-                  >
-                    {PRICE_MODELS.map((m) => (
-                      <option key={m} value={m}>
-                        {PRICE_MODEL_LABEL[m]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor={`ls-${r.key}-currency`} className="text-sm font-bold">
-                    Currency (price {i + 1})
-                  </label>
-                  <select
-                    id={`ls-${r.key}-currency`}
-                    name="priceCurrency"
-                    value={r.currency}
-                    onChange={(ev) => setRow(r.key, { currency: ev.target.value as Currency })}
-                    className={FIELD}
-                  >
-                    {CURRENCIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor={`ls-${r.key}-amount`} className="text-sm font-bold">
-                    {r.model === 'hourly' ? 'Amount per hour' : 'Amount per plan'} (price {i + 1})
-                  </label>
-                  <input
-                    id={`ls-${r.key}-amount`}
-                    name="priceAmount"
-                    inputMode="decimal"
-                    value={r.amount}
-                    onChange={(ev) => setRow(r.key, { amount: ev.target.value })}
-                    className={FIELD}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor={`ls-${r.key}-minutes`} className="text-sm font-bold">
-                    Minutes each (price {i + 1})
-                  </label>
-                  <input
-                    id={`ls-${r.key}-minutes`}
-                    name="priceMinutes"
-                    inputMode="numeric"
-                    value={r.minutes}
-                    onChange={(ev) => setRow(r.key, { minutes: ev.target.value })}
-                    className={FIELD}
-                  />
-                </div>
-                {r.model !== 'hourly' ? (
+        {pricingV2 ? null : (
+          <Card as="section" aria-labelledby="ls-prices" className="flex flex-col gap-4 p-4 sm:p-6">
+            <div className="flex flex-col gap-1">
+              <h2 id="ls-prices" className="text-[20px] font-bold leading-7">
+                Asking prices (up to {PRICES_MAX}, optional)
+              </h2>
+              <p className="text-[15px] leading-[22px] text-on-surface-variant">
+                For information only. Parents pay you directly, as you agree with them. AA Pro never charges, collects
+                or pays out money.
+              </p>
+            </div>
+            <Err id="ls-prices-error" text={e.prices} />
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {rows.map((r, i) => (
+                <li
+                  key={r.key}
+                  className="grid gap-3 rounded-[18px] border border-card-border bg-surface-container-low p-3 sm:grid-cols-2"
+                >
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`ls-${r.key}-sessions`} className="text-sm font-bold">
-                      Sessions in the plan (price {i + 1})
+                    <label htmlFor={`ls-${r.key}-model`} className="text-sm font-bold">
+                      Plan (price {i + 1})
+                    </label>
+                    <select
+                      id={`ls-${r.key}-model`}
+                      name="priceModel"
+                      value={r.model}
+                      onChange={(ev) => setRow(r.key, { model: ev.target.value as PriceModel })}
+                      className={FIELD}
+                    >
+                      {PRICE_MODELS.map((m) => (
+                        <option key={m} value={m}>
+                          {PRICE_MODEL_LABEL[m]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`ls-${r.key}-currency`} className="text-sm font-bold">
+                      Currency (price {i + 1})
+                    </label>
+                    <select
+                      id={`ls-${r.key}-currency`}
+                      name="priceCurrency"
+                      value={r.currency}
+                      onChange={(ev) => setRow(r.key, { currency: ev.target.value as Currency })}
+                      className={FIELD}
+                    >
+                      {CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`ls-${r.key}-amount`} className="text-sm font-bold">
+                      {r.model === 'hourly' ? 'Amount per hour' : 'Amount per plan'} (price {i + 1})
                     </label>
                     <input
-                      id={`ls-${r.key}-sessions`}
-                      name="priceSessions"
-                      inputMode="numeric"
-                      value={r.sessions}
-                      onChange={(ev) => setRow(r.key, { sessions: ev.target.value })}
+                      id={`ls-${r.key}-amount`}
+                      name="priceAmount"
+                      inputMode="decimal"
+                      value={r.amount}
+                      onChange={(ev) => setRow(r.key, { amount: ev.target.value })}
                       className={FIELD}
                     />
                   </div>
-                ) : (
-                  <input type="hidden" name="priceSessions" value="" />
-                )}
-                <label className="flex min-h-12 cursor-pointer items-center gap-2.5 self-end rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary">
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    name="negotiable"
-                    value={r.model}
-                    checked={openModels.includes(r.model)}
-                    onChange={(ev) =>
-                      setOpenModels((ms) =>
-                        ev.target.checked ? [...new Set([...ms, r.model])] : ms.filter((m) => m !== r.model),
-                      )
-                    }
-                    aria-label={`Rate proposals for price ${i + 1}`}
-                    className="h-5 w-5 accent-primary"
-                  />
-                  Proposals: {openModels.includes(r.model) ? 'On' : 'Off'}
-                </label>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
-                    aria-label={`Remove price ${i + 1}`}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <div>
-            <Button
-              type="button"
-              variant="secondary"
-              inactive={rows.length >= PRICES_MAX}
-              onClick={() =>
-                setRows((rs) =>
-                  rs.length >= PRICES_MAX
-                    ? rs
-                    : [
-                        ...rs,
-                        { key: nextKey++, model: 'hourly', currency: 'INR', amount: '', sessions: '', minutes: '40' },
-                      ],
-                )
-              }
-            >
-              Add a price
-            </Button>
-          </div>
-          <p className="text-sm text-on-surface-variant">
-            &quot;Proposals&quot; lets parents offer a different rate for that price (CR-13). It applies to the plan
-            type, takes effect on your public page when you save, and needs Rate negotiation turned on on your
-            dashboard.
-          </p>
-          {!rateNegotiationOn && openModels.length ? (
-            <FormMessage tone="warning">
-              Rate proposals are off on your dashboard, so these switches have no effect until you turn it on.
-            </FormMessage>
-          ) : null}
-          <p className="text-sm text-on-surface-variant">
-            Weekly, every-two-weeks and monthly plans need the number of sessions. Sessions are up to 40 minutes. Prices
-            are shown in their own currency and never converted.
-          </p>
-        </Card>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`ls-${r.key}-minutes`} className="text-sm font-bold">
+                      Minutes each (price {i + 1})
+                    </label>
+                    <input
+                      id={`ls-${r.key}-minutes`}
+                      name="priceMinutes"
+                      inputMode="numeric"
+                      value={r.minutes}
+                      onChange={(ev) => setRow(r.key, { minutes: ev.target.value })}
+                      className={FIELD}
+                    />
+                  </div>
+                  {r.model !== 'hourly' ? (
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={`ls-${r.key}-sessions`} className="text-sm font-bold">
+                        Sessions in the plan (price {i + 1})
+                      </label>
+                      <input
+                        id={`ls-${r.key}-sessions`}
+                        name="priceSessions"
+                        inputMode="numeric"
+                        value={r.sessions}
+                        onChange={(ev) => setRow(r.key, { sessions: ev.target.value })}
+                        className={FIELD}
+                      />
+                    </div>
+                  ) : (
+                    <input type="hidden" name="priceSessions" value="" />
+                  )}
+                  <label className="flex min-h-12 cursor-pointer items-center gap-2.5 self-end rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      name="negotiable"
+                      value={r.model}
+                      checked={openModels.includes(r.model)}
+                      onChange={(ev) =>
+                        setOpenModels((ms) =>
+                          ev.target.checked ? [...new Set([...ms, r.model])] : ms.filter((m) => m !== r.model),
+                        )
+                      }
+                      aria-label={`Rate proposals for price ${i + 1}`}
+                      className="h-5 w-5 accent-primary"
+                    />
+                    Proposals: {openModels.includes(r.model) ? 'On' : 'Off'}
+                  </label>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+                      aria-label={`Remove price ${i + 1}`}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div>
+              <Button
+                type="button"
+                variant="secondary"
+                inactive={rows.length >= PRICES_MAX}
+                onClick={() =>
+                  setRows((rs) =>
+                    rs.length >= PRICES_MAX
+                      ? rs
+                      : [
+                          ...rs,
+                          { key: nextKey++, model: 'hourly', currency: 'INR', amount: '', sessions: '', minutes: '40' },
+                        ],
+                  )
+                }
+              >
+                Add a price
+              </Button>
+            </div>
+            <p className="text-sm text-on-surface-variant">
+              &quot;Proposals&quot; lets parents offer a different rate for that price (CR-13). It applies to the plan
+              type, takes effect on your public page when you save, and needs Rate negotiation turned on on your
+              dashboard.
+            </p>
+            {!rateNegotiationOn && openModels.length ? (
+              <FormMessage tone="warning">
+                Rate proposals are off on your dashboard, so these switches have no effect until you turn it on.
+              </FormMessage>
+            ) : null}
+            <p className="text-sm text-on-surface-variant">
+              Weekly, every-two-weeks and monthly plans need the number of sessions. Sessions are up to 40 minutes.
+              Prices are shown in their own currency and never converted.
+            </p>
+          </Card>
+        )}
 
         <Card as="section" aria-labelledby="ls-publish" className="flex flex-col gap-4 p-4 sm:p-6">
           <h2 id="ls-publish" className="text-[20px] font-bold leading-7">
@@ -449,6 +465,7 @@ export function ListingEditor({
           listing={preview}
           photoSrc={preview.photoId ? `/teacher-photo/${preview.photoId}` : null}
           timesNote={`Shown here in your time zone (${timeZoneLabel}); parents see their own.`}
+          offers={pricingV2 ? { slots: pricingV2.slots, packageNegotiable: pricingV2.packageNegotiable } : undefined}
         />
         <p className="rounded-[14px] bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant">
           Never shown: your email, phone or the children you teach.

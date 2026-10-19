@@ -1257,3 +1257,139 @@ test('CR-13: a parent proposes a rate; the teacher counters; the parent accepts;
   await vc.close();
   await tc.close();
 });
+
+test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons and a learning package (PM1–PM3)', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(300_000);
+  const shot = async (p: Page, name: string) => {
+    if (process.env.CR15_SHOTS) await p.screenshot({ path: `${process.env.CR15_SHOTS}/${name}.png`, fullPage: true });
+  };
+  const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
+  const teacherName = `Teacher Offer ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
+  const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.90' } });
+  const t = await tc.newPage();
+  const teacherEmail = freshEmail('offers');
+  await createAccount(t, 'teacher', teacherEmail);
+  await confirmFromMailbox(t, teacherEmail);
+  await signIn(t, teacherEmail, ADULT_PHRASE);
+  await expect(t).toHaveURL(/\/teacher\/status$/);
+  await sendTeacherProfile(t, ['Maths'], [5, 6]);
+  await page.context().setExtraHTTPHeaders({ 'x-forwarded-for': '10.200.0.91' });
+  await ownerSignedIn(page);
+  await page.goto('/admin/approvals');
+  const card = page.getByRole('article').filter({ hasText: teacherEmail });
+  await card.getByLabel('Decision note (required)').fill('Checked for CR-15');
+  await card.getByRole('button', { name: 'Approve Test Teacher' }).click();
+  await expect(page.getByText(/Approved. The teacher was emailed/)).toBeVisible();
+  await t.goto('/teacher/profile');
+  await t.getByLabel('Name shown to families').fill(teacherName);
+  await t.getByRole('button', { name: 'Save changes' }).click();
+  await expect(t.getByText('Your profile is saved.')).toBeVisible();
+
+  // Usual times: Monday and Wednesday 5–6 pm, Saturday 10–12.
+  await t.goto('/teacher/availability');
+  const times = t.getByRole('region', { name: 'Your usual weekly times' });
+  await times.getByLabel('Day 1', { exact: true }).selectOption({ label: 'Monday' });
+  await times.getByLabel('From (time 1)').selectOption({ label: '5:00 pm' });
+  await times.getByLabel('To (time 1)').selectOption({ label: '6:00 pm' });
+  for (const [n, day, from, to] of [
+    [2, 'Wednesday', '5:00 pm', '6:00 pm'],
+    [3, 'Saturday', '10:00 am', '12:00 pm'],
+  ] as const) {
+    await times.getByRole('button', { name: 'Add a time' }).click();
+    await times.getByLabel(`Day ${n}`, { exact: true }).selectOption({ label: day });
+    await times.getByLabel(`From (time ${n})`).selectOption({ label: from });
+    await times.getByLabel(`To (time ${n})`).selectOption({ label: to });
+  }
+  await times.getByRole('button', { name: 'Save times' }).click();
+  await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
+
+  // Off by default: the editor still shows the earlier prices.
+  await t.goto('/teacher/listing');
+  await expect(t.getByRole('region', { name: 'Asking prices (up to 3, optional)' })).toBeVisible();
+  await expect(t.getByRole('region', { name: 'Hourly lessons' })).toHaveCount(0);
+
+  await page.goto('/admin/rate-proposals');
+  await expect(page.getByRole('heading', { name: 'New pricing model (CR-15): off' })).toBeVisible();
+  await page.getByRole('button', { name: 'Turn the new pricing model on' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Turn on' }).click();
+  await expect(page.getByRole('heading', { name: 'New pricing model (CR-15): on' })).toBeVisible();
+  try {
+    await t.goto('/teacher/listing');
+    await expect(t.getByRole('region', { name: 'Asking prices (up to 3, optional)' })).toHaveCount(0);
+    const hourly = t.getByRole('region', { name: 'Hourly lessons' }).first();
+    await hourly.getByRole('checkbox', { name: 'Offer hourly lessons' }).check();
+    await hourly.getByLabel('Hourly rate').fill('600');
+    await hourly.getByLabel('Lesson length (minutes)').fill('40');
+    await expect(hourly.getByText(/Parents see: ₹400 a 40-minute lesson/)).toBeVisible();
+    await hourly.getByRole('button', { name: 'Save hourly lessons' }).click();
+    await expect(hourly.getByText(/Hourly lessons saved/)).toBeVisible();
+    // Each time has its own setting; it applies at once.
+    await hourly.getByRole('radio', { name: 'Negotiation available' }).first().check();
+    await expect(hourly.getByText('Saved. This applies at once.')).toBeVisible();
+
+    const pkg = t.getByRole('region', { name: /Learning package/ }).first();
+    await pkg.getByLabel('Classes a week').selectOption('2');
+    await expect(pkg.getByLabel('Complete within (weeks)')).toHaveValue('11');
+    await pkg.getByLabel('Package price', { exact: true }).fill('8500');
+    // Refused until every rule is met: no class times chosen yet.
+    await pkg.getByRole('button', { name: 'Offer this package' }).click();
+    await expect(pkg.getByText('Choose one time for each class a week.').first()).toBeVisible();
+    await pkg.getByLabel('Class time 1').selectOption({ label: 'Mon 5:00 pm' });
+    await pkg.getByLabel('Class time 2').selectOption({ label: 'Wed 5:00 pm' });
+    await pkg.getByRole('button', { name: 'Offer this package' }).click();
+    await expect(pkg.getByText(/Package saved. Publish your listing/)).toBeVisible();
+    await t.reload();
+    await shot(t, 'pm-teacher-editor');
+
+    // The preview shows both offers separately; old prices are gone from it.
+    const preview = t.getByRole('region', { name: 'What parents see' });
+    await expect(preview.getByRole('region', { name: 'Hourly lessons' })).toContainText('₹600');
+    await expect(preview.getByRole('region', { name: 'Learning package' })).toContainText('₹8,500');
+    await expect(preview.getByText('22 classes × 40 min · 2 a week · complete within 11 weeks')).toBeVisible();
+    await t.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+    await t.getByRole('button', { name: 'Publish' }).click();
+    await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
+    await noSeriousA11yIssues(t);
+
+    // The package's times can't be removed while it is offered.
+    await t.goto('/teacher/availability');
+    await times.getByRole('button', { name: /Remove time 2/ }).click();
+    await times.getByRole('button', { name: 'Save times' }).click();
+    await expect(times.getByText(/Your learning package has classes at Wednesday 5:00 pm/)).toBeVisible();
+
+    // A visitor sees the two offers, each with its own label.
+    const vc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.92' } });
+    const v = await vc.newPage();
+    await v.goto('/teachers');
+    await v.getByRole('link', { name: `View profile: ${teacherName}` }).click();
+    const h = v.getByRole('region', { name: 'Hourly lessons' });
+    const p = v.getByRole('region', { name: 'Learning package' });
+    await expect(h).toContainText('₹400 a 40-minute lesson');
+    await expect(h).toContainText('no minimum number of lessons');
+    await expect(p).toContainText('₹8,500');
+    await expect(p).toContainText('never renews automatically');
+    await expect(p.getByText('Fixed price', { exact: true })).toBeVisible();
+    // The master switch is off, so nothing shows as negotiable to parents yet.
+    await expect(h.getByText('Negotiation available')).toHaveCount(0);
+    await expect(p).not.toContainText(/month/i);
+    await noSeriousA11yIssues(v);
+    await shot(v, 'pm-public-profile');
+    await v.setViewportSize({ width: 390, height: 844 });
+    await v.reload();
+    expect(await v.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await shot(v, 'pm-public-profile-phone');
+    await t.setViewportSize({ width: 390, height: 844 });
+    await t.goto('/teacher/listing');
+    expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await vc.close();
+  } finally {
+    await page.goto('/admin/rate-proposals');
+    await page.getByRole('button', { name: 'Turn the new pricing model off' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Turn off' }).click();
+    await expect(page.getByRole('heading', { name: 'New pricing model (CR-15): off' })).toBeVisible();
+  }
+  await tc.close();
+});

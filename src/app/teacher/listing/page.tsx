@@ -13,7 +13,9 @@ import { isDemoMode } from '@/server/demo';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getOwnListing, queueListingReminders, type ListingStatus } from '@/server/teacherListings';
 import { getTeacherRateSettings } from '@/server/rateNegotiations';
+import { getTeacherOffers, isPricingV2, offersForSnapshot } from '@/server/pricingModel';
 import { ListingEditor } from './ListingEditor';
+import { HourlyEditor, PackageEditor } from './OfferEditors';
 import { ListingStatusButtons, RenewForm } from './ListingStatusForms';
 
 export const metadata: Metadata = { title: 'Looking for students' };
@@ -58,6 +60,10 @@ export default async function TeacherListingPage({ searchParams }: { searchParam
   await queueListingReminders(db(), await siteBaseUrl());
   const listing = await getOwnListing(db(), viewer.id);
   const rates = await getTeacherRateSettings(db(), viewer.id);
+  // CR-15: the new pricing model, only while the Super Admin switch is on (off until approved).
+  const v2 = await isPricingV2(db());
+  const offers = v2 ? await getTeacherOffers(db(), viewer.id) : null;
+  const snapOffers = v2 ? await offersForSnapshot(db(), viewer.id) : null;
   if (!listing) {
     return (
       <NotReadyYet
@@ -146,6 +152,31 @@ export default async function TeacherListingPage({ searchParams }: { searchParam
         </p>
       </Card>
 
+      {offers ? (
+        <div className="grid items-start gap-6 xl:grid-cols-2">
+          <HourlyEditor initial={offers.hourly} slots={offers.slots} masterOn={rates.on} />
+          <PackageEditor
+            initial={
+              offers.package ?? {
+                status: 'none',
+                currency: null,
+                priceMinor: null,
+                classes: null,
+                perWeek: null,
+                minutes: null,
+                weeks: null,
+                times: [],
+                negotiable: false,
+                termsNote: null,
+                reviewIssues: [],
+              }
+            }
+            slots={offers.slots}
+            masterOn={rates.on}
+          />
+        </div>
+      ) : null}
+
       <ListingEditor
         approvedSubjects={listing.approvedSubjects}
         approvedGrades={listing.approvedGrades}
@@ -168,6 +199,16 @@ export default async function TeacherListingPage({ searchParams }: { searchParam
         }}
         timeZoneLabel={tzLabel}
         shown={shown}
+        pricingV2={
+          offers && snapOffers
+            ? {
+                hourly: snapOffers.hourly,
+                package: snapOffers.package,
+                slots: offers.slots.map((x) => ({ ...x, negotiable: x.negotiable && rates.on })),
+                packageNegotiable: !!offers.package?.negotiable && rates.on,
+              }
+            : undefined
+        }
       />
     </div>
   );

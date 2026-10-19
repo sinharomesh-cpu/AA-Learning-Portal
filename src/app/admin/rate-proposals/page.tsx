@@ -6,6 +6,8 @@ import { requireAdmin } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getRateLimits, negotiationCounts } from '@/server/rateNegotiations';
+import { isPricingV2 } from '@/server/pricingModel';
+import { PricingModelForm } from './PricingModelForm';
 import { RateLimitsForm } from './RateLimitsForm';
 
 export const metadata: Metadata = { title: 'Rate proposals' };
@@ -37,7 +39,7 @@ export default async function AdminRateProposalsPage() {
       />
     );
   }
-  const [limits, counts] = await Promise.all([getRateLimits(db()), negotiationCounts(db())]);
+  const [limits, counts, v2] = await Promise.all([getRateLimits(db()), negotiationCounts(db()), isPricingV2(db())]);
   return (
     <div className="mx-auto flex max-w-[820px] flex-col gap-6">
       <h1 className="text-headline-lg-mobile lg:text-headline-lg">Rate proposals</h1>
@@ -50,6 +52,16 @@ export default async function AdminRateProposalsPage() {
           zone. Counter-offers are not new proposals. Changes apply to the next proposal.
         </p>
         <RateLimitsForm activePerParent={limits.activePerParent} newPerDay={limits.newPerDay} />
+      </Card>
+      <Card as="section" aria-labelledby="pricing-model" className="flex flex-col gap-3 p-4 sm:p-6">
+        <h2 id="pricing-model" className="text-[20px] font-bold leading-7">
+          New pricing model (CR-15): {v2 ? 'on' : 'off'}
+        </h2>
+        <p className="text-[15px] leading-[22px] text-on-surface-variant">
+          Hourly lessons and learning packages instead of weekly, fortnightly and monthly prices. Keep this off until
+          the owner approves the release. Old prices are never deleted.
+        </p>
+        <PricingModelForm on={v2} />
       </Card>
       <Card as="section" aria-labelledby="counts" className="flex flex-col gap-3 p-4 sm:p-6">
         <h2 id="counts" className="text-[20px] font-bold leading-7">
