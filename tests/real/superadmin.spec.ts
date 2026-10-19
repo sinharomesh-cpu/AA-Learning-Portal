@@ -3,6 +3,7 @@ import { type Browser, expect, test, type Page } from '@playwright/test';
 import { generate } from 'otplib';
 import sharp from 'sharp';
 import {
+  addTimes,
   choose,
   confirmFromMailbox,
   createAccount,
@@ -808,6 +809,11 @@ test('PR-D1b: a teacher sends a photo; only the teacher and the AA Pro team can 
   await tc.close();
 });
 
+/** Saves review screenshots when CR15_SHOTS is set (not part of the checks). */
+const shot = async (p: Page, name: string) => {
+  if (process.env.CR15_SHOTS) await p.screenshot({ path: `${process.env.CR15_SHOTS}/${name}.png`, fullPage: true });
+};
+
 test('PR-D1c: an approved teacher sets their usual weekly times (boards D5, D9)', async ({ page, browser }) => {
   const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.40' } });
   const t = await tc.newPage();
@@ -832,24 +838,54 @@ test('PR-D1c: an approved teacher sets their usual weekly times (boards D5, D9)'
   await t.goto('/teacher/availability');
   const times = t.getByRole('region', { name: 'Your usual weekly times' });
   await expect(times).toBeVisible();
-  await times.getByRole('button', { name: 'Monday, time 1' }).click();
-  await times.getByRole('button', { name: 'Add a time' }).click();
-  await times.getByRole('button', { name: 'Monday, time 2' }).click();
-  await choose(times, 'From (time 2)', '5:00 pm');
-  await choose(times, 'To (time 2)', '7:00 pm');
-  await times.getByRole('button', { name: 'Save times' }).click();
-  await expect(times.getByText(/Two times on the same day overlap/)).toBeVisible();
-
-  await times.getByRole('button', { name: 'Saturday, time 2' }).click();
-  await choose(times, 'From (time 2)', '10:00 am');
-  await choose(times, 'To (time 2)', '12:00 pm');
+  // AV0: one time on several days at once.
+  await addTimes(times, ['Monday', 'Wednesday'], 960, 1080);
+  // A time that overlaps on the same day is joined into one.
+  await addTimes(times, ['Monday'], 1020, 1140);
+  await expect(times.getByRole('button', { name: 'Change Monday 4:00–7:00 pm' })).toBeVisible();
+  await times.getByRole('button', { name: 'Remove Wednesday 4:00–6:00 pm' }).click();
+  await addTimes(times, ['Saturday'], 600, 720);
+  await expect(times.getByText('2 changes not saved yet')).toBeVisible();
+  await expect(times.getByRole('heading', { name: /Your week · 2 of 14 times · 5 h/ })).toBeVisible();
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
   await t.reload();
-  await expect(times.getByText('Now: Mon 4:00–6:00 pm · Sat 10:00 am–12:00 pm')).toBeVisible();
+  await expect(times.getByRole('button', { name: 'Change Monday 4:00–7:00 pm' })).toBeVisible();
+  await expect(times.getByRole('button', { name: 'Change Saturday 10:00 am–12:00 pm' })).toBeVisible();
+  await expect(times.getByText('2 times saved')).toBeVisible();
   await noSeriousA11yIssues(t);
+  await shot(t, 'av-desktop');
+  // Drag down Tuesday from 8 am to 9 am on the week calendar (18 px a half hour).
+  const tuesday = t.locator('[data-day="2"]');
+  await t.evaluate(() => window.scrollTo(0, 250));
+  const box = (await tuesday.boundingBox())!;
+  const x = box.x + box.width / 2;
+  await t.mouse.move(x, box.y + 16 * 18 + 5);
+  await t.mouse.down();
+  await t.mouse.move(x, box.y + 17 * 18, { steps: 4 });
+  await t.mouse.move(x, box.y + 18 * 18 - 4, { steps: 4 });
+  await t.mouse.up();
+  await expect(times.getByRole('button', { name: 'Change Tuesday 8:00–9:00 am' })).toBeVisible();
+  await t.getByRole('button', { name: 'Undo changes' }).click();
+  await expect(times.getByRole('button', { name: 'Change Tuesday 8:00–9:00 am' })).toHaveCount(0);
+  await t.setViewportSize({ width: 1440, height: 900 });
+  await shot(t, 'av-desktop-1440');
+  // AV1 (phone): the day list, and "Add" opens a sheet to add to several days at once.
   await t.setViewportSize({ width: 390, height: 844 });
   expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await shot(t, 'av-phone');
+  await times.getByRole('button', { name: 'Add a time on Tuesday' }).click();
+  const sheet = t.getByRole('dialog', { name: /^Add times/ });
+  await expect(sheet.getByRole('button', { name: 'Tuesday', pressed: true })).toBeVisible();
+  await sheet.getByRole('button', { name: 'Thursday' }).click();
+  await shot(t, 'av-phone-sheet');
+  await noSeriousA11yIssues(t);
+  await sheet.getByRole('button', { name: 'Add to Tue and Thu' }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(times.getByRole('button', { name: 'Change Thursday 4:00–6:00 pm' })).toBeVisible();
+  await expect(t.getByText('2 changes not saved yet')).toBeVisible();
+  await t.getByRole('button', { name: 'Undo changes' }).click();
+  await expect(times.getByRole('button', { name: 'Change Thursday 4:00–6:00 pm' })).toHaveCount(0);
   await tc.close();
 });
 
@@ -967,7 +1003,7 @@ test('PR-D3: visitors browse published teachers on the homepage and /teachers wi
   await expect(t.getByText('Your profile is saved.')).toBeVisible();
   await t.goto('/teacher/availability');
   const times = t.getByRole('region', { name: 'Your usual weekly times' });
-  await times.getByRole('button', { name: 'Wednesday, time 1' }).click();
+  await addTimes(times, ['Wednesday'], 960, 1080);
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
   await t.goto('/teacher/listing');
@@ -1315,9 +1351,6 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
   browser,
 }) => {
   test.setTimeout(300_000);
-  const shot = async (p: Page, name: string) => {
-    if (process.env.CR15_SHOTS) await p.screenshot({ path: `${process.env.CR15_SHOTS}/${name}.png`, fullPage: true });
-  };
   const letters = Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => 'abcdefghijklmnop'[b % 16]).join('');
   const teacherName = `Teacher Offer ${letters.charAt(0).toUpperCase()}${letters.slice(1)}`;
   const tc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.90' } });
@@ -1343,18 +1376,8 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
   // Usual times: Monday and Wednesday 5–6 pm, Saturday 10–12.
   await t.goto('/teacher/availability');
   const times = t.getByRole('region', { name: 'Your usual weekly times' });
-  await times.getByRole('button', { name: 'Monday, time 1' }).click();
-  await choose(times, 'From (time 1)', '5:00 pm');
-  await choose(times, 'To (time 1)', '6:00 pm');
-  for (const [n, day, from, to] of [
-    [2, 'Wednesday', '5:00 pm', '6:00 pm'],
-    [3, 'Saturday', '10:00 am', '12:00 pm'],
-  ] as const) {
-    await times.getByRole('button', { name: 'Add a time' }).click();
-    await times.getByRole('button', { name: `${day}, time ${n}` }).click();
-    await choose(times, `From (time ${n})`, from);
-    await choose(times, `To (time ${n})`, to);
-  }
+  await addTimes(times, ['Monday', 'Wednesday'], 1020, 1080);
+  await addTimes(times, ['Saturday'], 600, 720);
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
 
@@ -1422,9 +1445,15 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
 
     // The package's times can't be removed while it is offered.
     await t.goto('/teacher/availability');
-    await times.getByRole('button', { name: /Remove time 2/ }).click();
-    await times.getByRole('button', { name: 'Save times' }).click();
-    await expect(times.getByText(/Your learning package has classes at Wednesday 5:00 pm/)).toBeVisible();
+    // AV1: shown with a lock, no Remove, and can't be shortened past the class.
+    await expect(times.getByRole('button', { name: 'Remove Wednesday 5:00–6:00 pm' })).toHaveCount(0);
+    await times.getByRole('button', { name: 'Change Wednesday 5:00–6:00 pm (used by your learning package)' }).click();
+    const change = times.getByRole('region', { name: 'Change Wednesday 5:00–6:00 pm' });
+    await change.getByRole('slider', { name: 'To' }).fill('1050');
+    await change.getByRole('button', { name: 'Save this change' }).click();
+    await expect(times.getByText(/Your learning package has a class at Wednesday 5:00 pm/)).toBeVisible();
+    await shot(t, 'av-locked');
+    await change.getByRole('button', { name: 'Cancel' }).click();
 
     // A visitor sees the two offers, each with its own label.
     const vc = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '10.200.0.92' } });

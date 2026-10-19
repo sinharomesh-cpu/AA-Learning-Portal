@@ -59,6 +59,20 @@ export async function sendTeacherProfile(page: Page, subjects = ['Science'], gra
  * OC-110: drop-downs are homepage-style pills (a button that opens a small list). Opens the one
  * labelled `label` inside `scope` and picks `option`.
  */
+/**
+ * AV0 (availability calendar): adds one time to the chosen days with "Add times" (day chips and
+ * the From / To slider, in minutes after midnight).
+ */
+export async function addTimes(scope: Locator, days: string[], from: number, to: number) {
+  const panel = scope.getByRole('region', { name: /^Add times/ });
+  for (const d of days) {
+    await panel.getByRole('group', { name: 'Days' }).getByRole('button', { name: d, exact: true }).click();
+  }
+  await panel.getByRole('slider', { name: 'From' }).fill(String(from));
+  await panel.getByRole('slider', { name: 'To' }).fill(String(to));
+  await panel.getByRole('button', { name: /^Add to / }).click();
+}
+
 export async function choose(scope: Page | Locator, label: string, option: string) {
   const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   await scope.getByRole('button', { name: new RegExp(`^${esc}: `) }).click();

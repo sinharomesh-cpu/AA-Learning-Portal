@@ -1,12 +1,15 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.72 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.73 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
 - D-02, D-12, D-14, D-20, D-27, D-29, D-30 and D-31 are now owner-confirmed (OC-11 to OC-18).
 - **D-27 is corrected:** Claude prepares the missing screens.
 - New decisions D-32 and D-33 are added.
+
+**v1.73 changes (owner, 19 Oct 2026, 19:53 IST):**
+- **OC-114** approves the availability calendar design (boards AV0–AV1). Same-day times that overlap or touch are joined automatically, as shown on the approved board. The package "Weekly class times" planner is unchanged (optional alignment not requested).
 
 **v1.66 changes (owner, 19 Oct 2026, 14:10 IST — preliminary decisions for clarification and planning):**
 - **OC-106** records eight preliminary decisions: the pricing migration is **not** applied and the new model **not** activated until the owner has reviewed full dry-run evidence; "AA Pro Verified" scope and wording; review eligibility (4 completed classes) and duplicate prevention; restyle of the parent Find a Teacher page; CR-16 needs exact definitions before final approval; notification retention (90 / 180 days); 60-second bell refresh while visible; worksheet notifications to student and parent. CR-15 v1.1 §5 and CR-16 v0.2 §9–§10. **OC-79 C and OC-82(3)** ("no verified claims") are amended for the defined "AA Pro Verified" check only; no qualification, experience or background claim is made.
@@ -421,6 +424,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-111** | **Super Admin pages and sign-in/account pages included** in the redesign with the modern look. | Owner, 19 Oct 2026, 17:42 IST | DV-92 |
 | **OC-112** | **One label for negotiable prices:** “Open to offers” everywhere — teacher settings and the parent-facing badge on listings, cards and proposals (replaces “Negotiation available”). Fixed prices stay “Fixed rate” / “Fixed price”. | Owner, 19 Oct 2026, 18:41 IST | CR-15 doc wording |
 | **OC-113** | **CR-16 notifications.** (1) **Updated design approved:** the notification panel and page use the approved signed-in design (tinted card headers, chip-style All / Unread filters, responsive, accessible, loading / empty / error states) without changing the agreed content, triggers, permissions or behaviour; no unrelated redesigns. (2) **Requirements and acceptance checks NOT yet approved:** the owner reviews the complete CR-16 document first; ten principles to preserve (role-based, badges ≠ unread, server authorisation, reliable triggers, bell, authorised navigation, 60-s refresh with hidden-tab skip, worksheet notifications, 90 / 180-day retention without removing unresolved actions, specific traceable tests); conflicts, gaps and assumptions to be listed, not silently resolved. Implementation waits for final approval; no spending, paid services or production deployment. | Owner, 19 Oct 2026, 19:21 IST | CR-16 v0.3 (N-1–N-11, AC-1–AC-42, D-1–D-11) |
+| **OC-114** | **Availability calendar (boards AV0–AV1) approved.** Cause of the report recorded: saving several days always worked, but each "Time" card picked one day while looking like a multi-choice chip row. The page becomes a week calendar (drag to add or resize, desktop), a day list with an "Add times" sheet (phone), "add one time to several days at once", a 30-minute time slider instead of drop-downs, quick-start buttons, a week summary, an unsaved-changes bar, and visible locks on times used by an offered learning package. Saved rules unchanged (14 times, 30-minute steps, no overlap; server checks). Overlapping same-day times are joined automatically (shown on the approved board). The package planner is not changed. ₹0. | Owner, 19 Oct 2026, 19:53 IST | AV0–AV1, DV-93 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
