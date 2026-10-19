@@ -24,7 +24,7 @@ const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const subscribe = () => () => {};
 
 export interface OfferSlot extends UsualTime {
-  /** Negotiation available now (slot setting and the teacher's master switch). */
+  /** Open to offers now (slot setting and the teacher's master switch). */
   negotiable: boolean;
 }
 
@@ -38,7 +38,7 @@ const range = (t: UsualTime, short = false) =>
 
 export function NegotiableChip({ negotiable, fixedLabel }: { negotiable: boolean; fixedLabel: string }) {
   return negotiable ? (
-    <StatusChip kind="success">Negotiation available</StatusChip>
+    <StatusChip kind="success">Open to offers</StatusChip>
   ) : (
     <StatusChip kind="neutral">{fixedLabel}</StatusChip>
   );

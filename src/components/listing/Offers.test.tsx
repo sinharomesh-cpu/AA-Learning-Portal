@@ -34,7 +34,7 @@ describe('CR-15 offer boxes (PM1)', () => {
     const box = screen.getByRole('region', { name: 'Hourly lessons' });
     expect(box).toHaveTextContent('₹600');
     expect(box).toHaveTextContent('₹400 a 40-minute lesson');
-    expect(within(box).getByText('Negotiation available')).toBeInTheDocument();
+    expect(within(box).getByText('Open to offers')).toBeInTheDocument();
     expect(within(box).getByText('Fixed rate')).toBeInTheDocument();
     expect(box).toHaveTextContent('no minimum number of lessons');
     expect(box).not.toHaveTextContent(/22/);

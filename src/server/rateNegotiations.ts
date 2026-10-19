@@ -469,7 +469,7 @@ export async function proposeRate(
           ? live.published.usualTimes.find((u) => u.weekday === t.weekday && u.start === t.start && u.end === t.end)
           : undefined;
       if (!h || !shown) return { ok: false, reason: 'invalid', problems: ['slot'] };
-      // P-8: only a time marked Negotiation available now, with the teacher's master switch on.
+      // P-8: only a time marked Open to offers now, with the teacher's master switch on.
       const flags = await liveOfferFlags(tx, input.publicId, [shown]);
       if (!flags.slots[0]?.negotiable) {
         await refuse(tx, parentId, 'not_negotiable', now);
