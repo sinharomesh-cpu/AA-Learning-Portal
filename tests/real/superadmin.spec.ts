@@ -906,7 +906,8 @@ test('PR-D2: an approved teacher publishes a listing after agreeing to the previ
   await t.getByRole('button', { name: 'Publish' }).click();
   await expect(t.getByText(/Published. Parents can see your listing/)).toBeVisible();
   await t.reload();
-  await expect(t.getByText(/Published · shown until/)).toBeVisible();
+  await expect(t.getByText('Published: parents can find and open your listing.')).toBeVisible();
+  await expect(t.getByText('Shown until', { exact: true })).toBeVisible();
   // What was published is exactly what was previewed, even after a refused first attempt.
   await expect(offer.getByRole('checkbox', { name: 'Science', exact: true })).not.toBeChecked();
   await expect(offer.getByRole('checkbox', { name: 'Grade 5', exact: true })).not.toBeChecked();
@@ -1365,14 +1366,16 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await t.goto('/teacher/listing');
     await expect(t.getByRole('region', { name: 'Asking prices (up to 3, optional)' })).toHaveCount(0);
     const hourly = t.getByRole('region', { name: 'Hourly lessons' }).first();
-    await hourly.getByRole('checkbox', { name: 'Offer hourly lessons' }).check();
-    await hourly.getByLabel('Hourly rate').fill('600');
-    await hourly.getByLabel('Lesson length (minutes)').fill('40');
-    await expect(hourly.getByText(/Parents see: ₹400 a 40-minute lesson/)).toBeVisible();
+    // OC-109: same design as the package builder (switch card, price field, stepper, slot cards).
+    await hourly.getByRole('checkbox', { name: /Offer hourly lessons/ }).check();
+    await hourly.getByLabel('Hourly rate', { exact: true }).fill('600');
+    await hourly.getByRole('textbox', { name: 'Lesson length (min)' }).fill('40');
+    await expect(hourly.getByText('a 40-minute lesson', { exact: false }).first()).toBeVisible();
+    await expect(hourly.getByText('₹400', { exact: true })).toBeVisible();
     await hourly.getByRole('button', { name: 'Save hourly lessons' }).click();
     await expect(hourly.getByText(/Hourly lessons saved/)).toBeVisible();
     // Each time has its own setting; it applies at once.
-    await hourly.getByRole('radio', { name: 'Negotiation available' }).first().check();
+    await hourly.getByRole('radio', { name: 'Open to offers' }).first().check();
     await expect(hourly.getByText('Saved. This applies at once.')).toBeVisible();
 
     const pkg = t.getByRole('region', { name: /Learning package/ }).first();
@@ -1447,8 +1450,7 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
 
     // A4 (FR-043): the teacher opens the package price to proposals and turns on the master switch.
     const pk = t.getByRole('region', { name: /Learning package/ }).first();
-    await pk.getByText('Open to offers', { exact: true }).click();
-    await expect(pk.getByRole('radio', { name: /Open to offers/ })).toBeChecked();
+    await pk.getByRole('radio', { name: /Open to offers/ }).check();
     await pk.getByRole('button', { name: 'Offer this package' }).click();
     await expect(pk.getByText(/Package saved/)).toBeVisible();
     await t.goto('/teacher');
