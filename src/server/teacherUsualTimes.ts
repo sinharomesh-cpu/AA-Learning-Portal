@@ -1,7 +1,9 @@
 import 'server-only';
 import { checkUsualTimes, sortUsualTimes, type UsualTime, type UsualTimesProblem } from '@/lib/usualTimes';
+import type { PackageTime } from '@/lib/pricing';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql } from './db/client';
+import { packageTimesOutside } from './pricingModel';
 
 /**
  * Usual weekly times (PR-D1c; boards D3, D5, D9; OC-85). A guide for families shown on a
@@ -20,7 +22,11 @@ export async function getUsualTimes(sql: Db, teacherId: string): Promise<UsualTi
 }
 
 export type SaveUsualTimesResult =
-  { ok: true; count: number } | { ok: false; reason: 'not_allowed' } | { ok: false; reason: UsualTimesProblem };
+  | { ok: true; count: number }
+  | { ok: false; reason: 'not_allowed' }
+  | { ok: false; reason: UsualTimesProblem }
+  /** CR-15 reading 4: the offered learning package uses a time this save would remove. */
+  | { ok: false; reason: 'package_time'; times: PackageTime[] };
 
 /** Replaces the teacher's whole week (an empty list clears it). */
 export async function saveUsualTimes(
@@ -40,10 +46,21 @@ export async function saveUsualTimes(
       WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active' AND p.approval_status = 'approved'
       FOR UPDATE OF a`;
     if (!t) return { ok: false, reason: 'not_allowed' };
+    const outside = await packageTimesOutside(tx, teacherId, week);
+    if (outside.length) return { ok: false, reason: 'package_time', times: outside };
+    // P-8: a time saved again unchanged keeps its Fixed / Negotiable setting; new times are Fixed.
+    const kept = new Set(
+      (
+        await tx<Array<{ weekday: number; start_minute: number; end_minute: number }>>`
+          SELECT weekday, start_minute, end_minute FROM teacher_usual_times
+          WHERE teacher_id = ${teacherId} AND negotiable`
+      ).map((r) => `${r.weekday}:${r.start_minute}:${r.end_minute}`),
+    );
     await tx`DELETE FROM teacher_usual_times WHERE teacher_id = ${teacherId}`;
     for (const r of week) {
-      await tx`INSERT INTO teacher_usual_times (teacher_id, weekday, start_minute, end_minute)
-               VALUES (${teacherId}, ${r.weekday}, ${r.start}, ${r.end})`;
+      const negotiable = kept.has(`${r.weekday}:${r.start}:${r.end}`);
+      await tx`INSERT INTO teacher_usual_times (teacher_id, weekday, start_minute, end_minute, negotiable)
+               VALUES (${teacherId}, ${r.weekday}, ${r.start}, ${r.end}, ${negotiable})`;
     }
     await writeAudit(
       tx,

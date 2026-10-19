@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import type { UsualTime } from '@/lib/usualTimes';
+import { formatMinute, type UsualTime, WEEKDAYS } from '@/lib/usualTimes';
 import { db } from '@/server/db/client';
 import { getRealSession } from '@/server/session';
 import { saveUsualTimes } from '@/server/teacherUsualTimes';
@@ -33,6 +33,14 @@ export async function saveUsualTimesAction(_prev: UsualTimesFormState, fd: FormD
   const r = await saveUsualTimes(db(), real.session.accountId, ranges);
   if (!r.ok) {
     if (r.reason === 'not_allowed') redirect('/teacher/status');
+    if (r.reason === 'package_time') {
+      const used = r.times.map((t) => `${WEEKDAYS[t.weekday - 1]} ${formatMinute(t.start)}`).join(', ');
+      return {
+        error: `Your learning package has classes at ${used}. Change the package times first, then remove these usual times.`,
+        rows: filled,
+        at: Date.now(),
+      };
+    }
     const error = {
       count: 'You can add up to 14 times.',
       invalid: 'Each time needs a day, and the end must be after the start.',

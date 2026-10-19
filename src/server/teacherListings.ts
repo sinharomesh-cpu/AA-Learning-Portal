@@ -1,6 +1,5 @@
 import 'server-only';
 import { setNegotiableModels } from './rateNegotiations';
-import { randomBytes } from 'node:crypto';
 import { SUBJECT_IDS } from '@/fixtures/subjects';
 import {
   checkPrices,
@@ -16,6 +15,8 @@ import { queueEmail } from './auth/outbox';
 import { CURRICULA } from './children';
 import type { Db, Sql } from './db/client';
 import { EXPERIENCE_MAX } from './teacherProfile';
+import { newPublicId } from './listingIds';
+import { isPricingV2, offersForSnapshot } from './pricingModel';
 import { getUsualTimes } from './teacherUsualTimes';
 
 /**
@@ -143,7 +144,7 @@ async function snapshotOf(
   p: ProfileRow,
   draft: { subjects: string[]; grades: number[]; prices: ListingPrice[] },
 ): Promise<ListingSnapshot> {
-  return {
+  const snap: ListingSnapshot = {
     name: p.name,
     subjects: sortSubjects(draft.subjects),
     grades: sortGrades(draft.grades),
@@ -155,6 +156,10 @@ async function snapshotOf(
     prices: draft.prices,
     photoId: p.photo_id,
   };
+  if (!(await isPricingV2(sql))) return snap;
+  // CR-15: old prices are hidden (kept in listing_prices); the two offers are shown instead.
+  const offers = await offersForSnapshot(sql, teacherId);
+  return { ...snap, prices: [], hourly: offers.hourly, package: offers.package };
 }
 
 /** What publishing these values would show now (the same copy saveListing builds). */
@@ -248,12 +253,6 @@ export type SaveListingResult =
   | { ok: false; reason: 'not_allowed' | 'rate_limited' }
   | { ok: false; reason: 'invalid'; problems: ListingProblem[] };
 
-function newPublicId(): string {
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = randomBytes(10);
-  return `t-${Array.from(bytes, (b) => alphabet[b % 36]).join('')}`;
-}
-
 /**
  * Saves the draft and, with `intent: 'publish'`, shows it publicly. Publishing asks for the
  * teacher's agreement whenever the public details would change.
@@ -280,7 +279,9 @@ export async function saveListing(
     if (!input.curricula.every((c) => (CURRICULA as readonly string[]).includes(c))) problems.push('curricula');
     const exp = input.experienceYears;
     if (exp !== null && !(Number.isInteger(exp) && exp >= 0 && exp <= EXPERIENCE_MAX)) problems.push('experience');
-    const priceProblem = checkPrices(input.prices);
+    // CR-15: under the new pricing model old prices are neither edited nor rewritten (P-9 history).
+    const v2 = await isPricingV2(tx);
+    const priceProblem = v2 ? null : checkPrices(input.prices);
     if (priceProblem) problems.push(`price_${priceProblem}`);
     if (intent === 'publish') {
       if (subjects.length === 0) problems.push('subjects_required');
@@ -301,13 +302,15 @@ export async function saveListing(
     } else {
       await tx`UPDATE teacher_listings SET subjects = ${subjects}, grades = ${grades} WHERE id = ${row.id}`;
     }
-    await tx`DELETE FROM listing_prices WHERE listing_id = ${row.id}`;
-    for (const [i, price] of input.prices.entries()) {
-      await tx`INSERT INTO listing_prices (listing_id, position, model, currency, amount_minor, sessions, minutes)
-               VALUES (${row.id}, ${i + 1}, ${price.model}, ${price.currency}, ${price.amountMinor},
-                       ${price.sessions}, ${price.minutes})`;
+    if (!v2) {
+      await tx`DELETE FROM listing_prices WHERE listing_id = ${row.id}`;
+      for (const [i, price] of input.prices.entries()) {
+        await tx`INSERT INTO listing_prices (listing_id, position, model, currency, amount_minor, sessions, minutes)
+                 VALUES (${row.id}, ${i + 1}, ${price.model}, ${price.currency}, ${price.amountMinor},
+                         ${price.sessions}, ${price.minutes})`;
+      }
     }
-    if (input.negotiableModels) {
+    if (input.negotiableModels && !v2) {
       const models = input.prices.map((x) => x.model);
       await setNegotiableModels(
         tx,
@@ -320,7 +323,8 @@ export async function saveListing(
     await tx`DELETE FROM rate_events WHERE account_id = ${teacherId} AND occurred_at < ${new Date(now.getTime() - 7 * DAY)}`;
 
     const fresh = await loadProfile(tx, teacherId);
-    const preview = await snapshotOf(tx, teacherId, fresh!, { subjects, grades, prices: input.prices });
+    const prices = v2 ? await loadPrices(tx, row.id) : input.prices;
+    const preview = await snapshotOf(tx, teacherId, fresh!, { subjects, grades, prices });
     const status = statusOf(row, now);
     const shownNow = row.status === 'published' || row.status === 'paused';
 
