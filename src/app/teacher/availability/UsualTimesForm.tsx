@@ -2,6 +2,11 @@
 
 import { useActionState, useState } from 'react';
 import { Button } from '@/components/Button';
+import { Icon } from '@/components/icons/Icon';
+import { TileKey } from '@/components/ui/Panel';
+import { PillSelect } from '@/components/ui/PillSelect';
+import { TILE } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { keepValuesOnSubmit } from '@/lib/keepValuesOnSubmit';
 import { formatMinute, USUAL_TIMES_MAX, WEEKDAYS } from '@/lib/usualTimes';
@@ -9,7 +14,6 @@ import { saveUsualTimesAction, type UsualTimesFormState } from './actions';
 
 type Row = { key: number; weekday: string; start: string; end: string };
 
-const SELECT = 'min-h-12 w-full rounded-[14px] border-2 border-outline bg-surface-container-lowest px-3 text-base';
 const STARTS = Array.from({ length: 48 }, (_, i) => i * 30);
 const ENDS = Array.from({ length: 48 }, (_, i) => (i + 1) * 30);
 
@@ -54,73 +58,61 @@ export function UsualTimesForm({
       </p>
       <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label="Your usual times">
         {rows.map((r, i) => (
-          <li
-            key={r.key}
-            className="grid gap-3 rounded-[18px] border border-card-border bg-surface-container-low p-3 sm:grid-cols-[1.3fr_1fr_1fr_auto] sm:items-end"
-          >
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`ut-${r.key}-day`} className="text-sm font-bold">
-                Day {i + 1}
-              </label>
-              <select
-                id={`ut-${r.key}-day`}
-                name="weekday"
-                value={r.weekday}
-                onChange={(e) => update(r.key, 'weekday', e.target.value)}
-                className={SELECT}
+          <li key={r.key} className={cx(TILE, 'gap-3')}>
+            <input type="hidden" name="weekday" value={r.weekday} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <TileKey>Time {i + 1}</TileKey>
+              <button
+                type="button"
+                onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+                aria-label={`Remove time ${i + 1}`}
+                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-card-border bg-surface-container-lowest px-3 text-[13px] font-bold text-on-surface-variant hover:border-outline"
               >
-                <option value="">Choose a day</option>
-                {WEEKDAYS.map((d, n) => (
-                  <option key={d} value={n + 1}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+                <Icon name="close" size={16} />
+                Remove
+              </button>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`ut-${r.key}-from`} className="text-sm font-bold">
-                From (time {i + 1})
-              </label>
-              <select
-                id={`ut-${r.key}-from`}
+            <div role="group" aria-label={`Day ${i + 1}`} className="flex flex-wrap gap-1.5">
+              {WEEKDAYS.map((d, n) => {
+                const on = r.weekday === String(n + 1);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={`${d}, time ${i + 1}`}
+                    onClick={() => update(r.key, 'weekday', String(n + 1))}
+                    className={cx(
+                      'flex h-11 min-w-[52px] cursor-pointer items-center justify-center rounded-[14px] border px-3 text-[15px] font-extrabold',
+                      on
+                        ? 'border-primary bg-primary text-on-primary shadow-[0_6px_14px_-8px_rgba(0,97,148,.8)]'
+                        : 'border-card-border bg-surface-container-lowest text-on-surface hover:border-outline',
+                    )}
+                  >
+                    {d.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <PillSelect
                 name="start"
+                label={`From (time ${i + 1})`}
                 value={r.start}
-                onChange={(e) => update(r.key, 'start', e.target.value)}
-                className={SELECT}
-              >
-                {STARTS.map((m) => (
-                  <option key={m} value={m}>
-                    {formatMinute(m)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`ut-${r.key}-to`} className="text-sm font-bold">
-                To (time {i + 1})
-              </label>
-              <select
-                id={`ut-${r.key}-to`}
+                onChange={(v) => update(r.key, 'start', v)}
+                options={STARTS.map((m) => [String(m), formatMinute(m)] as const)}
+              />
+              <span aria-hidden="true" className="text-on-surface-variant">
+                →
+              </span>
+              <PillSelect
                 name="end"
+                label={`To (time ${i + 1})`}
                 value={r.end}
-                onChange={(e) => update(r.key, 'end', e.target.value)}
-                className={SELECT}
-              >
-                {ENDS.map((m) => (
-                  <option key={m} value={m}>
-                    {m === 1440 ? '12:00 am (midnight)' : formatMinute(m)}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => update(r.key, 'end', v)}
+                options={ENDS.map((m) => [String(m), m === 1440 ? '12:00 am (midnight)' : formatMinute(m)] as const)}
+              />
             </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
-              aria-label={`Remove time ${i + 1}`}
-            >
-              Remove
-            </Button>
           </li>
         ))}
       </ul>

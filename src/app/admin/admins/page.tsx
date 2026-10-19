@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { Card } from '@/components/Card';
 import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
@@ -61,9 +64,12 @@ export default async function AdminsPage() {
           <p className="text-on-surface-variant">No admins yet. Only you can manage AA Pro until you add one.</p>
         )}
       </Card>
-      <Card as="section" className="max-w-[640px]">
-        <AddAdminForm />
-      </Card>
+      <section aria-labelledby="add-admin" className={cx(SHELL, 'max-w-[640px]')}>
+        <PanelHead id="add-admin" title="Add an admin" />
+        <div className="px-5 py-5 sm:px-6">
+          <AddAdminForm />
+        </div>
+      </section>
     </div>
   );
 }

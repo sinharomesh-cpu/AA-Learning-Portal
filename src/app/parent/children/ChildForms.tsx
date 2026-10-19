@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { Chip, PanelHead } from '@/components/ui/Panel';
+import { SHELL, TILE_KEY } from '@/components/ui/styles';
 import { useActionState, useState } from 'react';
 import { Button, LinkButton } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
+import { SelectField } from '@/components/ui/SelectField';
 import { TIME_ZONES } from '@/config/timeZones';
 import { SUBJECT_IDS, SUBJECTS } from '@/fixtures/subjects';
 import { cx } from '@/lib/cx';
@@ -80,55 +82,12 @@ export function AvatarIcon({ avatar, size = 26 }: { avatar: string; size?: numbe
   );
 }
 
-const SELECT = 'min-h-[52px] rounded-[16px] border-2 bg-surface-container-lowest px-4 text-base';
-
 function FieldError({ id, children }: { id: string; children?: string }) {
   return children ? (
     <span id={id} className="text-sm font-bold leading-5 text-on-error-container">
       {children}
     </span>
   ) : null;
-}
-
-function Select({
-  label,
-  name,
-  defaultValue,
-  error,
-  hint,
-  children,
-}: {
-  label: string;
-  name: string;
-  defaultValue: string;
-  error?: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  const id = `child-${name}`;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-bold leading-5">
-        {label}
-      </label>
-      <select
-        id={id}
-        name={name}
-        defaultValue={defaultValue}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={[error ? `${id}-error` : '', hint ? `${id}-hint` : ''].filter(Boolean).join(' ') || undefined}
-        className={cx(SELECT, error ? 'border-error' : 'border-outline')}
-      >
-        {children}
-      </select>
-      <FieldError id={`${id}-error`}>{error}</FieldError>
-      {hint ? (
-        <span id={`${id}-hint`} className="text-sm leading-5 text-on-surface-variant">
-          {hint}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 /** The "About your child", "Subjects" and "Picture" sections of M-08 (board 18). */
@@ -149,113 +108,93 @@ function ProfileSections({
   const name = val('name', initial.name) || 'your child';
   return (
     <>
-      <Card as="section" aria-labelledby="about-child" className="flex flex-col gap-4 p-4 sm:p-6">
-        <h2 id="about-child" className="text-[20px] font-bold leading-7">
-          About your child
-        </h2>
-        <div className="grid gap-5 md:grid-cols-2">
-          <TextField
-            label="First name (shown in the app)"
-            name="name"
-            autoComplete="off"
-            maxLength={40}
-            required
-            defaultValue={val('name', initial.name)}
-            error={e.name}
-          />
-          <Select label="Grade" name="grade" defaultValue={val('grade', String(initial.grade))} error={e.grade}>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
-              <option key={g} value={g}>
-                Grade {g}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label="Curriculum"
-            name="curriculum"
-            defaultValue={val('curriculum', initial.curriculum ?? '')}
-            error={e.curriculum}
-            hint="The list is configured by AA Pro."
-          >
-            <option value="">Not set</option>
-            {curricula.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label="Time zone"
-            name="timeZone"
-            defaultValue={val('timeZone', initial.timeZone)}
-            error={e.timeZone}
-            hint="Defaults to yours. All times are shown in this zone for your child."
-          >
-            {TIME_ZONES.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
+      <section aria-labelledby="about-child" className={SHELL}>
+        <PanelHead id="about-child" title="About your child" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <TextField
+              label="First name (shown in the app)"
+              name="name"
+              autoComplete="off"
+              maxLength={40}
+              required
+              defaultValue={val('name', initial.name)}
+              error={e.name}
+            />
+            <SelectField
+              label="Grade"
+              name="grade"
+              defaultValue={val('grade', String(initial.grade))}
+              error={e.grade}
+              options={Array.from({ length: 12 }, (_, i) => [String(i + 1), `Grade ${i + 1}`] as const)}
+            />
+            <SelectField
+              label="Curriculum"
+              name="curriculum"
+              defaultValue={val('curriculum', initial.curriculum ?? '')}
+              error={e.curriculum}
+              hint="The list is configured by AA Pro."
+              options={[['', 'Not set'] as const, ...curricula.map((c) => [c, c] as const)]}
+            />
+            <SelectField
+              label="Time zone"
+              name="timeZone"
+              defaultValue={val('timeZone', initial.timeZone)}
+              error={e.timeZone}
+              hint="Defaults to yours. All times are shown in this zone for your child."
+              options={TIME_ZONES}
+              wide
+            />
+          </div>
+          <p className="text-sm leading-5 text-on-surface-variant">
+            We don&apos;t ask for date of birth, surname, school or a photo.
+          </p>
         </div>
-        <p className="text-sm leading-5 text-on-surface-variant">
-          We don&apos;t ask for date of birth, surname, school or a photo.
-        </p>
-      </Card>
+      </section>
 
-      <Card as="section" aria-labelledby="child-subjects" className="flex flex-col gap-3.5 p-4 sm:p-6">
-        <h2 id="child-subjects" className="text-[20px] font-bold leading-7">
-          Subjects
-        </h2>
-        <fieldset
-          className="m-0 flex flex-wrap gap-2.5 border-0 p-0"
-          aria-describedby={e.subjects ? 'child-subjects-error' : undefined}
-        >
-          <legend className="mb-2.5 p-0 text-sm font-bold leading-5">
-            Choose the subjects {name} can learn on AA Pro
-          </legend>
-          {SUBJECT_IDS.map((id) => (
-            <label
-              key={id}
-              className="flex min-h-12 cursor-pointer items-center gap-2.5 rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
-            >
-              <input
-                type="checkbox"
-                name="subjects"
-                value={id}
-                defaultChecked={subjects.includes(id)}
-                className="h-[22px] w-[22px] accent-primary"
-              />
-              {SUBJECTS[id].name}
-            </label>
-          ))}
-        </fieldset>
-        <FieldError id="child-subjects-error">{e.subjects}</FieldError>
-      </Card>
+      <section aria-labelledby="child-subjects" className={SHELL}>
+        <PanelHead id="child-subjects" title="Subjects" />
+        <div className="flex flex-col gap-3.5 px-5 py-5 sm:px-6">
+          <fieldset
+            className="m-0 flex flex-wrap gap-2.5 border-0 p-0"
+            aria-describedby={e.subjects ? 'child-subjects-error' : undefined}
+          >
+            <legend className={cx(TILE_KEY, 'float-left mb-1 p-0')}>
+              Choose the subjects {name} can learn on AA Pro
+            </legend>
+            {SUBJECT_IDS.map((id) => (
+              <Chip key={id} name="subjects" value={id} defaultChecked={subjects.includes(id)}>
+                {SUBJECTS[id].name}
+              </Chip>
+            ))}
+          </fieldset>
+          <FieldError id="child-subjects-error">{e.subjects}</FieldError>
+        </div>
+      </section>
 
-      <Card as="section" aria-labelledby="child-picture" className="flex flex-col gap-3.5 p-4 sm:p-6">
-        <h2 id="child-picture" className="text-[20px] font-bold leading-7">
-          Picture
-        </h2>
-        <fieldset className="m-0 flex flex-wrap gap-3 border-0 p-0">
-          <legend className="mb-2.5 p-0 text-sm leading-5 text-on-surface-variant">
-            Pick an illustration. Photo upload is not offered.
-          </legend>
-          {Object.entries(AVATAR_STYLE).map(([key, a]) => (
-            <label
-              key={key}
-              className={cx(
-                'flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-[3px] border-transparent has-[:checked]:border-primary has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary',
-                a.bg,
-              )}
-            >
-              <input type="radio" name="avatar" value={key} defaultChecked={avatar === key} className="sr-only" />
-              <span className="sr-only">{a.label}</span>
-              <AvatarIcon avatar={key} />
-            </label>
-          ))}
-        </fieldset>
-      </Card>
+      <section aria-labelledby="child-picture" className={SHELL}>
+        <PanelHead id="child-picture" title="Picture" />
+        <div className="flex flex-col gap-3.5 px-5 py-5 sm:px-6">
+          <fieldset className="m-0 flex flex-wrap gap-3 border-0 p-0">
+            <legend className="mb-2.5 p-0 text-sm leading-5 text-on-surface-variant">
+              Pick an illustration. Photo upload is not offered.
+            </legend>
+            {Object.entries(AVATAR_STYLE).map(([key, a]) => (
+              <label
+                key={key}
+                className={cx(
+                  'flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-[3px] border-transparent has-[:checked]:border-primary has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary',
+                  a.bg,
+                )}
+              >
+                <input type="radio" name="avatar" value={key} defaultChecked={avatar === key} className="sr-only" />
+                <span className="sr-only">{a.label}</span>
+                <AvatarIcon avatar={key} />
+              </label>
+            ))}
+          </fieldset>
+        </div>
+      </section>
     </>
   );
 }
@@ -301,7 +240,7 @@ export function CreateChildForm({ initial, curricula }: { initial: ChildProfileV
   if (state.credentials) {
     return (
       <CredentialsCard credentials={state.credentials}>
-        <div className="flex flex-wrap gap-2.5">
+        <div className="clear-both flex flex-wrap gap-2">
           <LinkButton href="/parent/children">Done</LinkButton>
           <Button variant="secondary" onClick={() => window.location.reload()}>
             Add another child
@@ -317,38 +256,38 @@ export function CreateChildForm({ initial, curricula }: { initial: ChildProfileV
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       {Object.keys(e).length ? <FormMessage tone="error">Please check the highlighted fields.</FormMessage> : null}
       <ProfileSections initial={initial} state={state} curricula={curricula} />
-      <Card as="section" aria-labelledby="child-sign-in" className="flex flex-col gap-4 p-4 sm:p-6">
-        <h2 id="child-sign-in" className="text-[20px] font-bold leading-7">
-          Sign-in details
-        </h2>
-        <div className="grid gap-5 md:grid-cols-2">
-          <TextField
-            label="Username"
-            name="username"
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            maxLength={30}
-            required
-            defaultValue={username}
-            hint="Letters and numbers. AA Pro adds 4 numbers so every username is unique, for example kiran-4821. Please don't use a surname."
-            error={e.username}
-          />
-          <TextField
-            label="Password (optional)"
-            name="password"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            hint="At least 8 characters. Leave it empty and we'll make an easy-to-type one."
-            error={e.password}
-          />
+      <section aria-labelledby="child-sign-in" className={SHELL}>
+        <PanelHead id="child-sign-in" title="Sign-in details" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <TextField
+              label="Username"
+              name="username"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={30}
+              required
+              defaultValue={username}
+              hint="Letters and numbers. AA Pro adds 4 numbers so every username is unique, for example kiran-4821. Please don't use a surname."
+              error={e.username}
+            />
+            <TextField
+              label="Password (optional)"
+              name="password"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              hint="At least 8 characters. Leave it empty and we'll make an easy-to-type one."
+              error={e.password}
+            />
+          </div>
+          <p className="text-sm leading-5 text-on-surface-variant">
+            You&apos;ll see the password once on the next screen. After that nobody can see it, including you and AA Pro
+            staff; you can only replace it.
+          </p>
         </div>
-        <p className="text-sm leading-5 text-on-surface-variant">
-          You&apos;ll see the password once on the next screen. After that nobody can see it, including you and AA Pro
-          staff; you can only replace it.
-        </p>
-      </Card>
+      </section>
       <div className="flex flex-wrap gap-3">
         <Button type="submit" inactive={pending}>
           {pending ? 'Adding…' : 'Add child'}

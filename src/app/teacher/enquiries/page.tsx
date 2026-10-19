@@ -59,7 +59,7 @@ export default async function TeacherEnquiriesPage({ searchParams }: { searchPar
       <li key={e.id}>
         <Card as="article" aria-labelledby={`te-${e.id}`} className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 id={`te-${e.id}`} className="text-[20px] font-bold leading-7">
+            <h3 id={`te-${e.id}`} className="font-headline text-[20px] font-bold leading-7">
               From {e.parentFirstName} (parent) · {subjects}
             </h3>
             <StatusChip kind={kind}>{chip}</StatusChip>

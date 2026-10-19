@@ -3,6 +3,7 @@ import { type Browser, expect, test, type Page } from '@playwright/test';
 import { generate } from 'otplib';
 import sharp from 'sharp';
 import {
+  choose,
   confirmFromMailbox,
   createAccount,
   freshEmail,
@@ -26,6 +27,11 @@ const codeIn = (secret: string, seconds = 0) => generate({ secret, epoch: Math.f
 
 async function noSeriousA11yIssues(page: Page) {
   await expect(page).toHaveTitle(/\S/);
+  // Design audit (OC-110): AUDIT_SHOTS=<folder> saves every page these tests check.
+  if (process.env.AUDIT_SHOTS) {
+    const name = new URL(page.url()).pathname.replace(/[^a-z0-9]+/gi, '_') || '_';
+    await page.screenshot({ path: `${process.env.AUDIT_SHOTS}/${name}-${Date.now()}.png`, fullPage: true });
+  }
   const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   const serious = r.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(serious, JSON.stringify(serious.map((v) => [v.id, v.nodes.map((n) => n.target)]))).toEqual([]);
@@ -826,17 +832,17 @@ test('PR-D1c: an approved teacher sets their usual weekly times (boards D5, D9)'
   await t.goto('/teacher/availability');
   const times = t.getByRole('region', { name: 'Your usual weekly times' });
   await expect(times).toBeVisible();
-  await times.getByLabel('Day 1', { exact: true }).selectOption({ label: 'Monday' });
+  await times.getByRole('button', { name: 'Monday, time 1' }).click();
   await times.getByRole('button', { name: 'Add a time' }).click();
-  await times.getByLabel('Day 2', { exact: true }).selectOption({ label: 'Monday' });
-  await times.getByLabel('From (time 2)').selectOption({ label: '5:00 pm' });
-  await times.getByLabel('To (time 2)').selectOption({ label: '7:00 pm' });
+  await times.getByRole('button', { name: 'Monday, time 2' }).click();
+  await choose(times, 'From (time 2)', '5:00 pm');
+  await choose(times, 'To (time 2)', '7:00 pm');
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Two times on the same day overlap/)).toBeVisible();
 
-  await times.getByLabel('Day 2', { exact: true }).selectOption({ label: 'Saturday' });
-  await times.getByLabel('From (time 2)').selectOption({ label: '10:00 am' });
-  await times.getByLabel('To (time 2)').selectOption({ label: '12:00 pm' });
+  await times.getByRole('button', { name: 'Saturday, time 2' }).click();
+  await choose(times, 'From (time 2)', '10:00 am');
+  await choose(times, 'To (time 2)', '12:00 pm');
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
   await t.reload();
@@ -961,7 +967,7 @@ test('PR-D3: visitors browse published teachers on the homepage and /teachers wi
   await expect(t.getByText('Your profile is saved.')).toBeVisible();
   await t.goto('/teacher/availability');
   const times = t.getByRole('region', { name: 'Your usual weekly times' });
-  await times.getByLabel('Day 1', { exact: true }).selectOption({ label: 'Wednesday' });
+  await times.getByRole('button', { name: 'Wednesday, time 1' }).click();
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
   await t.goto('/teacher/listing');
@@ -1122,8 +1128,8 @@ test('PR-D4a: a visitor connects with a teacher, signs up, sends an enquiry; the
   const connectPath = new URL(d.url()).pathname;
   await expect(d.getByRole('heading', { level: 1, name: `Send an enquiry to ${teacherName}` })).toBeVisible();
   await d.getByRole('radio', { name: /A child I haven.t added yet/ }).check();
-  await d.getByLabel('Grade', { exact: true }).selectOption({ label: 'Grade 8' });
-  await d.getByLabel('Curriculum (optional)').selectOption({ label: 'ICSE' });
+  await choose(d, 'Grade', 'Grade 8');
+  await choose(d, 'Curriculum (optional)', 'ICSE');
   await d.getByRole('button', { name: 'Send enquiry' }).click();
   await expect(d.getByText('Choose at least one subject this teacher teaches.')).toBeVisible();
   await d.getByRole('checkbox', { name: 'Science' }).check();
@@ -1136,8 +1142,8 @@ test('PR-D4a: a visitor connects with a teacher, signs up, sends an enquiry; the
   // A second active enquiry to the same teacher for the same child is refused.
   await d.goto(connectPath);
   await d.getByRole('radio', { name: /A child I haven.t added yet/ }).check();
-  await d.getByLabel('Grade', { exact: true }).selectOption({ label: 'Grade 8' });
-  await d.getByLabel('Curriculum (optional)').selectOption({ label: 'ICSE' });
+  await choose(d, 'Grade', 'Grade 8');
+  await choose(d, 'Curriculum (optional)', 'ICSE');
   await d.getByRole('checkbox', { name: 'Science' }).check();
   await d.getByRole('button', { name: 'Send enquiry' }).click();
   await expect(d.getByText(/You already have an active enquiry with this teacher/)).toBeVisible();
@@ -1238,7 +1244,7 @@ test('CR-13: a parent proposes a rate; the teacher counters; the parent accepts;
 
   // RN2: propose for the parent's own child; invalid amounts are refused with a clear message.
   await expect(v.getByRole('heading', { level: 1, name: `Propose a rate to ${teacherName}` })).toBeVisible();
-  await v.getByLabel('Subject').selectOption({ label: 'English' });
+  await choose(v, 'Subject', 'English');
   await v.getByLabel(/Your offer/).fill('0');
   await v.getByRole('button', { name: 'Send proposal' }).click();
   await expect(v.getByText('Enter an amount above zero', { exact: false })).toBeVisible();
@@ -1337,17 +1343,17 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
   // Usual times: Monday and Wednesday 5–6 pm, Saturday 10–12.
   await t.goto('/teacher/availability');
   const times = t.getByRole('region', { name: 'Your usual weekly times' });
-  await times.getByLabel('Day 1', { exact: true }).selectOption({ label: 'Monday' });
-  await times.getByLabel('From (time 1)').selectOption({ label: '5:00 pm' });
-  await times.getByLabel('To (time 1)').selectOption({ label: '6:00 pm' });
+  await times.getByRole('button', { name: 'Monday, time 1' }).click();
+  await choose(times, 'From (time 1)', '5:00 pm');
+  await choose(times, 'To (time 1)', '6:00 pm');
   for (const [n, day, from, to] of [
     [2, 'Wednesday', '5:00 pm', '6:00 pm'],
     [3, 'Saturday', '10:00 am', '12:00 pm'],
   ] as const) {
     await times.getByRole('button', { name: 'Add a time' }).click();
-    await times.getByLabel(`Day ${n}`, { exact: true }).selectOption({ label: day });
-    await times.getByLabel(`From (time ${n})`).selectOption({ label: from });
-    await times.getByLabel(`To (time ${n})`).selectOption({ label: to });
+    await times.getByRole('button', { name: `${day}, time ${n}` }).click();
+    await choose(times, `From (time ${n})`, from);
+    await choose(times, `To (time ${n})`, to);
   }
   await times.getByRole('button', { name: 'Save times' }).click();
   await expect(times.getByText(/Saved. Families will see these times/)).toBeVisible();
@@ -1469,7 +1475,7 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await pp.getByRole('region', { name: 'Hourly lessons' }).getByRole('link', { name: 'Propose a rate' }).click();
     await expect(pp.getByRole('heading', { level: 1, name: `Propose to ${teacherName}` })).toBeVisible();
     await expect(pp.getByRole('radio', { name: /Hourly lessons · Monday/ })).toBeChecked();
-    await pp.getByLabel('Subject').selectOption({ label: 'Maths' });
+    await choose(pp, 'Subject', 'Maths');
     await pp.getByLabel(/Your hourly rate offer/).fill('525');
     await expect(pp.getByText('= ₹350 a 40-minute lesson', { exact: false })).toBeVisible();
     await noSeriousA11yIssues(pp);
@@ -1478,7 +1484,7 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await pp.goto(profileUrl);
     await pp.getByRole('link', { name: 'Propose a package price' }).click();
     await expect(pp.getByRole('radio', { name: /Learning package/ })).toBeChecked();
-    await pp.getByLabel('Subject').selectOption({ label: 'Maths' });
+    await choose(pp, 'Subject', 'Maths');
     await pp.getByLabel(/Your package price offer/).fill('7,800');
     await pp.getByRole('button', { name: 'Send proposal' }).click();
     await expect(pp).toHaveURL(/\/parent\/enquiries\/rates\?sent=/);

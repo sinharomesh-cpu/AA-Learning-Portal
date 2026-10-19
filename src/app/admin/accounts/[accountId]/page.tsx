@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
@@ -60,10 +62,12 @@ export default async function EditAccountPage({
         </div>
         <EditAccountForm account={account} />
       </Card>
-      <Card className="flex flex-col gap-3">
-        <h2 className="text-[20px] font-bold">Sign-in access</h2>
-        <AccountStatusForm account={account} />
-      </Card>
+      <section aria-labelledby="p-sign-in-access" className={SHELL}>
+        <PanelHead id="p-sign-in-access" title="Sign-in access" />
+        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+          <AccountStatusForm account={account} />
+        </div>
+      </section>
     </div>
   );
 }

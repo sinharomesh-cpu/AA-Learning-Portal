@@ -1,6 +1,8 @@
 'use client';
 
 import { useActionState, useId, useRef, useState } from 'react';
+import { TILE } from '@/components/ui/styles';
+import { cx } from '@/lib/cx';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormMessage } from '@/components/forms/FormMessage';
@@ -19,7 +21,7 @@ import {
 import { answerAction, counterAction, type RateFormState, withdrawAction } from './actions';
 
 const FIELD =
-  'box-border min-h-12 w-full rounded-[14px] border-2 border-outline bg-surface-container-lowest px-3 text-base';
+  'box-border min-h-12 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15';
 
 export interface RateActionsProps {
   id: string;
@@ -112,12 +114,14 @@ function AnswerButton(p: RateActionsProps & { answer: 'accept' | 'decline' }) {
           </>
         ) : (
           <>
-            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-              <legend className="mb-2 p-0 text-sm font-bold text-on-surface">Reason (optional)</legend>
+            <fieldset className={cx(TILE, 'm-0')}>
+              <legend className="float-left w-full mb-2 p-0 text-sm font-bold text-on-surface">
+                Reason (optional)
+              </legend>
               {DECLINE_REASONS.map((r) => (
                 <label
                   key={r}
-                  className="flex min-h-12 cursor-pointer items-center gap-3 rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 text-base text-on-surface has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
+                  className="flex min-h-12 cursor-pointer items-center gap-3 rounded-[16px] border border-card-border hover:border-outline bg-surface-container-lowest px-4 text-base text-on-surface has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
                 >
                   <input type="radio" name="reason" value={r} className="h-5 w-5 accent-primary" />
                   {DECLINE_REASON_TEXT[r]}
@@ -243,7 +247,7 @@ function CounterForm(p: RateActionsProps) {
             name="message"
             maxLength={MESSAGE_MAX}
             aria-describedby={`${id}-message-hint`}
-            className="box-border min-h-20 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base"
+            className="box-border min-h-20 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
           />
           <span id={`${id}-message-hint`} className="text-sm leading-5 text-on-surface-variant">
             Up to {MESSAGE_MAX} characters. No contact details, please.

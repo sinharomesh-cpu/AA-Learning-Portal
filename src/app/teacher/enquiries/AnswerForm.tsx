@@ -23,7 +23,7 @@ export function AnswerForm({ enquiryId, parentFirstName }: { enquiryId: string; 
           maxLength={500}
           aria-invalid={err ? true : undefined}
           aria-describedby={`note-${enquiryId}-hint`}
-          className="w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-4 py-3 text-base"
+          className="w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 py-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15"
         />
         {err ? <span className="text-sm font-bold text-on-error-container">{err}</span> : null}
         <span id={`note-${enquiryId}-hint`} className="text-sm text-on-surface-variant">

@@ -1,8 +1,9 @@
 'use client';
 
 import { useActionState, useRef, useState } from 'react';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { type PhotoFormState, removePhotoAction, uploadPhotoAction } from './actions';
 
@@ -65,82 +66,82 @@ export function PhotoForm({
   };
 
   return (
-    <Card as="section" aria-labelledby="tp-photo" className="flex flex-col gap-4 p-4 sm:p-6">
-      <h2 id="tp-photo" className="text-[20px] font-bold leading-7">
-        Profile photo (optional)
-      </h2>
-      <div className="flex flex-wrap items-start gap-5">
-        {shown ? (
-          // eslint-disable-next-line @next/next/no-img-element -- private, uncached image from our own route
-          <img
-            src={`/teacher-photo/${shown}`}
-            alt={pending ? 'Your new photo, waiting for review' : 'Your profile photo'}
-            width={112}
-            height={112}
-            className="size-28 flex-none rounded-[22px] border border-card-border object-cover"
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className="flex size-28 flex-none items-center justify-center rounded-[22px] bg-primary-fixed font-headline text-[44px] font-extrabold text-on-primary-fixed"
-          >
-            {initial}
-          </span>
-        )}
-        <div className="flex min-w-0 flex-1 flex-col gap-2 text-[15px] leading-[22px]">
-          {pending ? (
-            <FormMessage tone="info">
-              Waiting for the AA Pro team since {pending.since}.{' '}
-              {approvedId
-                ? 'Families keep seeing your current approved photo until then.'
-                : 'Until then families see your initial.'}
-            </FormMessage>
-          ) : approvedId ? (
-            <FormMessage tone="success">Approved by the AA Pro team.</FormMessage>
+    <section aria-labelledby="tp-photo" className={SHELL}>
+      <PanelHead id="tp-photo" title="Profile photo (optional)" />
+      <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap items-start gap-5">
+          {shown ? (
+            // eslint-disable-next-line @next/next/no-img-element -- private, uncached image from our own route
+            <img
+              src={`/teacher-photo/${shown}`}
+              alt={pending ? 'Your new photo, waiting for review' : 'Your profile photo'}
+              width={112}
+              height={112}
+              className="size-28 flex-none rounded-[22px] border border-card-border object-cover"
+            />
           ) : (
-            <p className="text-on-surface-variant">No photo. Families see your initial.</p>
+            <span
+              aria-hidden="true"
+              className="flex size-28 flex-none items-center justify-center rounded-[22px] bg-primary-fixed font-headline text-[44px] font-extrabold text-on-primary-fixed"
+            >
+              {initial}
+            </span>
           )}
-          {declined && !pending ? (
-            <FormMessage tone="warning">
-              Your last photo was not accepted on {declined.on}.
-              {declined.note ? ` Note from AA Pro: ${declined.note}` : ''}
-            </FormMessage>
-          ) : null}
-          <ul className="m-0 list-disc pl-5 text-on-surface-variant">
-            <li>A clear, recent photo of you only — no children, other people, text or contact details.</li>
-            <li>The AA Pro team checks every photo before families can see it.</li>
-            <li>We shrink it to 400 × 400 and remove hidden details such as location.</li>
-          </ul>
+          <div className="flex min-w-0 flex-1 flex-col gap-2 text-[15px] leading-[22px]">
+            {pending ? (
+              <FormMessage tone="info">
+                Waiting for the AA Pro team since {pending.since}.{' '}
+                {approvedId
+                  ? 'Families keep seeing your current approved photo until then.'
+                  : 'Until then families see your initial.'}
+              </FormMessage>
+            ) : approvedId ? (
+              <FormMessage tone="success">Approved by the AA Pro team.</FormMessage>
+            ) : (
+              <p className="text-on-surface-variant">No photo. Families see your initial.</p>
+            )}
+            {declined && !pending ? (
+              <FormMessage tone="warning">
+                Your last photo was not accepted on {declined.on}.
+                {declined.note ? ` Note from AA Pro: ${declined.note}` : ''}
+              </FormMessage>
+            ) : null}
+            <ul className="m-0 list-disc pl-5 text-on-surface-variant">
+              <li>A clear, recent photo of you only — no children, other people, text or contact details.</li>
+              <li>The AA Pro team checks every photo before families can see it.</li>
+              <li>We shrink it to 400 × 400 and remove hidden details such as location.</li>
+            </ul>
+          </div>
         </div>
-      </div>
-      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
-      {state.notice ? <FormMessage tone="success">{state.notice}</FormMessage> : null}
-      <form action={upload} className="flex flex-col gap-3" noValidate>
-        <label htmlFor="tp-photo-file" className="text-sm font-bold leading-5">
-          Choose a photo (JPG, PNG or WebP)
-        </label>
-        <input
-          ref={input}
-          id="tp-photo-file"
-          name="photo"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={onPick}
-          className="max-w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest p-3 text-base file:mr-3 file:rounded-full file:border-0 file:bg-primary-fixed file:px-4 file:py-2 file:font-bold file:text-on-primary-fixed"
-        />
-        <div className="flex flex-wrap gap-3">
-          <Button type="submit" inactive={uploading || preparing}>
-            {uploading ? 'Sending…' : preparing ? 'Preparing…' : 'Send photo for review'}
-          </Button>
-        </div>
-      </form>
-      {shown ? (
-        <form action={remove}>
-          <Button type="submit" variant="secondary" inactive={removing}>
-            {removing ? 'Removing…' : 'Remove my photo'}
-          </Button>
+        {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+        {state.notice ? <FormMessage tone="success">{state.notice}</FormMessage> : null}
+        <form action={upload} className="flex flex-col gap-3" noValidate>
+          <label htmlFor="tp-photo-file" className="text-sm font-bold leading-5">
+            Choose a photo (JPG, PNG or WebP)
+          </label>
+          <input
+            ref={input}
+            id="tp-photo-file"
+            name="photo"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={onPick}
+            className="max-w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest p-3 text-base file:mr-3 file:rounded-full file:border-0 file:bg-primary-fixed file:px-4 file:py-2 file:font-bold file:text-on-primary-fixed"
+          />
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" inactive={uploading || preparing}>
+              {uploading ? 'Sending…' : preparing ? 'Preparing…' : 'Send photo for review'}
+            </Button>
+          </div>
         </form>
-      ) : null}
-    </Card>
+        {shown ? (
+          <form action={remove}>
+            <Button type="submit" variant="secondary" inactive={removing}>
+              {removing ? 'Removing…' : 'Remove my photo'}
+            </Button>
+          </form>
+        ) : null}
+      </div>
+    </section>
   );
 }

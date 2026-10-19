@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
 import { AccessDenied } from '@/components/states/AccessDenied';
@@ -53,17 +55,21 @@ export default async function TeacherStudentPage({ params }: { params: Promise<{
         </div>
       </Card>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="flex flex-col gap-2">
-          <h2 className="text-[20px] font-bold leading-7">Sessions with you</h2>
-          <p className="text-sm leading-5 text-on-surface-variant">Lessons appear here once booking opens.</p>
-        </Card>
-        <Card className="flex flex-col gap-2">
-          <h2 className="text-[20px] font-bold leading-7">Books and files</h2>
-          <p className="text-sm leading-5 text-on-surface-variant">
-            The parent&apos;s books for your subjects appear here once uploads open. You can read them, not download
-            them.
-          </p>
-        </Card>
+        <section aria-labelledby="p-sessions-with-you" className={SHELL}>
+          <PanelHead id="p-sessions-with-you" title="Sessions with you" />
+          <div className="flex flex-col gap-2 px-5 py-5 sm:px-6">
+            <p className="text-sm leading-5 text-on-surface-variant">Lessons appear here once booking opens.</p>
+          </div>
+        </section>
+        <section aria-labelledby="p-books-and-files" className={SHELL}>
+          <PanelHead id="p-books-and-files" title="Books and files" />
+          <div className="flex flex-col gap-2 px-5 py-5 sm:px-6">
+            <p className="text-sm leading-5 text-on-surface-variant">
+              The parent&apos;s books for your subjects appear here once uploads open. You can read them, not download
+              them.
+            </p>
+          </div>
+        </section>
       </div>
       <p className="text-sm leading-5 text-on-surface-variant">
         No parent contact details, surname, school or home information are shown.

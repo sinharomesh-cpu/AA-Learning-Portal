@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.69 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.70 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -417,6 +417,8 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-107** | **Pricing amounts and test-site activation.** (1) INR prices support up to two decimal places; whole rupees are shown without decimals and amounts with paise with two decimals; negotiated prices are never rounded silently (entries with more than two decimals are refused; a lesson price worked out from an hourly rate says when it was rounded to the nearest paisa / cent); applies to hourly rates, learning packages and proposals. (2) Claude informs teacher4: an in-app notice on the teacher home asks a teacher whose converted package needs details to finish it (no email sent). (3) Convert the existing prices and turn the new pricing model on **together, on the test site only**; the Super Admin page now does both in one step (and turns off and rolls back in one step). No production change, purchase or spending. | Owner, 19 Oct 2026, 15:04 IST | CR-15 migration evidence §10; combined admin action |
 | **OC-108** | **Learning package builder and same-day classes.** (1) Design boards PT0–PT1 approved: week planner for class times, homepage-style controls, live parent preview, a warning with "Use N a week" when the classes a week can't fit the usual times; follow the approved design and existing architecture, no unrelated redesigns or extra features. (2) Two or more classes of the same package may be on the same day if they don't overlap, each is inside the teacher's usual times, and the weekly-frequency and completion-period rules hold; enforced by the server and database as well as the screen. Double-booking prevention against booked lessons, and recording each class separately (missed or cancelled classes never count as completed), apply when package bookings are built (Phase B). ₹0; no paid services. | Owner, 19 Oct 2026, 15:57 IST | PackageBuilder; DV-90 |
 | **OC-109** | **Whole “Looking for students” page in the approved design.** Hourly lessons, “Your listing”, “What you offer”, “Before you publish” and “What parents see” are restyled to match the approved package builder (boards PT0–PT1) so every section is aligned; content, rules, saving and permissions unchanged. | Owner, 19 Oct 2026, 16:46–16:50 IST | DV-91 |
+| **OC-110** | **Every page consistent with the approved design.** All pages except the homepage (approved; changes only on separate request) follow the current approved design: teacher pages, parent pages, public proposal and enquiry forms. | Owner, 19 Oct 2026, 17:36 IST | DV-92 |
+| **OC-111** | **Super Admin pages and sign-in/account pages included** in the redesign with the modern look. | Owner, 19 Oct 2026, 17:42 IST | DV-92 |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

@@ -123,7 +123,7 @@ export default async function TeacherStudentsPage({
           {students.map((s) => (
             <li key={s.id}>
               <Card as="article" aria-labelledby={`s-${s.id}`} className="flex h-full flex-col gap-3 p-4 sm:p-6">
-                <h3 id={`s-${s.id}`} className="text-[22px] font-bold leading-7">
+                <h3 id={`s-${s.id}`} className="font-headline text-[22px] font-bold leading-7">
                   {s.name}
                 </h3>
                 <span className="text-sm text-on-surface-variant">

@@ -1,6 +1,8 @@
 'use client';
 
 import { useActionState, useId, useState } from 'react';
+import { Chip } from '@/components/ui/Panel';
+import { INPUT, TILE } from '@/components/ui/styles';
 import { Button, LinkButton } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
@@ -48,10 +50,7 @@ function TextArea({ label, name, error, hint }: { label: string; name: string; e
         maxLength={500}
         aria-invalid={error ? true : undefined}
         aria-describedby={[error ? `${id}-e` : '', hint ? `${id}-h` : ''].filter(Boolean).join(' ') || undefined}
-        className={cx(
-          'min-h-24 w-full rounded-[16px] border-2 bg-surface-container-lowest px-4 py-3 text-base',
-          error ? 'border-error' : 'border-outline',
-        )}
+        className={cx(INPUT, 'min-h-24 w-full py-3', error ? 'border-error' : '')}
       />
       {error ? (
         <span id={`${id}-e`} className="text-sm font-bold leading-5 text-on-error-container">
@@ -69,8 +68,8 @@ function TextArea({ label, name, error, hint }: { label: string; name: string; e
 
 function PermissionBoxes({ checked, error }: { checked: readonly string[]; error?: string }) {
   return (
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0" aria-describedby={error ? 'perm-error' : undefined}>
-      <legend className="mb-2 p-0 text-sm font-bold">What can this admin manage?</legend>
+    <fieldset className={cx(TILE, 'm-0')} aria-describedby={error ? 'perm-error' : undefined}>
+      <legend className="float-left w-full mb-2 p-0 text-sm font-bold">What can this admin manage?</legend>
       {PERMISSIONS.map(([value, title, hint]) => (
         <label
           key={value}
@@ -112,7 +111,6 @@ export function AddAdminForm() {
   const e = state.fieldErrors ?? {};
   return (
     <form action={action} className="flex flex-col gap-4" noValidate key={state.notice ?? 'form'}>
-      <h2 className="text-[22px] font-bold leading-7">Add an admin</h2>
       <Messages state={state} />
       <TextField label="Name" name="name" defaultValue={v.name as string} error={e.name} required />
       <TextField label="Email" name="email" type="email" defaultValue={v.email as string} error={e.email} required />
@@ -195,19 +193,9 @@ export function CreateAccountForm() {
             ['teacher', 'Teacher'],
           ] as const
         ).map(([value, label]) => (
-          <label
-            key={value}
-            className="flex min-h-12 cursor-pointer items-center gap-2.5 rounded-full border-2 border-outline px-4 font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40"
-          >
-            <input
-              type="radio"
-              name="role"
-              value={value}
-              defaultChecked={(v.role ?? 'parent') === value}
-              className="h-[22px] w-[22px] accent-primary"
-            />
+          <Chip key={value} type="radio" name="role" value={value} defaultChecked={(v.role ?? 'parent') === value}>
             {label}
-          </label>
+          </Chip>
         ))}
       </fieldset>
       <TextField label="Name" name="name" defaultValue={v.name as string} error={e.name} required />

@@ -6,7 +6,7 @@ import { FormMessage } from '@/components/forms/FormMessage';
 import { applyMigrationAction, type MigrationFormState, rollbackMigrationAction } from './actions';
 
 const FIELD =
-  'box-border min-h-12 w-full max-w-[260px] rounded-[14px] border-2 border-outline bg-surface-container-lowest px-3 text-base';
+  'box-border min-h-12 w-full max-w-[260px] rounded-[16px] border border-outline bg-surface-container-lowest px-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15';
 
 /** Apply or roll back, each confirmed by typing a word (deliberately not a single click). */
 export function MigrationForm({ kind, disabled }: { kind: 'apply' | 'rollback'; disabled?: boolean }) {

@@ -39,7 +39,7 @@ export function DemoSignInForm({ action, choices, legend, submitLabel, variant }
           <label
             key={choice.id}
             className={cx(
-              'flex cursor-pointer items-center gap-3 rounded-[20px] border-2 border-outline bg-surface-container-lowest px-4 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40',
+              'flex cursor-pointer items-center gap-3 rounded-[20px] border border-card-border hover:border-outline bg-surface-container-lowest px-4 has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40',
               child ? 'min-h-14 text-[18px] font-bold' : 'min-h-[52px] text-base',
             )}
           >

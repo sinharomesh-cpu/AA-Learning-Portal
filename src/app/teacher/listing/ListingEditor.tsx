@@ -31,7 +31,8 @@ import { type ListingFormState, saveListingAction } from './actions';
 const CHOICE =
   'group relative flex h-11 cursor-pointer items-center gap-1.5 rounded-[14px] border border-card-border bg-surface-container-lowest px-3.5 text-[15px] font-extrabold text-on-surface hover:border-outline has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:checked]:shadow-[0_6px_14px_-8px_rgba(0,97,148,.8)] has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary';
 const TICK = <Icon name="check" size={16} className="hidden group-has-[:checked]:block" />;
-const FIELD = 'min-h-12 w-full rounded-[14px] border-2 border-outline bg-surface-container-lowest px-3 text-base';
+const FIELD =
+  'min-h-12 w-full rounded-[16px] border border-outline bg-surface-container-lowest px-3 text-base outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15';
 
 interface PriceRow {
   key: number;
@@ -380,7 +381,7 @@ export function ListingEditor({
                   ) : (
                     <input type="hidden" name="priceSessions" value="" />
                   )}
-                  <label className="flex min-h-12 cursor-pointer items-center gap-2.5 self-end rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary">
+                  <label className="flex min-h-12 cursor-pointer items-center gap-2.5 self-end rounded-[14px] border border-card-border hover:border-outline px-4 text-[15px] font-bold has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary">
                     <input
                       type="checkbox"
                       role="switch"

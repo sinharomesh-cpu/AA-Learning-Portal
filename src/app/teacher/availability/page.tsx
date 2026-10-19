@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Card } from '@/components/Card';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { TIME_ZONES } from '@/config/timeZones';
@@ -41,19 +42,24 @@ export default async function TeacherAvailabilityPage() {
           Tell families when you are usually free to teach. Booking lessons comes with scheduling in a later phase.
         </p>
       </div>
-      <Card as="section" aria-labelledby="usual-times" className="flex flex-col gap-4 p-4 sm:p-6">
-        <div className="flex flex-col gap-1">
-          <h2 id="usual-times" className="text-[20px] font-bold leading-7">
-            Your usual weekly times
-          </h2>
-          <p className="text-[15px] leading-[22px] text-on-surface-variant">
-            A guide for families: shown as &quot;Usually free&quot; on your listing. Nothing is booked or reserved from
-            these times. Up to 14 times a week.
-          </p>
+      <section aria-labelledby="usual-times" className={SHELL}>
+        <PanelHead
+          id="usual-times"
+          title="Your usual weekly times"
+          intro={
+            <>
+              A guide for families: shown as &quot;Usually free&quot; on your listing. Nothing is booked or reserved
+              from these times. Up to 14 times a week.
+            </>
+          }
+        />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          {times.length ? (
+            <p className="text-[15px] font-bold">Now: {times.map(describeUsualTime).join(' · ')}</p>
+          ) : null}
+          <UsualTimesForm initial={times} timeZoneLabel={tzLabel} />
         </div>
-        {times.length ? <p className="text-[15px] font-bold">Now: {times.map(describeUsualTime).join(' · ')}</p> : null}
-        <UsualTimesForm initial={times} timeZoneLabel={tzLabel} />
-      </Card>
+      </section>
     </div>
   );
 }

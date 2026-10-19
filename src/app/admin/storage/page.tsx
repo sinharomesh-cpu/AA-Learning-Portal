@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Card } from '@/components/Card';
+import { PanelHead } from '@/components/ui/Panel';
+import { SHELL } from '@/components/ui/styles';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
@@ -51,51 +52,51 @@ export default async function AdminStoragePage() {
         </FormMessage>
       ) : null}
 
-      <Card aria-labelledby="st-use" className="flex flex-col gap-3">
-        <h2 id="st-use" className="text-[20px] font-bold leading-7">
-          Free database allowance
-        </h2>
-        <p className="m-0 text-[15px] leading-6" data-testid="db-used">
-          <strong>
-            {formatMb(s.databaseBytes)} of {formatMb(s.allowanceBytes)} used ({pct}%)
-          </strong>
-        </p>
-        <div aria-hidden="true" className="h-3 overflow-hidden rounded-full bg-surface-container-high">
-          <div
-            className={cx(
-              'h-full rounded-full',
-              s.level === 'stopped' ? 'bg-error' : s.level === 'warning' ? 'bg-secondary' : 'bg-primary',
-            )}
-            style={{ width: `${Math.min(100, Math.max(1, share * 100))}%` }}
-          />
+      <section aria-labelledby="st-use" className={SHELL}>
+        <PanelHead id="st-use" title="Free database allowance" />
+        <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+          <p className="m-0 text-[15px] leading-6" data-testid="db-used">
+            <strong>
+              {formatMb(s.databaseBytes)} of {formatMb(s.allowanceBytes)} used ({pct}%)
+            </strong>
+          </p>
+          <div aria-hidden="true" className="h-3 overflow-hidden rounded-full bg-surface-container-high">
+            <div
+              className={cx(
+                'h-full rounded-full',
+                s.level === 'stopped' ? 'bg-error' : s.level === 'warning' ? 'bg-secondary' : 'bg-primary',
+              )}
+              style={{ width: `${Math.min(100, Math.max(1, share * 100))}%` }}
+            />
+          </div>
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[15px] leading-6">
+            <li>
+              Uploaded files: {formatMb(s.fileBytes)} in {s.fileCount} {s.fileCount === 1 ? 'file' : 'files'} (included
+              in the total above)
+            </li>
+            <li>
+              Warning at {formatMb(s.warnBytes)} ({s.settings.storage_warn_percent}%) · new uploads stop at{' '}
+              {formatMb(s.stopBytes)} ({s.settings.storage_stop_percent}%)
+            </li>
+          </ul>
+          <p className="m-0 text-sm leading-5 text-on-surface-variant">
+            Files are kept inside AA Pro&apos;s own database, so their contents count towards the free allowance. The
+            total is the database&apos;s own measure of everything stored, which can be a little higher than the
+            provider&apos;s figure. AA Pro never upgrades, buys storage or switches to a paid service by itself (OC-91).
+          </p>
         </div>
-        <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[15px] leading-6">
-          <li>
-            Uploaded files: {formatMb(s.fileBytes)} in {s.fileCount} {s.fileCount === 1 ? 'file' : 'files'} (included in
-            the total above)
-          </li>
-          <li>
-            Warning at {formatMb(s.warnBytes)} ({s.settings.storage_warn_percent}%) · new uploads stop at{' '}
-            {formatMb(s.stopBytes)} ({s.settings.storage_stop_percent}%)
-          </li>
-        </ul>
-        <p className="m-0 text-sm leading-5 text-on-surface-variant">
-          Files are kept inside AA Pro&apos;s own database, so their contents count towards the free allowance. The
-          total is the database&apos;s own measure of everything stored, which can be a little higher than the
-          provider&apos;s figure. AA Pro never upgrades, buys storage or switches to a paid service by itself (OC-91).
-        </p>
-      </Card>
+      </section>
 
-      <Card aria-labelledby="st-limits" className="flex flex-col gap-4">
-        <h2 id="st-limits" className="text-[20px] font-bold leading-7">
-          Safety limits for testing
-        </h2>
-        <p className="m-0 text-[15px] leading-6">
-          Temporary technical limits while AA Pro is being developed and tested, not business rules. Changes apply to
-          the next upload and are recorded in the audit log.
-        </p>
-        <StorageForm fields={fields} />
-      </Card>
+      <section aria-labelledby="st-limits" className={SHELL}>
+        <PanelHead id="st-limits" title="Safety limits for testing" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <p className="m-0 text-[15px] leading-6">
+            Temporary technical limits while AA Pro is being developed and tested, not business rules. Changes apply to
+            the next upload and are recorded in the audit log.
+          </p>
+          <StorageForm fields={fields} />
+        </div>
+      </section>
     </div>
   );
 }

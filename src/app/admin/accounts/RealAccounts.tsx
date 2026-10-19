@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { Icon } from '@/components/icons/Icon';
+import { PillSelect } from '@/components/ui/PillSelect';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { StatusChip, type ChipKind } from '@/components/StatusChip';
@@ -19,8 +21,6 @@ const day = (d: Date | null, tz: string) =>
     ? new Intl.DateTimeFormat('en-GB', { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric' }).format(d)
     : '—';
 
-const SELECT = 'min-h-12 w-full rounded-[16px] border-2 border-outline bg-surface-container-lowest px-3.5 text-[15px]';
-
 export async function RealAccounts({
   actorId,
   timeZone,
@@ -37,39 +37,48 @@ export async function RealAccounts({
         <h1 className="text-headline-lg-mobile lg:text-headline-lg">Accounts</h1>
         <LinkButton href="/admin/accounts/new">Create account</LinkButton>
       </div>
-      <form method="get" className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end" role="search">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="acc-q" className="text-sm font-bold">
+      <form
+        method="get"
+        className="flex flex-wrap items-center gap-2 rounded-[24px] border border-card-border bg-surface-container-lowest p-3 shadow-[0_1px_2px_rgba(19,27,46,.04),0_12px_32px_-16px_rgba(19,27,46,.18)]"
+        role="search"
+        aria-label="Find accounts"
+      >
+        <div className="flex h-[52px] min-w-0 flex-1 basis-[240px] items-center gap-2.5 rounded-full border border-transparent bg-surface-container-low pl-[18px] pr-2 text-on-surface-variant focus-within:border-primary focus-within:bg-surface-container-lowest focus-within:ring-4 focus-within:ring-primary/15">
+          <Icon name="search" size={20} />
+          <label htmlFor="acc-q" className="sr-only">
             Search name or email
           </label>
-          <input id="acc-q" name="q" defaultValue={filter.q} className={SELECT} maxLength={80} />
+          <input
+            id="acc-q"
+            name="q"
+            type="search"
+            defaultValue={filter.q}
+            maxLength={80}
+            placeholder="Search name or email"
+            className="h-full min-w-0 flex-1 border-0 bg-transparent text-base text-on-surface outline-none placeholder:text-on-surface-variant"
+          />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="acc-role" className="text-sm font-bold">
-            Role
-          </label>
-          <select id="acc-role" name="role" defaultValue={filter.role ?? ''} className={SELECT}>
-            <option value="">Parents and teachers</option>
-            <option value="parent">Parents</option>
-            <option value="teacher">Teachers</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="acc-status" className="text-sm font-bold">
-            Status
-          </label>
-          <select id="acc-status" name="status" defaultValue={filter.status ?? ''} className={SELECT}>
-            <option value="">All statuses</option>
-            {Object.entries(STATUS_LABEL).map(([value, [label]]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <PillSelect
+          name="role"
+          label="Role"
+          defaultValue={filter.role ?? ''}
+          options={
+            [
+              ['', 'Parents and teachers'],
+              ['parent', 'Parents'],
+              ['teacher', 'Teachers'],
+            ] as const
+          }
+        />
+        <PillSelect
+          name="status"
+          label="Status"
+          defaultValue={filter.status ?? ''}
+          options={[['', 'All statuses'] as const, ...Object.entries(STATUS_LABEL).map(([v, [l]]) => [v, l] as const)]}
+        />
         <button
           type="submit"
-          className="min-h-12 rounded-full border-2 border-outline bg-surface-container-lowest px-5 text-[15px] font-bold hover:bg-surface-container-low"
+          className="h-[52px] cursor-pointer rounded-full border-0 bg-primary px-6 text-[15px] font-bold text-on-primary"
         >
           Show
         </button>

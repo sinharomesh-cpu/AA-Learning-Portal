@@ -67,7 +67,10 @@ export default async function AdminApprovalsPage({ searchParams }: { searchParam
         return (
           <Card as="article" key={t.id} aria-labelledby={`t-${t.id}`} className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <h2 id={`t-${t.id}`} className="flex flex-wrap items-center gap-2.5 text-[22px] font-bold leading-7">
+              <h2
+                id={`t-${t.id}`}
+                className="flex flex-wrap items-center gap-2.5 font-headline text-[22px] font-bold leading-7"
+              >
                 {t.name} <StatusChip kind={kind}>{origin}</StatusChip>
               </h2>
               <span className="text-sm text-on-surface-variant">Joined {day(t.createdAt)}</span>
@@ -123,7 +126,10 @@ export default async function AdminApprovalsPage({ searchParams }: { searchParam
       {changes.map((c) => (
         <Card as="article" key={c.id} aria-labelledby={`c-${c.id}`} className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <h3 id={`c-${c.id}`} className="flex flex-wrap items-center gap-2.5 text-[22px] font-bold leading-7">
+            <h3
+              id={`c-${c.id}`}
+              className="flex flex-wrap items-center gap-2.5 font-headline text-[22px] font-bold leading-7"
+            >
               {c.name} <StatusChip kind="neutral">Subjects or grades changed</StatusChip>
             </h3>
             <span className="text-sm text-on-surface-variant">Asked {day(c.submittedAt)}</span>
@@ -149,7 +155,10 @@ export default async function AdminApprovalsPage({ searchParams }: { searchParam
       {photos.map((p) => (
         <Card as="article" key={p.id} aria-labelledby={`p-${p.id}`} className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <h3 id={`p-${p.id}`} className="flex flex-wrap items-center gap-2.5 text-[22px] font-bold leading-7">
+            <h3
+              id={`p-${p.id}`}
+              className="flex flex-wrap items-center gap-2.5 font-headline text-[22px] font-bold leading-7"
+            >
               {p.name} <StatusChip kind="neutral">New photo</StatusChip>
             </h3>
             <span className="text-sm text-on-surface-variant">Sent {day(p.uploadedAt)}</span>

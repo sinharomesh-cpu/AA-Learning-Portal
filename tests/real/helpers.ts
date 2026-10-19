@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export const PHRASE = ['our family', 'reads every', 'night'].join(' ');
 export const freshEmail = (tag: string) => `${tag}-${randomBytes(4).toString('hex')}@example.com`;
@@ -53,4 +53,17 @@ export async function sendTeacherProfile(page: Page, subjects = ['Science'], gra
   if (await terms.isVisible()) await terms.check();
   await page.getByRole('button', { name: /Send (again )?for approval/ }).click();
   await expect(page).toHaveURL(/\/teacher\/status\?sent=1$/);
+}
+
+/**
+ * OC-110: drop-downs are homepage-style pills (a button that opens a small list). Opens the one
+ * labelled `label` inside `scope` and picks `option`.
+ */
+export async function choose(scope: Page | Locator, label: string, option: string) {
+  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await scope.getByRole('button', { name: new RegExp(`^${esc}: `) }).click();
+  await scope
+    .getByRole('group', { name: label, exact: true })
+    .getByRole('button', { name: option, exact: true })
+    .click();
 }
