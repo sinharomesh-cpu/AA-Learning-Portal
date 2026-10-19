@@ -1,3 +1,4 @@
+import type { HourlyOffer, PackageTerms } from './pricing';
 import type { UsualTime } from './usualTimes';
 
 /**
@@ -48,6 +49,12 @@ export interface ListingSnapshot {
   prices: ListingPrice[];
   /** An approved photo the teacher agreed to show, or null for their initial. */
   photoId: string | null;
+  /**
+   * CR-15 (FR-041, FR-042): present only on copies made while the new pricing model is on; then
+   * `prices` is empty (old prices are hidden, P-9) and these are the two independent offers.
+   */
+  hourly?: HourlyOffer | null;
+  package?: PackageTerms | null;
 }
 
 const SYMBOL: Record<Currency, string> = { INR: '₹', SGD: 'S$', USD: 'US$' };
@@ -102,7 +109,7 @@ export function parseAmount(text: string): number | null {
 
 /** Stable text of a snapshot, for "has anything public changed?" checks. */
 export function snapshotKey(s: ListingSnapshot): string {
-  return JSON.stringify([
+  const key: unknown[] = [
     s.name,
     [...s.subjects].sort(),
     [...s.grades].sort((a, b) => a - b),
@@ -113,7 +120,27 @@ export function snapshotKey(s: ListingSnapshot): string {
     s.usualTimes.map((u) => [u.weekday, u.start, u.end]),
     s.prices.map((p) => [p.model, p.currency, p.amountMinor, p.sessions, p.minutes]),
     s.photoId,
-  ]);
+  ];
+  // Only copies made under the CR-15 model have these, so older keys are unchanged.
+  if (s.hourly !== undefined || s.package !== undefined) {
+    const h = s.hourly ?? null;
+    const p = s.package ?? null;
+    key.push(
+      h && [h.currency, h.rateMinor, h.minutes],
+      p && [
+        p.currency,
+        p.priceMinor,
+        p.classes,
+        p.perWeek,
+        p.minutes,
+        p.weeks,
+        p.times.map((t) => [t.weekday, t.start]),
+        p.termsVersion,
+        p.termsNote,
+      ],
+    );
+  }
+  return JSON.stringify(key);
 }
 
 /** Days shown, renewal and reminder (L-2). */
