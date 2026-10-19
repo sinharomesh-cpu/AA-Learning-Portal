@@ -63,6 +63,9 @@ const named = (r: UsualTime) => `${WEEKDAYS[r.weekday - 1]} ${span(r)}`;
 const same = (a: UsualTime | null, b: UsualTime) =>
   !!a && a.weekday === b.weekday && a.start === b.start && a.end === b.end;
 
+/** Below the desktop layout (1024 px) the add / change panel opens as a bottom sheet. */
+const isPhone = () => typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches;
+
 type Message = { tone: 'error' | 'success'; text: string } | null;
 
 function problemText(r: Exclude<EditResult, { ok: true }>): string {
@@ -134,7 +137,7 @@ export function AvailabilityPlanner({
     setCopyDays([]);
     setDays(preset);
     setMsg(null);
-    setSheet(true);
+    setSheet(isPhone());
   };
   const startEditing = (r: UsualTime) => {
     setEditing(r);
@@ -142,7 +145,7 @@ export function AvailabilityPlanner({
     setFrom(r.start);
     setTo(r.end);
     setMsg(null);
-    setSheet(true);
+    setSheet(isPhone());
   };
   const add = () => {
     if (

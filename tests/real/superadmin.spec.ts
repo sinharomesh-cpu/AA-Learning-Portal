@@ -1451,7 +1451,8 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     const change = times.getByRole('region', { name: 'Change Wednesday 5:00–6:00 pm' });
     await change.getByRole('slider', { name: 'To' }).fill('1050');
     await change.getByRole('button', { name: 'Save this change' }).click();
-    await expect(times.getByText(/Your learning package has a class at Wednesday 5:00 pm/)).toBeVisible();
+    await expect(change.getByRole('alert')).toContainText('Your learning package has a class at Wednesday 5:00 pm');
+    await expect(t.getByRole('dialog')).toHaveCount(0);
     await shot(t, 'av-locked');
     await change.getByRole('button', { name: 'Cancel' }).click();
 
