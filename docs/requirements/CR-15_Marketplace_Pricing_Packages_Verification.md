@@ -1,6 +1,6 @@
 # CR-15 — Marketplace pricing (hourly lessons and learning packages), teacher-controlled negotiation, verification and feedback badges
 
-**Version:** 1.0 · 19 Oct 2026 · **Status:** **approved implementation baseline** (owner, "CR-15 Final Implementation Instructions", 19 Oct 2026, 11:53 IST — OC-104). Phase A is being built in small pull requests; Phase B waits for scheduling. No production deployment, production data change or spending without separate written approval.
+**Version:** 1.1 · 19 Oct 2026 · **Status:** **approved implementation baseline** (owner, "CR-15 Final Implementation Instructions", 19 Oct 2026, 11:53 IST — OC-104). Phase A is being built in small pull requests; Phase B waits for scheduling. No production deployment, production data change or spending without separate written approval.
 **Sources (owner, 19 Oct 2026, IST):** time-slot negotiation brief (09:36); consolidated brief "AA Pro Final Requirements and Claude Brief" with the listing-card mockup (10:24); "Hourly Pricing and Monthly Packages" addition (10:34); **PK0 decisions P-1 to P-10 (10:55)** and the **final P-7 clarification (10:58)**, which supersede conflicting earlier assumptions.
 **Designs:** design canvas pages "CR-15 Marketplace" (MK0–MK8), "CR-15 addition" (PK0–PK4) and **"CR-15 final pricing model" (PM0–PM9, this version)**. Earlier CR-14 boards SL0–SL5 are superseded.
 **Budget:** ₹0. No paid service, API, infrastructure or billable test. Synthetic data only.
@@ -118,10 +118,20 @@ Legend: **[Confirmed]** = owner decision. Items marked **[Recommended]** in v0.4
 - Audit events (no message text): package saved/published/paused, slot setting changed, proposal created/countered/accepted/declined/withdrawn/expired/refused, arrangement confirmed/declined/ended, class marked/confirmed/disputed, migration converted/flagged/resolved, verification decided.
 - Concurrency: per-parent advisory lock for proposals (as CR-13); row locks for answers; unique indexes for one-open; database exclusion constraint for allocations; idempotent confirmation (second confirm returns "already confirmed").
 
-## 5. Verification and badges (from the consolidated brief; decisions O-9, O-10 still open)
+## 5. Verification and badges (OC-106, 19 Oct 2026, 14:10 IST)
 
-- **Verification [proposed policy O-9; workflow may be built, public tick hidden until its wording is approved — OC-104 §6]:** Super Admin checklist — government photo ID **seen on a video call, not stored**; email and phone confirmed; profile reviewed; qualifications only if separately checked and named. Valid 12 months. States: not started, waiting, verified, not verified, expired, revoked. Tick shown only while verified; its explanation lists exactly what was checked.
-- **Badges [thresholds approved as the baseline, OC-104 §6; eligibility rules re-confirmed before Phase B]:** eligible review = parent of a child with ≥ 4 completed classes with that teacher (hourly or package), one per child per teacher, editable 30 days, reportable, moderated by the Super Admin with a reason. Bronze ≥ 4.0 from ≥ 5; Silver ≥ 4.3 from ≥ 15; Gold ≥ 4.6 from ≥ 30; else "Not yet rated". Unrounded average; recalculated on every change. Reviews require Phase B class records, so all teachers show "Not yet rated" until then.
+### 5.1 "AA Pro Verified" — [Confirmed OC-106 (2)]
+- **Checks (all three required):** (a) the teacher's email address is confirmed; (b) the Super Admin has reviewed the teacher's profile; (c) the Super Admin has checked the teacher's identity on a **video call**. **No identity document, image or number is stored** — only that the check was done, by whom and when.
+- **Name and wording:** the tick is labelled **"AA Pro Verified"**. Wherever it appears, its explanation says: *"AA Pro checked this teacher's email, reviewed their profile and confirmed their identity on a video call. This does not independently verify teaching qualifications, experience or background checks."*
+- **Validity:** 12 months from the decision date; the tick disappears automatically at expiry (status *expired*) until verified again.
+- **States:** not started → pending → verified | not verified; verified → expired (time) | revoked (Super Admin, reason required). Every decision is a new, unchangeable record (who, when, checks done, outcome, note) — the audit trail.
+- **Who:** the Super Admin only. Shown publicly only while *verified* and not expired.
+
+### 5.2 Reviews, ratings and badges — [Confirmed OC-106 (3) for eligibility; thresholds to be confirmed]
+- **Eligibility:** a parent's review counts only when **that child** has at least **4 completed classes with that teacher** (hourly lessons and package classes together). Cancelled, missed, unheld and disputed classes never count. Requires Phase B class records, so no teacher has eligible reviews until then.
+- **Duplicate prevention:** at most **one review per child per teacher** (database unique rule on teacher + child). The parent may edit it (each edit replaces the rating; history kept for moderation); a parent with two children taught by the same teacher may leave one review per child. Only the child's own parent can review; the teacher, other parents, Admins and the Super Admin cannot write or change reviews (the Super Admin may only hide one with a recorded reason).
+- **Badges:** thresholds are **separate, owner-approved settings** (Bronze, Silver, Gold — each a minimum average and a minimum number of eligible reviews), kept in configuration rather than code. Baseline for the owner's final approval: Bronze ≥ 4.0 from ≥ 5; Silver ≥ 4.3 from ≥ 15; Gold ≥ 4.6 from ≥ 30; otherwise no badge. Recalculated on every review change or moderation. A single review can never produce a badge.
+- **Privacy:** reviews never show a child's name, school, personal details or homework.
 
 ## 6. Migration and rollback plan (P-9)
 
