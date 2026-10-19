@@ -118,3 +118,19 @@ test('security headers are sent', async ({ request }) => {
   expect(headers['x-frame-options']).toBe('DENY');
   expect(headers['x-powered-by']).toBeUndefined();
 });
+
+test('at 150% browser zoom on a wide screen (about 1257 px) the full menu shows in one row (owner, 19 Oct 2026)', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1257, height: 800 });
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByText('Menu', { exact: true })).toBeHidden();
+  await expect(nav.getByRole('link', { name: 'Contact us' })).toBeVisible();
+  const header = await page.locator('header').boundingBox();
+  expect(header!.height).toBeLessThan(100);
+  // Narrower windows keep the Menu button, now beside the logo instead of on a second row.
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await expect(nav.getByText('Menu', { exact: true })).toBeVisible();
+  expect((await page.locator('header').boundingBox())!.height).toBeLessThan(100);
+});

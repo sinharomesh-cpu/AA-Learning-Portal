@@ -62,13 +62,13 @@ function PublicHeader({ onHome }: { onHome: boolean }) {
         <Link href="/" aria-label={`${brand.productName} home`} className="no-underline">
           <BrandMark />
         </Link>
-        <nav aria-label="Main" className="order-3 w-full xl:order-none xl:ml-2 xl:w-auto xl:flex-1">
-          <details className="group xl:hidden">
+        <nav aria-label="Main" className="relative order-3 w-full md:order-none md:ml-2 md:w-auto min-[1240px]:flex-1">
+          <details className="group min-[1240px]:hidden">
             <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 rounded-full border border-card-border bg-surface-container-low px-4 font-bold text-on-surface">
               <Icon name="menu" size={20} />
               Menu
             </summary>
-            <ul className="mt-2 grid gap-1 pb-2 sm:grid-cols-2">
+            <ul className="mt-2 grid gap-1 pb-2 sm:grid-cols-2 md:absolute md:left-0 md:top-full md:z-50 md:w-[440px] md:rounded-[18px] md:border md:border-card-border md:bg-surface-container-lowest md:p-2 md:shadow-lg">
               {NAV.map((n) => (
                 <li key={n.id}>
                   <a href={href(n.id)} className={link}>
@@ -78,7 +78,7 @@ function PublicHeader({ onHome }: { onHome: boolean }) {
               ))}
             </ul>
           </details>
-          <ul className="hidden items-center gap-0.5 xl:flex">
+          <ul className="hidden items-center gap-0.5 min-[1240px]:flex">
             {NAV.map((n) => (
               <li key={n.id}>
                 <a href={href(n.id)} className={link}>
@@ -88,7 +88,7 @@ function PublicHeader({ onHome }: { onHome: boolean }) {
             ))}
           </ul>
         </nav>
-        <div className="ml-auto flex items-center gap-2 xl:ml-0">
+        <div className="ml-auto flex items-center gap-2 min-[1240px]:ml-0">
           <ThemeToggle />
           <LinkButton href="/sign-in" variant="secondary" className="max-[380px]:px-4">
             Sign in
