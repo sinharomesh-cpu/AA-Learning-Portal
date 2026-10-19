@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import type { Currency, ListingPrice, ListingSnapshot } from '@/lib/listing';
-import { checkHourly, PACKAGE_CLASSES_MIN, PACKAGE_TERMS_VERSION } from '@/lib/pricing';
+import { checkHourly, lessonPriceMinor, PACKAGE_CLASSES_MIN, PACKAGE_TERMS_VERSION } from '@/lib/pricing';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql } from './db/client';
 import { getUsualSlots } from './pricingModel';
@@ -50,6 +50,12 @@ export interface PlanItem {
    * is (the database refuses changes to it). It is converted if the teacher is approved again.
    */
   skipped: boolean;
+  /** Evidence (OC-106 (1)): the earlier prices exactly as stored, and what they become. */
+  oldPrices: ListingPrice[];
+  newHourly: { currency: Currency; rateMinor: number; minutes: number; lessonMinor: number; offered: boolean } | null;
+  newPackage: { currency: Currency; priceMinor: number; classes: number | null; minutes: number } | null;
+  /** CR-13 negotiations on this teacher's earlier prices: open ones continue; agreed ones stay recorded. */
+  negotiations: { open: number; accepted: number };
 }
 
 export interface MigrationPlan {
@@ -67,6 +73,9 @@ export interface MigrationPlan {
     packagesNeedReview: number;
     belowMinimum: number;
     copiesChanged: number;
+    /** Open CR-13 negotiations on earlier prices (they continue to their natural end). */
+    openNegotiations: number;
+    acceptedNegotiations: number;
   };
 }
 
@@ -136,7 +145,29 @@ async function planOne(sql: Db, l: ListingRow): Promise<PlanItem> {
   // Only a public copy that still shows earlier prices changes (nothing to remove otherwise).
   const copyChanges =
     !!copy && copy.hourly === undefined && copy.package === undefined && (copy.prices?.length ?? 0) > 0;
+  const [neg] = await sql<Array<{ open: number; accepted: number }>>`
+    SELECT count(*) FILTER (WHERE status IN ('pending', 'countered'))::int AS open,
+           count(*) FILTER (WHERE status = 'accepted')::int AS accepted
+    FROM rate_negotiations WHERE teacher_id = ${l.teacher_id} AND kind = 'legacy'`;
+  const h0 = hourlyPrices[0];
+  const m0 = monthly[0];
   return {
+    oldPrices: prices,
+    newHourly:
+      (hourly === 'converted' || hourly === 'kept_not_offered') && h0
+        ? {
+            currency: h0.currency,
+            rateMinor: h0.amountMinor,
+            minutes: h0.minutes,
+            lessonMinor: lessonPriceMinor(h0.amountMinor, h0.minutes),
+            offered: hourly === 'converted',
+          }
+        : null,
+    newPackage:
+      pkgOutcome === 'needs_review' && m0
+        ? { currency: m0.currency, priceMinor: m0.amountMinor, classes: m0.sessions, minutes: m0.minutes }
+        : null,
+    negotiations: { open: neg?.open ?? 0, accepted: neg?.accepted ?? 0 },
     listingId: l.id,
     publicId: l.public_id,
     teacherId: l.teacher_id,
@@ -197,6 +228,8 @@ export async function planPricingMigration(sql: Db): Promise<MigrationPlan> {
       packagesNeedReview: sum((i) => (i.package === 'needs_review' ? 1 : 0)),
       belowMinimum: sum((i) => (i.packageIssues.includes('classes_below_minimum') ? 1 : 0)),
       copiesChanged: sum((i) => (i.copyChanges ? 1 : 0)),
+      openNegotiations: sum((i) => i.negotiations.open),
+      acceptedNegotiations: sum((i) => i.negotiations.accepted),
     },
   };
 }
@@ -346,4 +379,39 @@ export async function rollbackPricingMigration(
     now,
   );
   return { ok: true, restored, packagesKept };
+}
+
+/**
+ * OC-106 (1): a backup of every record the conversion could touch, taken just before applying
+ * (Super Admin download). Listing state, public copy, hourly fields, earlier prices and any learning
+ * package — no email addresses, phone numbers or anything about children.
+ */
+export async function backupAffectedRecords(sql: Db, actorId: string, now: Date = new Date()) {
+  if (!(await isSuperAdmin(sql, actorId))) return null;
+  const rows = await LISTINGS(sql);
+  const listings = [];
+  for (const l of rows) {
+    const [pkg] = await sql`SELECT * FROM learning_packages WHERE teacher_id = ${l.teacher_id}`;
+    listings.push({
+      listingId: l.id,
+      publicId: l.public_id,
+      teacherId: l.teacher_id,
+      status: l.status,
+      published: l.published,
+      hourly: {
+        offered: l.hourly_offered,
+        currency: l.hourly_currency,
+        rateMinor: l.hourly_rate_minor === null ? null : Number(l.hourly_rate_minor),
+        minutes: l.hourly_minutes,
+      },
+      listingPrices: await pricesOf(sql, l.id),
+      learningPackage: pkg ?? null,
+    });
+  }
+  await writeAudit(
+    sql,
+    { type: 'PRICING_MIGRATION_BACKUP', outcome: 'success', actorId, details: { listings: listings.length } },
+    now,
+  );
+  return { takenAt: now.toISOString(), purpose: 'CR-15 pricing migration backup (OC-106)', listings };
 }
