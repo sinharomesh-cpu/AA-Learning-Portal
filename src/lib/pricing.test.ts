@@ -7,6 +7,8 @@ import {
   describePackage,
   lessonPriceMinor,
   lessonRoundingNote,
+  maxClassesPerWeek,
+  packageStartTimes,
   minPerWeekFor,
   minWeeks,
   type PackageTerms,
@@ -187,5 +189,57 @@ describe('OC-107 (1): amounts with paise, never rounded silently', () => {
     expect(describeLessonPrice('SGD', 4550, 30)).toBe('S$22.75 a 30-minute lesson');
     expect(lessonRoundingNote('USD', 1000, 40)).toBe('rounded to the nearest cent');
     expect(lessonRoundingNote('INR', 20050, 30)).toBeNull();
+  });
+});
+
+describe('OC-108: class times for the package planner', () => {
+  const FRI = [{ weekday: 5, start: 960, end: 1080 }]; // Friday 4:00–6:00 pm
+  it('lists every start inside the usual times in 30-minute steps', () => {
+    expect(packageStartTimes(FRI, 40).map((t) => t.start)).toEqual([960, 990, 1020]);
+    expect(packageStartTimes(FRI, 9)).toEqual([]);
+  });
+  it('counts how many classes a week fit without overlapping (same-day classes allowed)', () => {
+    expect(maxClassesPerWeek(FRI, 40)).toBe(2); // Fri 4:00 and 5:00
+    expect(maxClassesPerWeek(FRI, 30)).toBe(4);
+    expect(
+      maxClassesPerWeek(
+        [
+          { weekday: 1, start: 960, end: 1080 },
+          { weekday: 3, start: 1020, end: 1140 },
+          { weekday: 6, start: 600, end: 720 },
+        ],
+        40,
+      ),
+    ).toBe(6);
+    expect(maxClassesPerWeek([], 40)).toBe(0);
+  });
+  it('two non-overlapping classes on the same day pass the package rules', () => {
+    const p: PackageTerms = {
+      currency: 'INR',
+      priceMinor: 150000,
+      classes: 22,
+      perWeek: 2,
+      minutes: 40,
+      weeks: 11,
+      times: [
+        { weekday: 5, start: 960 },
+        { weekday: 5, start: 1020 },
+      ],
+      termsVersion: PACKAGE_TERMS_VERSION,
+      termsNote: null,
+    };
+    expect(checkPackage(p, FRI)).toEqual([]);
+    expect(
+      checkPackage(
+        {
+          ...p,
+          times: [
+            { weekday: 5, start: 960 },
+            { weekday: 5, start: 990 },
+          ],
+        },
+        FRI,
+      ),
+    ).toContain('times_overlap');
   });
 });

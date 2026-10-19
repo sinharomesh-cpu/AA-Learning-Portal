@@ -15,7 +15,8 @@ import { getOwnListing, queueListingReminders, type ListingStatus } from '@/serv
 import { getTeacherRateSettings } from '@/server/rateNegotiations';
 import { getTeacherOffers, isPricingV2, offersForSnapshot } from '@/server/pricingModel';
 import { ListingEditor } from './ListingEditor';
-import { HourlyEditor, PackageEditor } from './OfferEditors';
+import { HourlyEditor } from './OfferEditors';
+import { PackageEditor } from './PackageBuilder';
 import { ListingStatusButtons, RenewForm } from './ListingStatusForms';
 
 export const metadata: Metadata = { title: 'Looking for students' };

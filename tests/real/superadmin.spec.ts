@@ -1376,18 +1376,30 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await expect(hourly.getByText('Saved. This applies at once.')).toBeVisible();
 
     const pkg = t.getByRole('region', { name: /Learning package/ }).first();
-    await pkg.getByLabel('Classes a week').selectOption('2');
-    await expect(pkg.getByLabel('Complete within (weeks)')).toHaveValue('11');
+    // OC-108 (boards PT0–PT1): number buttons and a week planner instead of drop-downs.
+    await pkg.getByRole('button', { name: '2 a week', exact: true }).click();
+    await expect(pkg.getByRole('textbox', { name: 'Complete within (weeks)' })).toHaveValue('11');
     await pkg.getByLabel('Package price', { exact: true }).fill('8500');
     // Refused until every rule is met: no class times chosen yet.
     await pkg.getByRole('button', { name: 'Offer this package' }).click();
     await expect(pkg.getByText('Choose one time for each class a week.').first()).toBeVisible();
-    await pkg.getByLabel('Class time 1').selectOption({ label: 'Mon 5:00 pm' });
-    await pkg.getByLabel('Class time 2').selectOption({ label: 'Wed 5:00 pm' });
+    await pkg.getByRole('button', { name: 'Monday 5:00 pm', exact: true }).click();
+    await expect(pkg.getByRole('button', { name: 'Monday 5:00 pm, class time 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await pkg.getByRole('button', { name: 'Wednesday 5:00 pm', exact: true }).click();
+    await expect(pkg.getByText('All 2 chosen')).toBeVisible();
+    await expect(t.getByRole('complementary', { name: 'Package preview' })).toContainText('What parents will see');
     await pkg.getByRole('button', { name: 'Offer this package' }).click();
     await expect(pkg.getByText(/Package saved. Publish your listing/)).toBeVisible();
     await t.reload();
     await shot(t, 'pm-teacher-editor');
+    // Phone: day tabs, no sideways scrolling (PT1).
+    await t.setViewportSize({ width: 390, height: 844 });
+    expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await shot(t, 'pt-teacher-editor-phone');
+    await t.setViewportSize({ width: 1280, height: 900 });
 
     // The preview shows both offers separately; old prices are gone from it.
     const preview = t.getByRole('region', { name: 'What parents see' });
@@ -1435,7 +1447,8 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
 
     // A4 (FR-043): the teacher opens the package price to proposals and turns on the master switch.
     const pk = t.getByRole('region', { name: /Learning package/ }).first();
-    await pk.getByRole('radio', { name: 'Negotiation available' }).check();
+    await pk.getByText('Open to offers', { exact: true }).click();
+    await expect(pk.getByRole('radio', { name: /Open to offers/ })).toBeChecked();
     await pk.getByRole('button', { name: 'Offer this package' }).click();
     await expect(pk.getByText(/Package saved/)).toBeVisible();
     await t.goto('/teacher');
