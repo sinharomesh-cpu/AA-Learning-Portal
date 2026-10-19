@@ -465,3 +465,29 @@ export async function packageTimesOutside(tx: Db, teacherId: string, next: Usual
     (t) => !next.some((u) => u.weekday === t.weekday && u.start <= t.start && t.start + p.minutes! <= u.end),
   );
 }
+
+/**
+ * Public pages (P-8, R-8): the live Fixed / Negotiable state of each usual time shown on a
+ * published copy, and of the package. Negotiable only while the teacher's master switch
+ * ("Accept rate proposals", CR-13) is on. Times in the copy that the teacher has since removed
+ * show as Fixed (no new proposals there).
+ */
+export async function liveOfferFlags(
+  sql: Db,
+  publicId: string,
+  times: UsualTime[],
+): Promise<{ slots: UsualSlot[]; packageNegotiable: boolean }> {
+  const [t] = await sql<Array<{ teacher_id: string; master: boolean; pkg: boolean | null }>>`
+    SELECT l.teacher_id, p.rate_negotiation_on AS master,
+           (SELECT k.negotiable FROM learning_packages k WHERE k.teacher_id = l.teacher_id AND k.status = 'offered') AS pkg
+    FROM teacher_listings l JOIN teacher_profiles p ON p.account_id = l.teacher_id
+    WHERE l.public_id = ${publicId}`;
+  if (!t) return { slots: times.map((x) => ({ ...x, negotiable: false })), packageNegotiable: false };
+  const live = new Set(
+    (await getUsualSlots(sql, t.teacher_id)).filter((s) => s.negotiable).map((s) => `${s.weekday}:${s.start}:${s.end}`),
+  );
+  return {
+    slots: times.map((x) => ({ ...x, negotiable: t.master && live.has(`${x.weekday}:${x.start}:${x.end}`) })),
+    packageNegotiable: t.master && t.pkg === true,
+  };
+}

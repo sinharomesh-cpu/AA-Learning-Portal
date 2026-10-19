@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/server/db/client';
+import { setPricingV2 } from '@/server/pricingModel';
 import { updateRateLimits } from '@/server/rateNegotiations';
 import { getRealSession } from '@/server/session';
 
@@ -30,4 +31,20 @@ export async function saveRateLimitsAction(_prev: RateLimitFormState, fd: FormDa
   }
   revalidatePath('/admin/rate-proposals');
   return { notice: 'Saved. The new limits apply to the next proposal.' };
+}
+
+/** CR-15 reading 1: the Super Admin turns the new pricing model on or off (audited). */
+export async function pricingModelAction(_prev: RateLimitFormState, fd: FormData): Promise<RateLimitFormState> {
+  const real = await getRealSession();
+  if (!real || real.session.role !== 'superadmin') redirect('/sign-in');
+  if (!real.session.mfaVerifiedAt) redirect('/security-check');
+  const on = fd.get('on') === 'yes';
+  const r = await setPricingV2(db(), real.session.accountId, on);
+  if (!r.ok) return { error: 'Only the Super Admin can change this.' };
+  revalidatePath('/admin/rate-proposals');
+  return {
+    notice: on
+      ? 'The new pricing model is on. Teachers can set up hourly lessons and a learning package.'
+      : 'The new pricing model is off. Listings show their earlier prices again.',
+  };
 }

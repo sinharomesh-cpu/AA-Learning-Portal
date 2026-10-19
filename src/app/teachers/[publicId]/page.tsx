@@ -13,6 +13,7 @@ import { PRICE_MODEL_LABEL } from '@/lib/listing';
 import { dayAndTime } from '@/lib/linkRequests';
 import { listChildren } from '@/server/children';
 import { negotiablePriceFlags, parentWaitsForListing, prospectiveLabel } from '@/server/rateNegotiations';
+import { liveOfferFlags } from '@/server/pricingModel';
 import { realAuthEnabled } from '@/server/realAuth';
 import { getViewer } from '@/server/session';
 
@@ -55,6 +56,9 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
         ),
       )
     : undefined;
+  // CR-15: copies made under the new pricing model show hourly lessons and the package instead.
+  const v2 = !!listing && (listing.hourly !== undefined || listing.package !== undefined);
+  const offers = v2 && listing ? await liveOfferFlags(db(), listing.publicId, listing.usualTimes) : undefined;
   return (
     <PublicShell>
       <main className={cx(PUBLIC_WRAP, 'flex flex-col gap-6 py-10 md:py-14')}>
@@ -78,6 +82,8 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
                 timesNote=""
                 timesSlot={<LocalUsualTimes times={listing.usualTimes} teacherZone={listing.timeZone} />}
                 priceActions={priceActions}
+                offers={offers}
+                convertTimes
               />
               {waits.map((w) => (
                 <p
