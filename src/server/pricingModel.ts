@@ -150,6 +150,18 @@ export async function getOwnPackage(sql: Db, teacherId: string): Promise<OwnPack
   return r ? toOwnPackage(r) : null;
 }
 
+/**
+ * OC-107 (2): true when the teacher's converted package still needs details and the new pricing
+ * model is on (only then is it part of their listing). Shown on the teacher home.
+ */
+export async function packageNeedsDetails(sql: Db, teacherId: string): Promise<boolean> {
+  if (!UUID.test(teacherId)) return false;
+  const [r] = await sql<Array<{ needs: boolean }>>`
+    SELECT EXISTS (SELECT 1 FROM learning_packages WHERE teacher_id = ${teacherId} AND status = 'needs_review')
+       AND EXISTS (SELECT 1 FROM platform_settings WHERE key = 'pricing_model_v2' AND value = 1) AS needs`;
+  return r?.needs ?? false;
+}
+
 export async function getTeacherOffers(sql: Db, teacherId: string): Promise<TeacherOffers> {
   const empty = { offered: false, currency: null, rateMinor: null, minutes: null };
   if (!UUID.test(teacherId)) return { hourly: empty, slots: [], package: null };

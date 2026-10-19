@@ -13,6 +13,7 @@ import { listTeacherEnquiries } from './teacherEnquiries';
 import { listLinkRequests } from './teacherLinks';
 import { getTeacherRateSettings, teacherWaitingCount } from './rateNegotiations';
 import { PRICE_MODEL_LABEL } from '@/lib/listing';
+import { packageNeedsDetails } from './pricingModel';
 import { getOwnListing, type ListingStatus } from './teacherListings';
 import { ownPhotoState } from './teacherPhotos';
 import { getTeacherProfile } from './teacherProfile';
@@ -67,6 +68,8 @@ export interface TeacherHome {
   linkRequests: number;
   /** CR-13 RN4: the rate negotiation panel (real accounts only). */
   rates: { on: boolean; openPrices: string[]; waiting: number } | null;
+  /** OC-107 (2): the teacher's learning package needs details before parents can see it. */
+  packageNeedsDetails?: boolean;
   shared: Array<{ title: string; studentName: string; subject: string }>;
   /** The masthead's "This week" panel. */
   summary: Array<{ label: string; value: string; href?: string }>;
@@ -147,7 +150,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
   const sql = db();
   const profile = await getTeacherProfile(sql, viewer.id);
   if (!profile || profile.approvalStatus !== 'approved') return null;
-  const [photo, times, listing, enquiries, requests, rateSettings, rateWaiting, recent] = await Promise.all([
+  const [photo, times, listing, enquiries, requests, rateSettings, rateWaiting, recent, pkg] = await Promise.all([
     ownPhotoState(sql, viewer.id),
     getUsualTimes(sql, viewer.id),
     getOwnListing(sql, viewer.id, now),
@@ -162,6 +165,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
            JOIN accounts a ON a.id = s.student_id WHERE s.resource_id = r.id AND s.unshared_at IS NULL) AS names
       FROM teacher_resources r WHERE r.teacher_id = ${viewer.id} AND r.archived_at IS NULL
       ORDER BY r.created_at DESC LIMIT 3`,
+    packageNeedsDetails(sql, viewer.id),
   ]);
   const tz = profile.timeZone;
   const days = nextSevenDays(tz, now);
@@ -205,6 +209,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
       'These are your usual weekly times, shown to families as a guide. Nothing is booked from them until scheduling opens.',
     students: [],
     linkRequests: requests.length,
+    packageNeedsDetails: pkg,
     rates: {
       on: rateSettings.on,
       openPrices: rateSettings.models.map((m) => PRICE_MODEL_LABEL[m]),

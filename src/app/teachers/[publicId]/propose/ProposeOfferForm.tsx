@@ -7,7 +7,7 @@ import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { CURRICULA_LIST } from '@/lib/curricula';
 import { keepValuesOnSubmit } from '@/lib/keepValuesOnSubmit';
 import { formatAmount } from '@/lib/listing';
-import { describePackage, type HourlyOffer, lessonPriceMinor, type PackageTerms } from '@/lib/pricing';
+import { describeLessonPrice, describePackage, type HourlyOffer, type PackageTerms } from '@/lib/pricing';
 import { MESSAGE_MAX, OFFERS_MAX, PAYMENT_NOTE, parseOfferAmount } from '@/lib/rateNegotiation';
 import { formatMinute, type UsualTime, WEEKDAYS } from '@/lib/usualTimes';
 import { proposeAction, type ProposeFormState } from './actions';
@@ -102,8 +102,7 @@ export function ProposeOfferForm({
                 />
                 <span>
                   <strong>Hourly lessons</strong> · {range(t)} · {formatAmount(hourly.currency, hourly.rateMinor)} per
-                  hour ({formatAmount(hourly.currency, lessonPriceMinor(hourly.rateMinor, hourly.minutes))} a{' '}
-                  {hourly.minutes}-minute lesson)
+                  hour ({describeLessonPrice(hourly.currency, hourly.rateMinor, hourly.minutes)})
                 </span>
               </label>
             ))
@@ -249,7 +248,7 @@ export function ProposeOfferForm({
           {isPackage
             ? 'For the whole package. Price only: the classes, length, times, period and terms stay as published.'
             : offerMinor && hourly
-              ? `= ${formatAmount(currency, lessonPriceMinor(offerMinor, hourly.minutes))} for a ${hourly.minutes}-minute lesson. No commitment to further lessons.`
+              ? `= ${describeLessonPrice(currency, offerMinor, hourly.minutes)}. No commitment to further lessons.`
               : 'Per hour. The lesson length stays as published.'}
         </span>
         <Err id={`${id}-amount-err`} text={e.amount} />

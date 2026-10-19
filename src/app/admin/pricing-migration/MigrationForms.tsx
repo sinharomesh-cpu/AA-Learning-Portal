@@ -26,7 +26,7 @@ export function MigrationForm({ kind, disabled }: { kind: 'apply' | 'rollback'; 
       <input id={id} name="confirm" autoComplete="off" className={FIELD} disabled={disabled} />
       <div>
         <Button type="submit" variant={kind === 'apply' ? 'primary' : 'danger'} inactive={pending || disabled}>
-          {pending ? 'Working…' : kind === 'apply' ? 'Apply the conversion' : 'Roll back the conversion'}
+          {pending ? 'Working…' : kind === 'apply' ? 'Convert and turn on' : 'Turn off and roll back'}
         </Button>
       </div>
     </form>

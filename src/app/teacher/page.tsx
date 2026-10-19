@@ -456,6 +456,23 @@ export default async function TeacherHomePage() {
           <LinkButton href="/teacher/students">Answer requests</LinkButton>
         </section>
       ) : null}
+      {home.packageNeedsDetails ? (
+        <section
+          aria-labelledby="package-details"
+          className="flex flex-col gap-3 rounded-lg border border-human-border bg-primary-fixed/40 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        >
+          <div className="flex flex-col gap-1">
+            <h2 id="package-details" className="font-headline text-headline-sm font-bold">
+              Finish your learning package
+            </h2>
+            <p className="text-body-md text-on-surface-variant">
+              Your monthly price became a learning package. Add how many classes a week, the weeks to complete it and
+              the class times. Parents can&apos;t see it until you do.
+            </p>
+          </div>
+          <LinkButton href="/teacher/listing">Finish package</LinkButton>
+        </section>
+      ) : null}
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
         <Sessions home={home} now={now} />
         <Availability home={home} now={now} />

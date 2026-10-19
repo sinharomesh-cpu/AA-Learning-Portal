@@ -67,9 +67,23 @@ export function lessonPriceMinor(rateMinor: number, minutes: number): number {
   return Math.floor((rateMinor * minutes * 2 + 60) / 120);
 }
 
-/** "₹400 a 40-minute lesson". */
-export const describeLessonPrice = (h: HourlyOffer) =>
-  `${formatAmount(h.currency, lessonPriceMinor(h.rateMinor, h.minutes))} a ${h.minutes}-minute lesson`;
+/** True when rate × minutes ÷ 60 is a whole number of paise / cents (no rounding needed). */
+export const lessonPriceIsExact = (rateMinor: number, minutes: number) => (rateMinor * minutes) % 60 === 0;
+
+/**
+ * OC-107 (1): prices are never rounded silently. When a lesson price had to be rounded from the
+ * hourly rate, this says so ("rounded to the nearest paisa"); otherwise null.
+ */
+export function lessonRoundingNote(currency: Currency, rateMinor: number, minutes: number): string | null {
+  if (lessonPriceIsExact(rateMinor, minutes)) return null;
+  return currency === 'INR' ? 'rounded to the nearest paisa' : 'rounded to the nearest cent';
+}
+
+/** "₹400 a 40-minute lesson"; "₹133.33 a 40-minute lesson (rounded to the nearest paisa)". */
+export function describeLessonPrice(currency: Currency, rateMinor: number, minutes: number): string {
+  const note = lessonRoundingNote(currency, rateMinor, minutes);
+  return `${formatAmount(currency, lessonPriceMinor(rateMinor, minutes))} a ${minutes}-minute lesson${note ? ` (${note})` : ''}`;
+}
 
 export type HourlyProblem = 'currency' | 'rate' | 'minutes' | 'times';
 

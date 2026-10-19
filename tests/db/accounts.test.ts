@@ -36,7 +36,13 @@ beforeAll(() => {
 afterAll(() => sql.end());
 
 const freshEmail = () => `adult-${uniq()}@example.com`;
-const ip = () => `198.51.100.${Math.floor(Math.random() * 250)}`;
+// A different documentation-range address for every call, so the per-address sign-up limit is
+// never reached by chance (a random pick from 250 addresses occasionally collided in CI).
+let ipSeq = Math.floor(Math.random() * 30_000);
+const ip = () => {
+  ipSeq += 1;
+  return `198.18.${(ipSeq >> 8) & 255}.${ipSeq & 255}`;
+};
 
 async function lastEmail(to: string) {
   const [row] = await sql<Array<{ template: string; payload: Record<string, string> }>>`
