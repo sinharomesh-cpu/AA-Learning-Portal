@@ -7,6 +7,7 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { type PlanItem, planPricingMigration } from '@/server/pricingMigration';
 import { isPricingV2 } from '@/server/pricingModel';
+import { describePrice, formatAmount } from '@/lib/listing';
 import { MigrationForm } from './MigrationForms';
 
 export const metadata: Metadata = { title: 'Pricing migration' };
@@ -71,8 +72,19 @@ export default async function PricingMigrationPage() {
           {stat('…of which under 22 classes', t.belowMinimum)}
           {stat('Public listings updated', t.copiesChanged)}
           {stat('Skipped: teacher not approved / active', t.skipped)}
+          {stat('Open proposals on earlier prices (continue)', t.openNegotiations)}
+          {stat('Agreed rates on earlier prices (kept)', t.acceptedNegotiations)}
         </dl>
         <p className="text-sm text-on-surface-variant">Already converted earlier (skipped): {plan.alreadyConverted}.</p>
+        <p className="text-sm text-on-surface-variant">
+          Hourly lessons and learning packages stay independent: a converted hourly rate never sets a package price, and
+          a converted package price is never worked out from an hourly rate. No package arrangements exist yet.
+        </p>
+        <div>
+          <a href="/admin/pricing-migration/backup" className="font-bold text-primary underline" download>
+            Download a backup of these records (JSON)
+          </a>
+        </div>
         {plan.items.length ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-[14px]">
@@ -81,6 +93,9 @@ export default async function PricingMigrationPage() {
                 <tr className="border-b-2 border-card-border">
                   <th scope="col" className="py-2 pr-3">
                     Listing
+                  </th>
+                  <th scope="col" className="py-2 pr-3">
+                    Earlier prices (unchanged in history)
                   </th>
                   <th scope="col" className="py-2 pr-3">
                     Hourly
@@ -106,6 +121,20 @@ export default async function PricingMigrationPage() {
                       </span>
                     </th>
                     <td className="py-2 pr-3">
+                      <ul className="m-0 list-none p-0">
+                        {i.oldPrices.map((p, n) => (
+                          <li key={n}>{describePrice(p)}</li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {i.newHourly ? (
+                        <strong className="block">
+                          {formatAmount(i.newHourly.currency, i.newHourly.rateMinor)} per hour ·{' '}
+                          {formatAmount(i.newHourly.currency, i.newHourly.lessonMinor)} a {i.newHourly.minutes}-min
+                          lesson
+                        </strong>
+                      ) : null}
                       {HOURLY[i.hourly]}
                       {i.extraHourly ? ` (+${i.extraHourly} more kept in history)` : ''}
                     </td>
@@ -118,8 +147,14 @@ export default async function PricingMigrationPage() {
                         .join(', ') || '—'}
                     </td>
                     <td className="py-2 pr-3">
+                      {i.newPackage ? (
+                        <strong className="block">
+                          {formatAmount(i.newPackage.currency, i.newPackage.priceMinor)} · Fixed ·{' '}
+                          {i.newPackage.classes ?? '?'} classes × {i.newPackage.minutes} min
+                        </strong>
+                      ) : null}
                       {i.package === 'needs_review'
-                        ? `Needs review: ${i.packageIssues.map((x) => ISSUE[x] ?? x).join('; ')}`
+                        ? `Needs review (not shown to parents): ${i.packageIssues.map((x) => ISSUE[x] ?? x).join('; ')}`
                         : i.package === 'package_exists'
                           ? 'Teacher already has a package (unchanged)'
                           : '—'}
@@ -130,6 +165,11 @@ export default async function PricingMigrationPage() {
                         : i.copyChanges
                           ? 'Earlier prices removed'
                           : 'Unchanged'}
+                      {i.negotiations.open || i.negotiations.accepted ? (
+                        <span className="block text-on-surface-variant">
+                          Proposals: {i.negotiations.open} open (continue), {i.negotiations.accepted} agreed (kept)
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

@@ -1491,7 +1491,10 @@ test('CR-15 A5: the Super Admin sees a read-only dry run of the price conversion
   await ownerSignedIn(page);
   await page.goto('/admin');
   await page.getByRole('link', { name: 'Pricing migration' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Pricing migration (CR-15)' })).toBeVisible();
+  // First visit compiles the page on the development server.
+  await expect(page.getByRole('heading', { level: 1, name: 'Pricing migration (CR-15)' })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByRole('heading', { name: 'Dry run — nothing has changed' })).toBeVisible();
   await expect(page.getByText('Listings to convert')).toBeVisible();
   // Applying needs the typed word; a wrong word changes nothing.

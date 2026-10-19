@@ -1,7 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type ListingPrice, snapshotKey } from '@/lib/listing';
-import { applyPricingMigration, planPricingMigration, rollbackPricingMigration } from '@/server/pricingMigration';
+import {
+  applyPricingMigration,
+  backupAffectedRecords,
+  planPricingMigration,
+  rollbackPricingMigration,
+} from '@/server/pricingMigration';
 import { getTeacherOffers, savePackage } from '@/server/pricingModel';
 import { type ListingInput, previewListing, saveListing } from '@/server/teacherListings';
 import { saveUsualTimes } from '@/server/teacherUsualTimes';
@@ -76,6 +81,22 @@ describe('CR-15 A5: converting the earlier prices (P-9)', () => {
     const ib = plan.items.find((i) => i.listingId === b.listingId)!;
     expect(ib).toMatchObject({ hourly: 'none', package: 'needs_review', packageIssues: ['details_missing'] });
     expect(plan.totals.listings).toBeGreaterThanOrEqual(2);
+  });
+
+  it('OC-106: the dry run shows old and new amounts, proposals on earlier prices, and a backup', async () => {
+    const a = await teacher([HOURLY, WEEKLY, MONTHLY8]);
+    const ia = (await planPricingMigration(sql)).items.find((i) => i.listingId === a.listingId)!;
+    expect(ia.oldPrices).toEqual([HOURLY, WEEKLY, MONTHLY8]);
+    expect(ia.newHourly).toEqual({ currency: 'INR', rateMinor: 60000, minutes: 40, lessonMinor: 40000, offered: true });
+    // The package price is the monthly amount as entered — never derived from the hourly rate.
+    expect(ia.newPackage).toEqual({ currency: 'INR', priceMinor: 400000, classes: 8, minutes: 40 });
+    expect(ia.negotiations).toEqual({ open: 0, accepted: 0 });
+    const parent = await createAdult(sql, 'parent');
+    expect(await backupAffectedRecords(sql, parent, T0)).toBeNull();
+    const backup = await backupAffectedRecords(sql, admin, T0);
+    const entry = backup!.listings.find((l) => l.listingId === a.listingId)!;
+    expect(entry.listingPrices).toHaveLength(3);
+    expect(JSON.stringify(backup)).not.toMatch(/@example\.com/);
   });
 
   it('only the Super Admin applies it; it converts without inventing values and keeps history', async () => {
