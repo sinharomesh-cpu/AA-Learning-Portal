@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.71 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.72 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -420,6 +420,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-110** | **Every page consistent with the approved design.** All pages except the homepage (approved; changes only on separate request) follow the current approved design: teacher pages, parent pages, public proposal and enquiry forms. | Owner, 19 Oct 2026, 17:36 IST | DV-92 |
 | **OC-111** | **Super Admin pages and sign-in/account pages included** in the redesign with the modern look. | Owner, 19 Oct 2026, 17:42 IST | DV-92 |
 | **OC-112** | **One label for negotiable prices:** “Open to offers” everywhere — teacher settings and the parent-facing badge on listings, cards and proposals (replaces “Negotiation available”). Fixed prices stay “Fixed rate” / “Fixed price”. | Owner, 19 Oct 2026, 18:41 IST | CR-15 doc wording |
+| **OC-113** | **CR-16 notifications.** (1) **Updated design approved:** the notification panel and page use the approved signed-in design (tinted card headers, chip-style All / Unread filters, responsive, accessible, loading / empty / error states) without changing the agreed content, triggers, permissions or behaviour; no unrelated redesigns. (2) **Requirements and acceptance checks NOT yet approved:** the owner reviews the complete CR-16 document first; ten principles to preserve (role-based, badges ≠ unread, server authorisation, reliable triggers, bell, authorised navigation, 60-s refresh with hidden-tab skip, worksheet notifications, 90 / 180-day retention without removing unresolved actions, specific traceable tests); conflicts, gaps and assumptions to be listed, not silently resolved. Implementation waits for final approval; no spending, paid services or production deployment. | Owner, 19 Oct 2026, 19:21 IST | CR-16 v0.3 (N-1–N-11, AC-1–AC-42, D-1–D-11) |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
