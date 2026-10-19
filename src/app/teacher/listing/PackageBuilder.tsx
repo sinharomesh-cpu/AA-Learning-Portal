@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { Icon } from '@/components/icons/Icon';
@@ -78,6 +78,10 @@ const REVIEW_TEXT: Record<string, string> = {
 
 const PER_WEEK = Array.from({ length: PER_WEEK_MAX - PER_WEEK_MIN + 1 }, (_, i) => i + PER_WEEK_MIN);
 const key = (t: PackageTime) => `${t.weekday}:${t.start}`;
+const DAYS = [1, 2, 3, 4, 5, 6, 7];
+/** Week calendar: pixels per 30 minutes (each start time is a 24 px target). */
+const ROW = 26;
+const hourText = (m: number) => (m === 720 ? 'noon' : `${(m / 60) % 12 || 12} ${m < 720 ? 'am' : 'pm'}`);
 const label = (t: PackageTime) => `${WEEKDAYS_SHORT[t.weekday - 1]} ${formatMinute(t.start)}`;
 export function PackageEditor({
   initial,
@@ -102,6 +106,7 @@ export function PackageEditor({
   const [times, setTimes] = useState<PackageTime[]>(initial.times);
   const [negotiable, setNegotiable] = useState(initial.negotiable);
   const [day, setDay] = useState<number>(() => initial.times[0]?.weekday ?? slots[0]?.weekday ?? 1);
+  const calRef = useRef<HTMLDivElement>(null);
 
   const c = int(classes);
   const m = int(minutes);
@@ -168,11 +173,14 @@ export function PackageEditor({
   const timesDone = !problems.some((p) => p.startsWith('times')) && !tooMany;
 
   // One chip for a start time; numbered when chosen, greyed when it would overlap a chosen class.
-  const chip = (t: PackageTime) => {
+  // On the week calendar it sits at its start time, and a chosen class fills its lesson length.
+  const chip = (t: PackageTime, variant: 'calendar' | 'grid' = 'grid') => {
     const at = chosen.findIndex((x) => key(x) === key(t));
     const on = at >= 0;
     const clash = !on && chosen.some((x) => packageTimesOverlap(x, t, m));
     const full = !on && chosen.length >= pw;
+    const cal = variant === 'calendar';
+    const lessonRows = Number.isInteger(m) && m > 0 ? Math.max(1, m / 30) : 1;
     return (
       <button
         key={key(t)}
@@ -181,22 +189,45 @@ export function PackageEditor({
         aria-label={`${WEEKDAYS[t.weekday - 1]} ${formatMinute(t.start)}${on ? `, class time ${at + 1}` : clash ? ', overlaps another class' : ''}`}
         disabled={clash || full}
         onClick={() => toggle(t)}
+        style={
+          cal
+            ? {
+                top: ((t.start - range.from) / 30) * ROW + 1,
+                height: (on ? lessonRows : 1) * ROW - 2,
+              }
+            : undefined
+        }
         className={cx(
-          'relative flex h-10 w-full cursor-pointer items-center justify-center whitespace-nowrap rounded-[12px] border px-1 text-[13px] font-extrabold',
+          'flex cursor-pointer items-center whitespace-nowrap border font-extrabold',
+          cal
+            ? 'absolute inset-x-1.5 justify-start gap-1 rounded-[9px] px-1.5 text-[12px]'
+            : 'relative h-11 w-full justify-center rounded-[14px] px-1 text-[13px]',
           on
-            ? 'border-primary bg-primary text-on-primary shadow-[0_8px_16px_-10px_rgba(0,97,148,.9)]'
+            ? cx(
+                'border-primary bg-primary text-on-primary shadow-[0_8px_16px_-10px_rgba(0,97,148,.9)]',
+                cal && 'z-10 items-start py-1',
+              )
             : clash
-              ? 'cursor-not-allowed border-dashed border-card-border bg-surface-container-low font-semibold text-on-surface-variant/60'
+              ? cx(
+                  'cursor-not-allowed border-dashed border-card-border font-semibold text-on-surface-variant/60',
+                  cal ? 'bg-transparent' : 'bg-surface-container-low',
+                )
               : full
-                ? 'cursor-not-allowed border-card-border bg-surface-container-lowest text-on-surface-variant/70'
+                ? 'cursor-not-allowed border-transparent bg-surface-container-lowest/70 font-semibold text-on-surface-variant/70'
                 : 'border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary',
         )}
       >
-        {formatMinute(t.start)}
+        <span className="min-w-0 truncate">{formatMinute(t.start)}</span>
+        {on && cal && lessonRows >= 1.5 ? (
+          <span className="ml-auto text-[11px] font-semibold opacity-90">{m} min</span>
+        ) : null}
         {on ? (
           <span
             aria-hidden="true"
-            className="absolute -right-1.5 -top-2 flex size-5 items-center justify-center rounded-full border-2 border-surface-container-lowest bg-[#13774a] text-[11px] text-white"
+            className={cx(
+              'flex size-5 flex-none items-center justify-center rounded-full border-2 border-surface-container-lowest bg-[#13774a] text-[11px] text-white',
+              cal ? (lessonRows >= 1.5 ? '' : 'ml-auto') : 'absolute -right-1.5 -top-2',
+            )}
           >
             {at + 1}
           </span>
@@ -204,6 +235,22 @@ export function PackageEditor({
       </button>
     );
   };
+  // Week calendar range: the hours that hold usual times, padded to whole hours.
+  const range = slots.length
+    ? {
+        from: Math.floor(Math.min(...slots.map((sl) => sl.start)) / 60) * 60,
+        to: Math.min(1440, Math.ceil(Math.max(...slots.map((sl) => sl.end)) / 60) * 60),
+      }
+    : { from: 960, to: 1080 };
+  const firstChosen = initial.times.length ? Math.min(...initial.times.map((t) => t.start)) : null;
+  const rangeFrom = range.from;
+  useEffect(() => {
+    // Open the calendar at the first chosen class (long usual-time windows scroll).
+    if (calRef.current && firstChosen !== null)
+      calRef.current.scrollTop = Math.max(0, ((firstChosen - rangeFrom) / 30 - 2) * ROW);
+  }, [firstChosen, rangeFrom]);
+  const hourMarks: number[] = [];
+  for (let h = range.from + 60; h < range.to; h += 60) hourMarks.push(h);
   const windows = (d: number) =>
     slots
       .filter((s) => s.weekday === d)
@@ -388,39 +435,88 @@ export function PackageEditor({
               </FormMessage>
             ) : (
               <>
-                {/* Desktop and tablet: the whole week (PT0). */}
-                <div className="hidden grid-cols-7 gap-2 md:grid" role="group" aria-label="Class times by day">
-                  {[1, 2, 3, 4, 5, 6, 7].map((d) =>
-                    dayStarts(d).length ? (
-                      <div
-                        key={d}
-                        className="flex min-w-0 flex-col gap-1.5 rounded-[18px] border border-card-border bg-surface-container-lowest p-2"
-                      >
-                        <span className="text-center text-xs font-extrabold uppercase tracking-[.06em] text-on-surface-variant">
-                          {WEEKDAYS_SHORT[d - 1]}
+                {/* Desktop and tablet: the week calendar (PT0, restyled to match AV0). */}
+                <div
+                  role="group"
+                  aria-label="Class times by day"
+                  className="hidden overflow-hidden rounded-[22px] border border-card-border bg-surface-container-lowest md:block"
+                >
+                  <div className="grid grid-cols-[52px_repeat(7,minmax(0,1fr))] border-b border-card-border bg-surface-container-low/50">
+                    <span />
+                    {DAYS.map((d) => {
+                      const n = chosen.filter((t) => t.weekday === d).length;
+                      return (
+                        <span
+                          key={d}
+                          className="flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-0.5 border-l border-card-border/60 px-1 py-1.5 text-center"
+                        >
+                          <span className="text-[12px] font-extrabold uppercase tracking-[.06em] text-on-surface-variant">
+                            {WEEKDAYS_SHORT[d - 1]}
+                          </span>
+                          <span className="text-[11px] font-bold leading-[14px] text-on-success-container">
+                            {dayStarts(d).length ? windows(d) : '—'}
+                          </span>
+                          {n ? <span className="text-[11px] font-extrabold text-primary">{n} chosen</span> : null}
                         </span>
-                        <span className="rounded-[8px] bg-[#e3f6ec] px-1 py-0.5 text-center text-[11px] font-bold text-[#005236] dark:bg-[#0e3b27] dark:text-[#b2e3c8]">
-                          {windows(d)}
-                        </span>
-                        {dayStarts(d).map(chip)}
+                      );
+                    })}
+                  </div>
+                  <div ref={calRef} className="max-h-[468px] overflow-y-auto">
+                    <div
+                      className="relative grid grid-cols-[52px_repeat(7,minmax(0,1fr))]"
+                      style={{ height: ((range.to - range.from) / 30) * ROW }}
+                    >
+                      <div className="relative" aria-hidden="true">
+                        {hourMarks.map((h) => (
+                          <span
+                            key={h}
+                            className="absolute right-2 -translate-y-1/2 text-[11px] text-on-surface-variant"
+                            style={{ top: ((h - range.from) / 30) * ROW }}
+                          >
+                            {hourText(h)}
+                          </span>
+                        ))}
                       </div>
-                    ) : (
-                      <div
-                        key={d}
-                        className="flex min-h-[140px] flex-col items-center gap-2 rounded-[18px] border border-dashed border-card-border bg-[repeating-linear-gradient(135deg,transparent_0_8px,rgba(127,135,150,.08)_8px_16px)] p-2"
-                      >
-                        <span className="text-xs font-extrabold uppercase tracking-[.06em] text-on-surface-variant">
-                          {WEEKDAYS_SHORT[d - 1]}
-                        </span>
-                        <span className="m-auto text-center text-xs text-on-surface-variant">Not usually free</span>
-                      </div>
-                    ),
-                  )}
+                      {DAYS.map((d) => (
+                        <div
+                          key={d}
+                          className={cx(
+                            'relative min-w-0 border-l border-card-border/60',
+                            dayStarts(d).length
+                              ? ''
+                              : 'bg-[repeating-linear-gradient(135deg,transparent_0_8px,rgba(127,135,150,.08)_8px_16px)]',
+                          )}
+                          style={{
+                            backgroundImage: dayStarts(d).length
+                              ? 'linear-gradient(var(--color-card-border) 1px, transparent 1px)'
+                              : undefined,
+                            backgroundSize: `100% ${2 * ROW}px`,
+                            backgroundPositionY: `${(((60 - (range.from % 60)) % 60) / 30) * ROW}px`,
+                          }}
+                        >
+                          {slots
+                            .filter((sl) => sl.weekday === d)
+                            .map((sl) => (
+                              <span
+                                key={sl.start}
+                                aria-hidden="true"
+                                className="absolute inset-x-1 rounded-[10px] bg-[#e3f6ec] dark:bg-[#0e3b27]"
+                                style={{
+                                  top: ((Math.max(sl.start, range.from) - range.from) / 30) * ROW,
+                                  height: ((Math.min(sl.end, range.to) - Math.max(sl.start, range.from)) / 30) * ROW,
+                                }}
+                              />
+                            ))}
+                          {dayStarts(d).map((t) => chip(t, 'calendar'))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 {/* Phone: day tabs, then the times (PT1). */}
                 <div className="flex flex-col gap-3 md:hidden">
-                  <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Days">
-                    {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                  <div className="grid grid-cols-7 gap-1" role="group" aria-label="Days">
+                    {DAYS.map((d) => {
                       const has = dayStarts(d).length > 0;
                       const n = chosen.filter((t) => t.weekday === d).length;
                       const on = d === day;
@@ -433,26 +529,37 @@ export function PackageEditor({
                           aria-label={`${WEEKDAYS[d - 1]}${has ? (n ? `, ${n} chosen` : '') : ', not usually free'}`}
                           onClick={() => setDay(d)}
                           className={cx(
-                            'flex h-[58px] w-12 flex-none flex-col items-center justify-center gap-0.5 rounded-[16px] border text-xs font-extrabold',
+                            'flex h-[52px] min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[14px] border text-[13px] font-extrabold disabled:cursor-not-allowed',
                             on
-                              ? 'border-primary bg-primary text-on-primary'
+                              ? 'border-primary bg-primary text-on-primary shadow-[0_6px_14px_-8px_rgba(0,97,148,.8)]'
                               : has
                                 ? 'border-card-border bg-surface-container-lowest text-on-surface'
                                 : 'border-dashed border-card-border bg-surface-container-low text-on-surface-variant/50',
                           )}
                         >
-                          {WEEKDAYS_SHORT[d - 1]}
-                          {n ? <span className={on ? 'text-white' : 'text-[#13774a]'}>{n}</span> : null}
+                          {WEEKDAYS_SHORT[d - 1]?.slice(0, 2)}
+                          {n ? (
+                            <span
+                              className={cx(
+                                'flex size-4 items-center justify-center rounded-full text-[10px]',
+                                on ? 'bg-on-primary text-primary' : 'bg-[#13774a] text-white',
+                              )}
+                            >
+                              {n}
+                            </span>
+                          ) : null}
                         </button>
                       );
                     })}
                   </div>
                   {dayStarts(day).length ? (
                     <>
-                      <span className="self-start rounded-[10px] bg-[#e3f6ec] px-2.5 py-1 text-xs font-bold text-[#005236] dark:bg-[#0e3b27] dark:text-[#b2e3c8]">
+                      <span className="inline-flex min-h-8 items-center self-start rounded-full border border-success-border bg-success-container px-3 text-[13px] font-extrabold text-on-success-container">
                         {WEEKDAYS[day - 1]} · usually free {windows(day)}
                       </span>
-                      <div className="grid grid-cols-3 gap-2">{dayStarts(day).map(chip)}</div>
+                      <div className="max-h-[296px] overflow-y-auto rounded-[18px] border border-card-border bg-surface-container-low/40 p-2">
+                        <div className="grid grid-cols-3 gap-2 pt-2">{dayStarts(day).map((t) => chip(t))}</div>
+                      </div>
                     </>
                   ) : (
                     <p className="text-sm text-on-surface-variant">Choose a day with usual times.</p>
