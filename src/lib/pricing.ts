@@ -168,3 +168,37 @@ export const HOURLY_PROBLEM_TEXT: Record<HourlyProblem, string> = {
 /** "22 classes × 40 min · 2 a week · complete within 11 weeks" (never "a month", P-1). */
 export const describePackage = (p: Pick<PackageTerms, 'classes' | 'minutes' | 'perWeek' | 'weeks'>) =>
   `${p.classes} classes × ${p.minutes} min · ${p.perWeek} a week · complete within ${p.weeks} weeks`;
+
+/**
+ * OC-108 (board PT0): every start time where a package class of this length fits inside a usual
+ * time, in 30-minute steps, ordered by day and time. Same-day classes are allowed (OC-108 (2)).
+ */
+export function packageStartTimes(usualTimes: UsualTime[], minutes: number): PackageTime[] {
+  if (!Number.isInteger(minutes) || minutes < SESSION_MINUTES_MIN || minutes > SESSION_MINUTES_MAX) return [];
+  const out: PackageTime[] = [];
+  for (const u of usualTimes) {
+    const first = Math.ceil(u.start / 30) * 30;
+    for (let t = first; t + minutes <= u.end; t += 30) out.push({ weekday: u.weekday, start: t });
+  }
+  return out.sort((a, b) => a.weekday - b.weekday || a.start - b.start);
+}
+
+/** True when two classes of this length on the same day would overlap. */
+export const packageTimesOverlap = (a: PackageTime, b: PackageTime, minutes: number) =>
+  a.weekday === b.weekday && a.start < b.start + minutes && b.start < a.start + minutes;
+
+/**
+ * The most classes a week that fit the usual times without overlapping (board PT1): earliest
+ * start first, which is optimal for same-length classes on one line.
+ */
+export function maxClassesPerWeek(usualTimes: UsualTime[], minutes: number): number {
+  const starts = packageStartTimes(usualTimes, minutes);
+  let count = 0;
+  let last: PackageTime | null = null;
+  for (const s of starts) {
+    if (last && packageTimesOverlap(last, s, minutes)) continue;
+    count += 1;
+    last = s;
+  }
+  return count;
+}

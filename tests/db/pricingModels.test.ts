@@ -206,6 +206,26 @@ describe('CR-15 learning packages (FR-042)', () => {
     expect((await getTeacherOffers(sql, t)).package).toBeNull();
   });
 
+  it('OC-108 (2): two classes on the same day are allowed when they do not overlap', async () => {
+    const t = await teacher();
+    const sat = {
+      ...GOOD,
+      times: [
+        { weekday: 6, start: 600 },
+        { weekday: 6, start: 660 },
+      ],
+    };
+    expect(await savePackage(sql, t, sat, T0)).toEqual({ ok: true, status: 'offered' });
+    const clash = {
+      ...GOOD,
+      times: [
+        { weekday: 6, start: 600 },
+        { weekday: 6, start: 630 },
+      ],
+    };
+    expect(await savePackage(sql, t, clash, T0)).toMatchObject({ ok: false });
+  });
+
   it('a draft may be incomplete and is never offered', async () => {
     const t = await teacher();
     const r = await savePackage(sql, t, { ...GOOD, offer: false, classes: 10, weeks: null, times: [] }, T0);
