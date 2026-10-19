@@ -18,6 +18,7 @@ import { getOwnListing, type ListingStatus } from './teacherListings';
 import { ownPhotoState } from './teacherPhotos';
 import { getTeacherProfile } from './teacherProfile';
 import { getUsualTimes } from './teacherUsualTimes';
+import { getOwnVerification, type OwnVerification } from './teacherVerification';
 
 /**
  * Teacher dashboard data (S21 / P21). One view for both modes:
@@ -70,6 +71,8 @@ export interface TeacherHome {
   rates: { on: boolean; openPrices: string[]; waiting: number } | null;
   /** OC-107 (2): the teacher's learning package needs details before parents can see it. */
   packageNeedsDetails?: boolean;
+  /** CR-15 §5.1: the "AA Pro Verified" status panel (real accounts only). */
+  verification?: OwnVerification | null;
   shared: Array<{ title: string; studentName: string; subject: string }>;
   /** The masthead's "This week" panel. */
   summary: Array<{ label: string; value: string; href?: string }>;
@@ -150,23 +153,25 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
   const sql = db();
   const profile = await getTeacherProfile(sql, viewer.id);
   if (!profile || profile.approvalStatus !== 'approved') return null;
-  const [photo, times, listing, enquiries, requests, rateSettings, rateWaiting, recent, pkg] = await Promise.all([
-    ownPhotoState(sql, viewer.id),
-    getUsualTimes(sql, viewer.id),
-    getOwnListing(sql, viewer.id, now),
-    listTeacherEnquiries(sql, viewer.id, now),
-    listLinkRequests(sql, viewer.id, now),
-    getTeacherRateSettings(sql, viewer.id),
-    teacherWaitingCount(sql, viewer.id, now),
-    // CR-07 H-2b: the three newest shared resources (board HW1 "Recently shared").
-    sql<Array<{ title: string; names: string | null; subject: string }>>`
+  const [photo, times, listing, enquiries, requests, rateSettings, rateWaiting, recent, pkg, verification] =
+    await Promise.all([
+      ownPhotoState(sql, viewer.id),
+      getUsualTimes(sql, viewer.id),
+      getOwnListing(sql, viewer.id, now),
+      listTeacherEnquiries(sql, viewer.id, now),
+      listLinkRequests(sql, viewer.id, now),
+      getTeacherRateSettings(sql, viewer.id),
+      teacherWaitingCount(sql, viewer.id, now),
+      // CR-07 H-2b: the three newest shared resources (board HW1 "Recently shared").
+      sql<Array<{ title: string; names: string | null; subject: string }>>`
       SELECT r.title, r.subject,
         (SELECT string_agg(a.display_name, ', ' ORDER BY a.display_name) FROM resource_shares s
            JOIN accounts a ON a.id = s.student_id WHERE s.resource_id = r.id AND s.unshared_at IS NULL) AS names
       FROM teacher_resources r WHERE r.teacher_id = ${viewer.id} AND r.archived_at IS NULL
       ORDER BY r.created_at DESC LIMIT 3`,
-    packageNeedsDetails(sql, viewer.id),
-  ]);
+      packageNeedsDetails(sql, viewer.id),
+      getOwnVerification(sql, viewer.id, now),
+    ]);
   const tz = profile.timeZone;
   const days = nextSevenDays(tz, now);
   const counts = new Map<number, { open: number; taken: number }>();
@@ -210,6 +215,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
     students: [],
     linkRequests: requests.length,
     packageNeedsDetails: pkg,
+    verification,
     rates: {
       on: rateSettings.on,
       openPrices: rateSettings.models.map((m) => PRICE_MODEL_LABEL[m]),

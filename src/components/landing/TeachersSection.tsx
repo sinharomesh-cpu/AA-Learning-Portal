@@ -2,6 +2,7 @@ import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import type { PublicListingCard } from '@/components/listing/cards';
 import { HourlyOfferBox, PackageOfferBox } from '@/components/listing/Offers';
+import { VerifiedTick } from '@/components/listing/VerifiedTick';
 import type { SearchValues } from '@/components/listing/searchHref';
 import { type CurriculumOption, TeacherSearch } from '@/components/listing/TeacherSearch';
 import type { MarketplaceSwitches } from '@/config/landing';
@@ -67,6 +68,7 @@ export function ListingCard({ listing }: { listing: PublicListingCard }) {
           ) : null}
         </div>
       </div>
+      {listing.verified ? <VerifiedTick /> : null}
       <p className="flex flex-wrap gap-1.5" aria-label="Teaches">
         {[describeGrades(listing.grades), ...listing.curricula, 'Online'].map((c) => (
           <span

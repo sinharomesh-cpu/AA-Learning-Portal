@@ -24,6 +24,11 @@ export interface PublicListingCard {
   /** An approved photo the teacher agreed to show, or null for the initial. */
   photoSrc?: string | null;
   /**
+   * CR-15 §5.1: "AA Pro Verified" right now (verified and not expired), read live from the
+   * verification records when the card is built, never from the stored public copy.
+   */
+  verified?: boolean;
+  /**
    * CR-15: on copies made under the new pricing model, the two independent offers (shown
    * instead of `prices`), with the live Fixed / Negotiable setting of each time and the package.
    */
