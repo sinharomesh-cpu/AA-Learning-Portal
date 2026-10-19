@@ -1688,6 +1688,10 @@ test('CR-15 §5.1: an approved teacher asks for "AA Pro Verified"; the Super Adm
   await expect(cardTick).toContainText('AA Pro Verified');
   await cardTick.getByText('What this means').click();
   await expect(cardTick.getByText(VF_EXPLANATION)).toBeVisible();
+  // The homepage keeps its approved design (OC-110): no tick there until the owner approves.
+  await v.goto('/');
+  await expect(v.locator('#teachers').getByTestId('verified-tick')).toHaveCount(0);
+  await v.goto(`/teachers?name=${encodeURIComponent(teacherName)}`);
   await card.getByRole('link', { name: `View profile: ${teacherName}` }).click();
   await expect(v).toHaveURL(/\/teachers\/t-[a-z0-9]{10}$/);
   await expect(v.getByRole('heading', { level: 1, name: teacherName })).toBeVisible();

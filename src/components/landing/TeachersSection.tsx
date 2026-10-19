@@ -27,7 +27,11 @@ import { describeGrades } from '@/lib/grades';
 
 export type { PublicListingCard } from '@/components/listing/cards';
 
-export function ListingCard({ listing }: { listing: PublicListingCard }) {
+/**
+ * `showVerified`: the "AA Pro Verified" tick (CR-15 §5.1) shows on /teachers; the homepage keeps its
+ * approved design (OC-110) and passes false until the owner approves a homepage change.
+ */
+export function ListingCard({ listing, showVerified = true }: { listing: PublicListingCard; showVerified?: boolean }) {
   const headingId = `listing-${listing.id}`;
   const initial = [...listing.name.replace(/^(Teacher|Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')][0]?.toUpperCase() ?? '?';
   const o = listing.offers;
@@ -68,7 +72,7 @@ export function ListingCard({ listing }: { listing: PublicListingCard }) {
           ) : null}
         </div>
       </div>
-      {listing.verified ? <VerifiedTick /> : null}
+      {showVerified && listing.verified ? <VerifiedTick /> : null}
       <p className="flex flex-wrap gap-1.5" aria-label="Teaches">
         {[describeGrades(listing.grades), ...listing.curricula, 'Online'].map((c) => (
           <span
@@ -209,7 +213,7 @@ export function TeachersSection({
           <ul className="m-0 grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3" aria-label="Teachers">
             {shown.map((l) => (
               <li key={l.id} className="flex">
-                <ListingCard listing={l} />
+                <ListingCard listing={l} showVerified={false} />
               </li>
             ))}
           </ul>
