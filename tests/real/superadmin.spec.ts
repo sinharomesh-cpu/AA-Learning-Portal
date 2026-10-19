@@ -1435,6 +1435,8 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     // The master switch is off, so nothing shows as negotiable to parents yet.
     await expect(h.getByText('Negotiation available')).toHaveCount(0);
     await expect(p).not.toContainText(/month/i);
+    // After a client-side link the page title is set a moment later; wait for it before the check.
+    await expect(v).toHaveTitle(/\S/);
     await noSeriousA11yIssues(v);
     await shot(v, 'pm-public-profile');
     await v.setViewportSize({ width: 390, height: 844 });
