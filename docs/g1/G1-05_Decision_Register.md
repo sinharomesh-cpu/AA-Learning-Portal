@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.70 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.71 · 19 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -419,6 +419,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-109** | **Whole “Looking for students” page in the approved design.** Hourly lessons, “Your listing”, “What you offer”, “Before you publish” and “What parents see” are restyled to match the approved package builder (boards PT0–PT1) so every section is aligned; content, rules, saving and permissions unchanged. | Owner, 19 Oct 2026, 16:46–16:50 IST | DV-91 |
 | **OC-110** | **Every page consistent with the approved design.** All pages except the homepage (approved; changes only on separate request) follow the current approved design: teacher pages, parent pages, public proposal and enquiry forms. | Owner, 19 Oct 2026, 17:36 IST | DV-92 |
 | **OC-111** | **Super Admin pages and sign-in/account pages included** in the redesign with the modern look. | Owner, 19 Oct 2026, 17:42 IST | DV-92 |
+| **OC-112** | **One label for negotiable prices:** “Open to offers” everywhere — teacher settings and the parent-facing badge on listings, cards and proposals (replaces “Negotiation available”). Fixed prices stay “Fixed rate” / “Fixed price”. | Owner, 19 Oct 2026, 18:41 IST | CR-15 doc wording |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 

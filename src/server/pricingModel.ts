@@ -65,7 +65,7 @@ export async function setPricingV2(
 // ---------------------------------------------------------------------------------- reading
 
 export interface UsualSlot extends UsualTime {
-  /** P-8: Negotiation available for hourly lessons at this time. */
+  /** P-8: Open to offers for hourly lessons at this time. */
   negotiable: boolean;
 }
 
@@ -285,7 +285,7 @@ export async function saveHourly(
 }
 
 /**
- * P-8: the Fixed rate / Negotiation available setting of one usual time. Applies at once (as the
+ * P-8: the Fixed rate / Open to offers setting of one usual time. Applies at once (as the
  * CR-13 switches did); never changes the package or any open proposal.
  */
 export async function setSlotNegotiable(
@@ -438,7 +438,7 @@ export async function withdrawPackage(
   });
 }
 
-/** P-6, P-8: the package's own Fixed price / Negotiation available setting; applies at once. */
+/** P-6, P-8: the package's own Fixed price / Open to offers setting; applies at once. */
 export async function setPackageNegotiable(
   sql: Sql,
   teacherId: string,

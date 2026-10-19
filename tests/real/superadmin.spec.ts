@@ -1439,7 +1439,7 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await expect(p).toContainText('never renews automatically');
     await expect(p.getByText('Fixed price', { exact: true })).toBeVisible();
     // The master switch is off, so nothing shows as negotiable to parents yet.
-    await expect(h.getByText('Negotiation available')).toHaveCount(0);
+    await expect(h.getByText('Open to offers')).toHaveCount(0);
     await expect(p).not.toContainText(/month/i);
     // After a client-side link the page title is set a moment later; wait for it before the check.
     await expect(v).toHaveTitle(/\S/);
