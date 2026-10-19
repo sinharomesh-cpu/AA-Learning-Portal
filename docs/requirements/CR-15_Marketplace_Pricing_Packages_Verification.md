@@ -215,6 +215,8 @@ All existing tests (database, unit, demo and real browser) must keep passing.
 4. **Saving usual times** keeps each range's setting when the range is unchanged (same weekday, start and end); new ranges start Fixed. A save that would remove a time used by the published package is refused with a message naming it.
 5. **Package times.** Each package class time is a weekday and start time (30-minute steps) whose class fits inside one of the teacher's usual ranges; number of times = classes a week; no two overlap.
 6. **One package per teacher** (draft, published, paused, needs review). Teachers may offer hourly only, package only, or both.
+8. **Negotiation types (A4).** Each negotiation has a kind: `hourly` (copies the time and rate), `package` (copies the package terms) or `legacy` (earlier prices, continuing to their end). One-open and the 7-day wait are per type through the existing per-model rules, so an open *legacy hourly* negotiation also counts as the open hourly one for that parent, teacher and child. The time chosen does not create a separate type, so changing time cannot bypass the wait.
+9. **Search (A3b, OC-105).** No "Not yet rated" chip until a rating system exists; the parent "Find a teacher" directory keeps its own form (DV-89).
 7. **Migration** of old prices is a separate script (dry run, then apply), never an automatic database migration, because every merge to main migrates the test database.
 
 ## 11. Delivery

@@ -1,6 +1,6 @@
 import 'server-only';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
-import { type Currency, type ListingPrice, PRICE_MODEL_LABEL, PRICE_MODELS, type PriceModel } from '@/lib/listing';
+import { type Currency, type ListingPrice, PRICE_MODELS, type PriceModel } from '@/lib/listing';
 import { cleanText, DECLINE_REASONS, type DeclineReason, isDeclineReason } from '@/lib/linkRequests';
 import {
   ANSWER_DAYS,
@@ -8,16 +8,22 @@ import {
   DEFAULT_RATE_LIMITS,
   ENDED_SHOWN_DAYS,
   MESSAGE_MAX,
+  modelLabel,
+  type NegotiationKind,
+  type NegotiationModel,
   type NegotiationStatus,
   OFFERS_MAX,
   parseOfferAmount,
   RATE_LIMIT_RANGES,
   type Side,
 } from '@/lib/rateNegotiation';
+import type { HourlyOffer, PackageTerms } from '@/lib/pricing';
+import type { UsualTime } from '@/lib/usualTimes';
 import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
 import { CURRICULA } from './children';
 import type { Db, Sql } from './db/client';
+import { isPricingV2, liveOfferFlags } from './pricingModel';
 import { liveListing } from './teacherEnquiries';
 
 /**
@@ -36,6 +42,11 @@ const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
 const firstName = (name: string | null) => (name ?? '').trim().split(/\s+/)[0] ?? '';
 const subjectName = (s: string) => SUBJECTS[s as SubjectId]?.name ?? s;
+
+/** The usual time an hourly proposal was made for, as published (teacher's time zone). */
+export interface ProposalSlot extends UsualTime {
+  timeZone: string;
+}
 
 // ------------------------------------------------------------------ limits (FR-040.16)
 
@@ -227,7 +238,7 @@ export interface ProposalChild {
 
 export interface DeclineWait {
   childKey: string;
-  model: PriceModel;
+  model: NegotiationModel;
   until: Date;
 }
 
@@ -243,6 +254,17 @@ export interface ProposalForm {
   children: ProposalChild[];
   waits: DeclineWait[];
   limits: RateLimits;
+  /**
+   * CR-15 (switch on): the hourly offer with each time's live setting, and the package with its
+   * own setting. Old prices are not offered for proposals then (`prices` is empty).
+   */
+  v2: {
+    hourly: HourlyOffer | null;
+    slots: Array<UsualTime & { negotiable: boolean }>;
+    package: PackageTerms | null;
+    packageNegotiable: boolean;
+    timeZone: string;
+  } | null;
 }
 
 /** The 7-day waits this parent has with this teacher (FR-040.15: shown wherever they could propose). */
@@ -253,7 +275,7 @@ export async function declineWaits(
   now: Date = new Date(),
 ): Promise<DeclineWait[]> {
   if (!UUID.test(parentId) || !UUID.test(teacherId)) return [];
-  const rows = await sql<Array<{ child_key: string; model: PriceModel; ended_at: Date }>>`
+  const rows = await sql<Array<{ child_key: string; model: NegotiationModel; ended_at: Date }>>`
     SELECT child_key, model, max(ended_at) AS ended_at FROM rate_negotiations
     WHERE parent_id = ${parentId} AND teacher_id = ${teacherId} AND status = 'declined'
       AND ended_at > ${addDays(now, -DECLINE_WAIT_DAYS)}
@@ -300,15 +322,17 @@ export async function proposalForm(
     JOIN accounts par ON par.id = g.parent_id AND par.status = 'active' AND par.role = 'parent'
     WHERE g.parent_id = ${parentId} AND g.status = 'active' AND a.status = 'active'
     ORDER BY a.display_name`;
-  const prices = live.published.prices.map((p, index) => ({ ...p, index }));
+  const v2 = await isPricingV2(sql);
+  const prices = v2 ? [] : live.published.prices.map((p, index) => ({ ...p, index }));
   const open = (p: ListingPrice) => settings.on && settings.models.includes(p.model);
+  const flags = v2 ? await liveOfferFlags(sql, publicId, live.published.usualTimes) : null;
   return {
     publicId,
     teacherId: live.teacher_id,
     teacherName: live.published.name,
     subjects: listed,
     prices: prices.filter(open),
-    fixed: live.published.prices.filter((p) => !open(p)),
+    fixed: v2 ? [] : live.published.prices.filter((p) => !open(p)),
     children: kids.map((k) => ({
       id: k.id,
       name: k.name,
@@ -318,6 +342,15 @@ export async function proposalForm(
     })),
     waits: await declineWaits(sql, parentId, live.teacher_id, now),
     limits: await getRateLimits(sql),
+    v2: flags
+      ? {
+          hourly: live.published.hourly ?? null,
+          slots: flags.slots,
+          package: live.published.package ?? null,
+          packageNegotiable: flags.packageNegotiable,
+          timeZone: live.published.timeZone,
+        }
+      : null,
   };
 }
 
@@ -325,6 +358,9 @@ export async function proposalForm(
 
 export interface ProposalInput {
   publicId: string;
+  /** CR-15: 'hourly' (with `slot`) or 'package'; absent for the earlier prices (`priceIndex`). */
+  kind?: 'hourly' | 'package';
+  slot?: UsualTime | null;
   priceIndex: number;
   /** The parent's own child, or null for a prospective child. */
   childId: string | null;
@@ -338,7 +374,7 @@ export interface ProposalInput {
 }
 
 export type OfferProblem = 'amount' | 'sessions' | 'minutes' | 'message';
-export type ProposalProblem = OfferProblem | 'child' | 'grade' | 'curriculum' | 'subject' | 'price';
+export type ProposalProblem = OfferProblem | 'child' | 'grade' | 'curriculum' | 'subject' | 'price' | 'slot';
 
 export type ProposeResult =
   | { ok: true; id: string; expiresAt: Date; teacherName: string }
@@ -351,15 +387,15 @@ export type ProposeResult =
 
 /** Offer terms checks shared by proposals and counter-offers (FR-040.7–.8). */
 function checkOffer(
-  model: PriceModel,
+  model: NegotiationModel,
   input: { amount: string; sessions: number | null; minutes: number; message: string },
 ): { problems: OfferProblem[]; amountMinor: number; sessions: number | null; message: string | null } {
   const problems: OfferProblem[] = [];
   const amountMinor = parseOfferAmount(input.amount) ?? 0;
   if (!amountMinor) problems.push('amount');
-  const sessions = model === 'hourly' ? null : input.sessions;
-  if (model !== 'hourly' && !(Number.isInteger(sessions) && sessions! >= 1 && sessions! <= 31))
-    problems.push('sessions');
+  const perLesson = model === 'hourly' || model === 'package';
+  const sessions = perLesson ? null : input.sessions;
+  if (!perLesson && !(Number.isInteger(sessions) && sessions! >= 1 && sessions! <= 31)) problems.push('sessions');
   if (!(Number.isInteger(input.minutes) && input.minutes >= 10 && input.minutes <= 40)) problems.push('minutes');
   const message = cleanText(input.message, MESSAGE_MAX);
   if (message === 'too_long') problems.push('message');
@@ -402,11 +438,65 @@ export async function proposeRate(
     if (!parent) return { ok: false, reason: 'not_allowed' };
     const live = await liveListing(tx, input.publicId, now, true);
     if (!live) return { ok: false, reason: 'gone' };
-    const prices = live.published.prices;
-    const price = Number.isInteger(input.priceIndex) ? prices[input.priceIndex] : undefined;
-    if (!price) return { ok: false, reason: 'invalid', problems: ['price'] };
+    // What is being negotiated: an earlier price (switch off) or, under CR-15, the hourly rate at
+    // one negotiable time or the package's total price. Only the published copy counts.
+    const v2 = await isPricingV2(tx);
     const settings = await getTeacherRateSettings(tx, live.teacher_id);
-    if (!settings.on || !settings.models.includes(price.model)) {
+    let kind: NegotiationKind = 'legacy';
+    let price: {
+      model: NegotiationModel;
+      currency: Currency;
+      amountMinor: number;
+      sessions: number | null;
+      minutes: number;
+    };
+    let slot: ProposalSlot | null = null;
+    let packageTerms: PackageTerms | null = null;
+    if (!v2) {
+      if (input.kind) return { ok: false, reason: 'not_negotiable' };
+      const chosen = Number.isInteger(input.priceIndex) ? live.published.prices[input.priceIndex] : undefined;
+      if (!chosen) return { ok: false, reason: 'invalid', problems: ['price'] };
+      if (!settings.on || !settings.models.includes(chosen.model)) {
+        await refuse(tx, parentId, 'not_negotiable', now);
+        return { ok: false, reason: 'not_negotiable' };
+      }
+      price = chosen;
+    } else if (input.kind === 'hourly') {
+      const h = live.published.hourly;
+      const t = input.slot;
+      const shown =
+        h && t
+          ? live.published.usualTimes.find((u) => u.weekday === t.weekday && u.start === t.start && u.end === t.end)
+          : undefined;
+      if (!h || !shown) return { ok: false, reason: 'invalid', problems: ['slot'] };
+      // P-8: only a time marked Negotiation available now, with the teacher's master switch on.
+      const flags = await liveOfferFlags(tx, input.publicId, [shown]);
+      if (!flags.slots[0]?.negotiable) {
+        await refuse(tx, parentId, 'not_negotiable', now);
+        return { ok: false, reason: 'not_negotiable' };
+      }
+      kind = 'hourly';
+      price = { model: 'hourly', currency: h.currency, amountMinor: h.rateMinor, sessions: null, minutes: h.minutes };
+      slot = { weekday: shown.weekday, start: shown.start, end: shown.end, timeZone: live.published.timeZone };
+    } else if (input.kind === 'package') {
+      const pk = live.published.package;
+      if (!pk) return { ok: false, reason: 'invalid', problems: ['price'] };
+      const flags = await liveOfferFlags(tx, input.publicId, []);
+      if (!flags.packageNegotiable) {
+        await refuse(tx, parentId, 'not_negotiable', now);
+        return { ok: false, reason: 'not_negotiable' };
+      }
+      kind = 'package';
+      price = {
+        model: 'package',
+        currency: pk.currency,
+        amountMinor: pk.priceMinor,
+        sessions: null,
+        minutes: pk.minutes,
+      };
+      packageTerms = pk;
+    } else {
+      // CR-15 (P-9): no new proposals on the earlier prices once the new model is on.
       await refuse(tx, parentId, 'not_negotiable', now);
       return { ok: false, reason: 'not_negotiable' };
     }
@@ -439,7 +529,11 @@ export async function proposeRate(
       childKey = prospectiveKey(grade, curriculum);
     }
     if (!allowed.includes(input.subject)) problems.push('subject');
-    const offer = checkOffer(price.model, input);
+    // P-6: hourly and package offers are an amount only; the length is the published one.
+    const offer = checkOffer(
+      price.model,
+      kind === 'legacy' ? input : { ...input, minutes: price.minutes, sessions: null },
+    );
     problems.push(...offer.problems);
     if (problems.length) return { ok: false, reason: 'invalid', problems };
 
@@ -479,14 +573,17 @@ export async function proposeRate(
     const [row] = await tx<Array<{ id: string }>>`
       INSERT INTO rate_negotiations (parent_id, teacher_id, listing_public_id, child_id, child_key, grade, curriculum,
                                      subject, model, currency, asking_amount_minor, asking_sessions, asking_minutes,
-                                     status, turn, offers, created_at, last_action_at, expires_at)
+                                     status, turn, offers, created_at, last_action_at, expires_at, kind, slot,
+                                     package_terms)
       VALUES (${parentId}, ${live.teacher_id}, ${input.publicId}, ${input.childId}, ${childKey}, ${grade},
               ${curriculum}, ${input.subject}, ${price.model}, ${price.currency}, ${price.amountMinor},
-              ${price.sessions}, ${price.minutes}, 'pending', 'teacher', 1, ${now}, ${now}, ${expiresAt})
+              ${price.sessions}, ${price.minutes}, 'pending', 'teacher', 1, ${now}, ${now}, ${expiresAt}, ${kind},
+              ${slot ? tx.json(slot as unknown as Parameters<typeof tx.json>[0]) : null},
+              ${packageTerms ? tx.json(packageTerms as unknown as Parameters<typeof tx.json>[0]) : null})
       RETURNING id`;
     await tx`INSERT INTO rate_offers (negotiation_id, seq, made_by, amount_minor, sessions, minutes, message, created_at)
-             VALUES (${row!.id}, 1, 'parent', ${offer.amountMinor}, ${offer.sessions}, ${input.minutes},
-                     ${offer.message}, ${now})`;
+             VALUES (${row!.id}, 1, 'parent', ${offer.amountMinor}, ${offer.sessions},
+                     ${kind === 'legacy' ? input.minutes : price.minutes}, ${offer.message}, ${now})`;
     const [teacher] = await tx<Array<{ email: string; name: string }>>`
       SELECT email, display_name AS name FROM accounts WHERE id = ${live.teacher_id}`;
     await queueEmail(tx, {
@@ -495,7 +592,7 @@ export async function proposeRate(
       payload: {
         name: teacher!.name,
         parentFirstName: firstName(parent.display_name),
-        basis: PRICE_MODEL_LABEL[price.model],
+        basis: modelLabel(price.model),
         subject: subjectName(input.subject),
         link: `${baseUrl}/teacher/enquiries/rates`,
       },
@@ -508,7 +605,7 @@ export async function proposeRate(
         outcome: 'success',
         actorId: parentId,
         subjectId: live.teacher_id,
-        details: { negotiation: row!.id, model: price.model },
+        details: { negotiation: row!.id, model: price.model, kind },
       },
       now,
     );
@@ -526,7 +623,9 @@ interface Locked {
   turn: Side | null;
   offers: number;
   expires_at: Date;
-  model: PriceModel;
+  model: NegotiationModel;
+  kind: NegotiationKind;
+  asking_minutes: number;
   currency: Currency;
   subject: string;
   t_email: string | null;
@@ -547,7 +646,8 @@ async function lockFor(
 ): Promise<{ n: Locked } | { reason: ActionRefusal }> {
   if (!UUID.test(actorId) || !UUID.test(id)) return { reason: 'not_found' };
   const [n] = await tx<Locked[]>`
-    SELECT r.id, r.parent_id, r.teacher_id, r.status, r.turn, r.offers, r.expires_at, r.model, r.currency, r.subject,
+    SELECT r.id, r.parent_id, r.teacher_id, r.status, r.turn, r.offers, r.expires_at, r.model, r.kind, r.asking_minutes,
+           r.currency, r.subject,
            CASE WHEN t.status = 'active' THEN t.email END AS t_email, t.display_name AS t_name,
            CASE WHEN p.status = 'active' THEN p.email END AS p_email, p.display_name AS p_name
     FROM rate_negotiations r
@@ -598,12 +698,14 @@ export async function counterRate(
       await refuse(tx, actorId, 'final_offer', now, id);
       return { ok: false, reason: 'final_offer' };
     }
-    const offer = checkOffer(n.model, input);
+    // P-6: on hourly and package proposals a counter-offer changes the amount only.
+    const terms = n.kind === 'legacy' ? input : { ...input, minutes: Number(n.asking_minutes), sessions: null };
+    const offer = checkOffer(n.model, terms);
     if (offer.problems.length) return { ok: false, reason: 'invalid', problems: offer.problems };
     const seq = n.offers + 1;
     const expiresAt = addDays(now, ANSWER_DAYS);
     await tx`INSERT INTO rate_offers (negotiation_id, seq, made_by, amount_minor, sessions, minutes, message, created_at)
-             VALUES (${n.id}, ${seq}, ${side}, ${offer.amountMinor}, ${offer.sessions}, ${input.minutes},
+             VALUES (${n.id}, ${seq}, ${side}, ${offer.amountMinor}, ${offer.sessions}, ${terms.minutes},
                      ${offer.message}, ${now})`;
     await tx`UPDATE rate_negotiations
              SET status = 'countered', turn = ${other(side)}, offers = ${seq}, last_action_at = ${now},
@@ -637,7 +739,7 @@ async function notify(
       name: toTeacher ? n.t_name : firstName(n.p_name),
       // No child name, ever; the parent's first name only (FR-040.9).
       from: toTeacher ? firstName(n.p_name) : n.t_name,
-      basis: PRICE_MODEL_LABEL[n.model],
+      basis: modelLabel(n.model),
       link: `${baseUrl}${toTeacher ? '/teacher/enquiries/rates' : '/parent/enquiries/rates'}`,
     },
     dedupeKey: `rate_${template}:${n.id}:${key}`,
@@ -754,7 +856,11 @@ export interface NegotiationView {
   status: NegotiationStatus;
   turn: Side | null;
   offers: number;
-  model: PriceModel;
+  model: NegotiationModel;
+  /** CR-15: 'hourly' (with `slot`), 'package' (with `packageTerms`) or 'legacy' (earlier prices). */
+  kind: NegotiationKind;
+  slot: ProposalSlot | null;
+  packageTerms: PackageTerms | null;
   currency: Currency;
   subject: string;
   grade: number;
@@ -791,7 +897,10 @@ interface Row {
   status: NegotiationStatus;
   turn: Side | null;
   offers: number;
-  model: PriceModel;
+  model: NegotiationModel;
+  kind: NegotiationKind;
+  slot: ProposalSlot | null;
+  package_terms: PackageTerms | null;
   currency: Currency;
   subject: string;
   grade: number;
@@ -850,6 +959,9 @@ function view(r: Row, history: OfferView[]): NegotiationView {
     turn: r.turn,
     offers: Number(r.offers),
     model: r.model,
+    kind: r.kind,
+    slot: r.slot,
+    packageTerms: r.package_terms,
     currency: r.currency,
     subject: r.subject,
     grade: Number(r.grade),
@@ -879,7 +991,7 @@ function view(r: Row, history: OfferView[]): NegotiationView {
 }
 
 const ROW_COLUMNS = (sql: Db) => sql`
-  r.id, r.status, r.turn, r.offers, r.model, r.currency, r.subject, r.grade, r.curriculum, r.child_id, r.child_key,
+  r.id, r.status, r.turn, r.offers, r.model, r.kind, r.slot, r.package_terms, r.currency, r.subject, r.grade, r.curriculum, r.child_id, r.child_key,
   r.asking_amount_minor, r.asking_sessions, r.asking_minutes, r.agreed_amount_minor, r.agreed_sessions,
   r.agreed_minutes, r.created_at, r.expires_at, r.ended_at, r.ended_by, r.decline_reason`;
 
@@ -952,3 +1064,5 @@ export async function teacherWaitingCount(sql: Db, teacherId: string, now: Date 
 }
 
 export { DECLINE_REASONS };
+
+export { modelLabel, type NegotiationKind, type NegotiationModel };

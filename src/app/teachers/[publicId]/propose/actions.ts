@@ -21,6 +21,7 @@ const int = (s: string) => (/^\d{1,3}$/.test(s.trim()) ? Number(s.trim()) : NaN)
 
 const PROBLEM: Record<ProposalProblem, [string, string]> = {
   price: ['price', 'Choose one of the prices that take proposals.'],
+  slot: ['slot', 'Choose one of the times open to proposals.'],
   child: ['who', 'Choose one of your children, or “A child I haven’t added yet”.'],
   grade: ['grade', 'Choose the child’s grade.'],
   curriculum: ['curriculum', 'Choose a curriculum from the list.'],
@@ -36,11 +37,19 @@ export async function proposeAction(_prev: ProposeFormState, fd: FormData): Prom
   const real = await getRealSession();
   if (!real || real.session.role !== 'parent') redirect('/sign-in');
   const who = str(fd, 'who');
+  // CR-15: "hourly" (with a time "weekday:start:end") or "package"; absent for the earlier prices.
+  const kind = str(fd, 'kind');
+  const slotText = str(fd, 'slot');
+  const slot = /^[1-7]:\d{1,4}:\d{1,4}$/.test(slotText)
+    ? (([weekday, start, end]) => ({ weekday: weekday!, start: start!, end: end! }))(slotText.split(':').map(Number))
+    : null;
   const r = await proposeRate(
     db(),
     real.session.accountId,
     {
       publicId: str(fd, 'publicId'),
+      kind: kind === 'hourly' || kind === 'package' ? kind : undefined,
+      slot,
       priceIndex: int(str(fd, 'price')),
       childId: who === 'new' ? null : who,
       grade: who === 'new' ? int(str(fd, 'grade')) : null,
@@ -65,12 +74,12 @@ export async function proposeAction(_prev: ProposeFormState, fd: FormData): Prom
     case 'already':
       return {
         at,
-        error: 'You already have an open proposal with this teacher for this child and price. See Rate proposals.',
+        error: 'You already have an open proposal of this kind with this teacher for this child. See Rate proposals.',
       };
     case 'wait':
       return {
         at,
-        error: `A recent proposal for this child and price was declined. You can propose again from ${dayAndTime(r.until, tz)}.`,
+        error: `A recent proposal of this kind for this child was declined. You can propose again from ${dayAndTime(r.until, tz)}.`,
       };
     case 'active_limit':
       return {
@@ -83,7 +92,11 @@ export async function proposeAction(_prev: ProposeFormState, fd: FormData): Prom
         error: `You have sent ${r.limit} new proposals today. You can send more after midnight (${r.timeZone} time).`,
       };
     case 'not_negotiable':
-      return { at, error: 'This teacher stopped accepting proposals for this price. The asking price still applies.' };
+      return {
+        at,
+        error:
+          'This teacher isn’t accepting proposals for this any more. Nothing was sent; the published price still applies.',
+      };
     case 'gone':
       return { at, error: 'This listing is no longer available. Nothing was sent.' };
     default:

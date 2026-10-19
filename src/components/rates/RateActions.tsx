@@ -5,8 +5,17 @@ import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { DECLINE_REASON_TEXT, DECLINE_REASONS } from '@/lib/linkRequests';
-import type { Currency, PriceModel } from '@/lib/listing';
-import { LESSONS_LABEL, MESSAGE_MAX, OFFERS_MAX, PAYMENT_NOTE, PER_PERIOD, type Side } from '@/lib/rateNegotiation';
+import type { Currency } from '@/lib/listing';
+import {
+  LESSONS_LABEL,
+  MESSAGE_MAX,
+  type NegotiationKind,
+  type NegotiationModel,
+  OFFERS_MAX,
+  PAYMENT_NOTE,
+  PER_PERIOD,
+  type Side,
+} from '@/lib/rateNegotiation';
 import { answerAction, counterAction, type RateFormState, withdrawAction } from './actions';
 
 const FIELD =
@@ -18,7 +27,9 @@ export interface RateActionsProps {
   myTurn: boolean;
   active: boolean;
   offers: number;
-  model: PriceModel;
+  model: NegotiationModel;
+  /** CR-15: hourly and package counter-offers change the amount only (P-6). */
+  kind: NegotiationKind;
   currency: Currency;
   /** "₹3,700 a month · 8 lessons × 40 min" — the latest offer, for the accept dialog. */
   latestText: string;
@@ -114,8 +125,9 @@ function AnswerButton(p: RateActionsProps & { answer: 'accept' | 'decline' }) {
               ))}
             </fieldset>
             <p id={`${id}-wait`} className="mb-0 mt-3 text-sm">
-              After a decline, the parent can&apos;t start a new proposal with this teacher for the same child and price
-              for 7 days.
+              After a decline, the parent can&apos;t start a new proposal of this kind
+              {p.kind === 'package' ? ' (package)' : p.kind === 'hourly' ? ' (hourly)' : ''} with this teacher for the
+              same child for 7 days.
             </p>
           </>
         )}
@@ -168,9 +180,20 @@ function CounterForm(p: RateActionsProps) {
           <strong>
             offer {p.offers + 1} of {OFFERS_MAX}
           </strong>{' '}
-          and gives {p.otherName} 14 days to answer. The basis and currency ({p.currency}) stay the same.
+          and gives {p.otherName} 14 days to answer.{' '}
+          {p.kind === 'legacy'
+            ? `The basis and currency (${p.currency}) stay the same.`
+            : `Price only: the currency (${p.currency}), lesson length${p.kind === 'package' ? ', classes, times, period and terms' : ' and time'} stay as published.`}
         </p>
-        <div className={p.model === 'hourly' ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3 sm:grid-cols-3'}>
+        <div
+          className={
+            p.kind !== 'legacy'
+              ? 'grid max-w-[420px] gap-3'
+              : p.model === 'hourly'
+                ? 'grid gap-3 sm:grid-cols-2'
+                : 'grid gap-3 sm:grid-cols-3'
+          }
+        >
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${id}-amount`} className="text-sm font-bold">
               Your offer ({p.currency} {PER_PERIOD[p.model]})
@@ -178,7 +201,7 @@ function CounterForm(p: RateActionsProps) {
             <input id={`${id}-amount`} name="amount" inputMode="decimal" autoComplete="off" className={FIELD} />
             {e.amount ? <span className="text-sm font-bold text-on-error-container">{e.amount}</span> : null}
           </div>
-          {p.model !== 'hourly' ? (
+          {p.kind === 'legacy' && p.model !== 'hourly' && p.model !== 'package' ? (
             <div className="flex flex-col gap-1.5">
               <label htmlFor={`${id}-sessions`} className="text-sm font-bold">
                 {LESSONS_LABEL[p.model]}
@@ -193,19 +216,23 @@ function CounterForm(p: RateActionsProps) {
               {e.sessions ? <span className="text-sm font-bold text-on-error-container">{e.sessions}</span> : null}
             </div>
           ) : null}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${id}-minutes`} className="text-sm font-bold">
-              Minutes per lesson
-            </label>
-            <input
-              id={`${id}-minutes`}
-              name="minutes"
-              inputMode="numeric"
-              defaultValue={p.latest.minutes}
-              className={FIELD}
-            />
-            {e.minutes ? <span className="text-sm font-bold text-on-error-container">{e.minutes}</span> : null}
-          </div>
+          {p.kind === 'legacy' ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`${id}-minutes`} className="text-sm font-bold">
+                Minutes per lesson
+              </label>
+              <input
+                id={`${id}-minutes`}
+                name="minutes"
+                inputMode="numeric"
+                defaultValue={p.latest.minutes}
+                className={FIELD}
+              />
+              {e.minutes ? <span className="text-sm font-bold text-on-error-container">{e.minutes}</span> : null}
+            </div>
+          ) : (
+            <input type="hidden" name="minutes" value={p.latest.minutes} />
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${id}-message`} className="text-sm font-bold">

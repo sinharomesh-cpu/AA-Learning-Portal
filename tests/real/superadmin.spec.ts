@@ -1422,7 +1422,59 @@ test('CR-15 A3: with the new pricing model on, a teacher offers hourly lessons a
     await t.setViewportSize({ width: 390, height: 844 });
     await t.goto('/teacher/listing');
     expect(await t.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await t.setViewportSize({ width: 1280, height: 900 });
+    const profileUrl = v.url();
     await vc.close();
+
+    // A4 (FR-043): the teacher opens the package price to proposals and turns on the master switch.
+    const pk = t.getByRole('region', { name: /Learning package/ }).first();
+    await pk.getByRole('radio', { name: 'Negotiation available' }).check();
+    await pk.getByRole('button', { name: 'Offer this package' }).click();
+    await expect(pk.getByText(/Package saved/)).toBeVisible();
+    await t.goto('/teacher');
+    await t
+      .getByRole('region', { name: 'Rate negotiation' })
+      .getByRole('button', { name: 'Accept rate proposals' })
+      .click();
+    await expect(t.getByText('Accepting rate proposals', { exact: true })).toBeVisible();
+
+    // A parent proposes an hourly rate at Monday's time, then a package price: both can be open.
+    const fam = await parentWithChild(browser, '10.200.0.93', 'Tara', ['Maths']);
+    const pp = fam.page;
+    await pp.goto(profileUrl);
+    await pp.getByRole('region', { name: 'Hourly lessons' }).getByRole('link', { name: 'Propose a rate' }).click();
+    await expect(pp.getByRole('heading', { level: 1, name: `Propose to ${teacherName}` })).toBeVisible();
+    await expect(pp.getByRole('radio', { name: /Hourly lessons · Monday/ })).toBeChecked();
+    await pp.getByLabel('Subject').selectOption({ label: 'Maths' });
+    await pp.getByLabel(/Your hourly rate offer/).fill('525');
+    await expect(pp.getByText('= ₹350 for a 40-minute lesson', { exact: false })).toBeVisible();
+    await noSeriousA11yIssues(pp);
+    await pp.getByRole('button', { name: 'Send proposal' }).click();
+    await expect(pp).toHaveURL(/\/parent\/enquiries\/rates\?sent=/);
+    await pp.goto(profileUrl);
+    await pp.getByRole('link', { name: 'Propose a package price' }).click();
+    await expect(pp.getByRole('radio', { name: /Learning package/ })).toBeChecked();
+    await pp.getByLabel('Subject').selectOption({ label: 'Maths' });
+    await pp.getByLabel(/Your package price offer/).fill('7,800');
+    await pp.getByRole('button', { name: 'Send proposal' }).click();
+    await expect(pp).toHaveURL(/\/parent\/enquiries\/rates\?sent=/);
+    await expect(pp.getByTestId('rate-negotiation')).toHaveCount(2);
+
+    // The teacher counters the package on price only; there is no field for anything else.
+    await t.goto('/teacher/enquiries/rates');
+    const pkgCard = t.getByTestId('rate-negotiation').filter({ hasText: 'Learning package' });
+    await expect(pkgCard).toContainText('22 classes × 40 min · 2 a week · complete within 11 weeks');
+    expect(await t.content()).not.toContain('Tara');
+    await pkgCard.getByText('Counter-offer', { exact: true }).click();
+    await expect(pkgCard.getByLabel('Minutes per lesson')).toHaveCount(0);
+    await pkgCard.getByLabel(/Your offer/).fill('8200');
+    await pkgCard.getByRole('button', { name: 'Send counter-offer' }).click();
+    await expect(t.getByText('Counter-offer sent (offer 2 of 6)', { exact: false })).toBeVisible();
+    await expect(t.getByTestId('rate-negotiation').filter({ hasText: 'Hourly lessons' })).toContainText(
+      'Pending · your turn',
+    );
+    await noSeriousA11yIssues(t);
+    await fam.context.close();
   } finally {
     await page.goto('/admin/rate-proposals');
     await page.getByRole('button', { name: 'Turn the new pricing model off' }).click();

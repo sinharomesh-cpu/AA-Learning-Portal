@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { modelLabel } from '@/lib/rateNegotiation';
 import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
 import { ListingDetails } from '@/components/listing/ListingDetails';
@@ -9,7 +10,6 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getPublicListing, type PublicListing } from '@/server/publicListings';
 import { StatusChip } from '@/components/StatusChip';
-import { PRICE_MODEL_LABEL } from '@/lib/listing';
 import { dayAndTime } from '@/lib/linkRequests';
 import { listChildren } from '@/server/children';
 import { negotiablePriceFlags, parentWaitsForListing, prospectiveLabel } from '@/server/rateNegotiations';
@@ -39,7 +39,7 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
       const kids = new Map((await listChildren(db(), viewer.id)).map((k) => [`child:${k.id}`, k.name]));
       waits = found.map(
         (w) =>
-          `You can propose again for ${kids.has(w.childKey) ? `${kids.get(w.childKey)}'s` : `${prospectiveLabel(w.childKey)}'s`} ${PRICE_MODEL_LABEL[w.model]} price from ${dayAndTime(w.until, viewer.timeZone)}.`,
+          `You can propose again for ${kids.has(w.childKey) ? `${kids.get(w.childKey)}'s` : `${prospectiveLabel(w.childKey)}'s`} ${modelLabel(w.model)} price from ${dayAndTime(w.until, viewer.timeZone)}.`,
       );
     }
   }
@@ -58,7 +58,33 @@ export default async function PublicListingPage({ params }: { params: Promise<{ 
     : undefined;
   // CR-15: copies made under the new pricing model show hourly lessons and the package instead.
   const v2 = !!listing && (listing.hourly !== undefined || listing.package !== undefined);
-  const offers = v2 && listing ? await liveOfferFlags(db(), listing.publicId, listing.usualTimes) : undefined;
+  const live = v2 && listing ? await liveOfferFlags(db(), listing.publicId, listing.usualTimes) : undefined;
+  // FR-043: "Propose a rate" beside each time open to proposals; "Propose a package price" when the
+  // package's own setting allows it (P-8). The propose page checks everything again.
+  const offers =
+    live && listing
+      ? {
+          ...live,
+          slotActions: live.slots.map((t) =>
+            t.negotiable && listing!.hourly ? (
+              <LinkButton
+                key={`${t.weekday}-${t.start}`}
+                href={`/teachers/${listing!.publicId}/propose?kind=hourly&slot=${t.weekday}:${t.start}:${t.end}`}
+                variant="secondary"
+                className="min-h-11 px-4 text-sm"
+              >
+                Propose a rate
+              </LinkButton>
+            ) : null,
+          ),
+          packageAction:
+            live.packageNegotiable && listing.package ? (
+              <LinkButton href={`/teachers/${listing.publicId}/propose?kind=package`} variant="secondary">
+                Propose a package price
+              </LinkButton>
+            ) : undefined,
+        }
+      : undefined;
   return (
     <PublicShell>
       <main className={cx(PUBLIC_WRAP, 'flex flex-col gap-6 py-10 md:py-14')}>
