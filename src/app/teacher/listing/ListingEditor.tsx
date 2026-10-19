@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { FormMessage } from '@/components/forms/FormMessage';
+import { Icon } from '@/components/icons/Icon';
 import { ListingDetails } from '@/components/listing/ListingDetails';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { cx } from '@/lib/cx';
@@ -24,10 +24,13 @@ import {
 import type { HourlyOffer, PackageTerms } from '@/lib/pricing';
 import type { UsualTime } from '@/lib/usualTimes';
 import type { OfferSlot } from '@/components/listing/Offers';
+import { HEAD, SHELL, TILE, TILE_KEY } from './builderStyles';
 import { type ListingFormState, saveListingAction } from './actions';
 
+/** Chip toggles in the approved design (OC-109): filled blue with a tick when chosen. */
 const CHOICE =
-  'flex min-h-12 cursor-pointer items-center gap-2.5 rounded-full border-2 border-outline px-4 text-[15px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/40 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary';
+  'group relative flex h-11 cursor-pointer items-center gap-1.5 rounded-[14px] border border-card-border bg-surface-container-lowest px-3.5 text-[15px] font-extrabold text-on-surface hover:border-outline has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-on-primary has-[:checked]:shadow-[0_6px_14px_-8px_rgba(0,97,148,.8)] has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary';
+const TICK = <Icon name="check" size={16} className="hidden group-has-[:checked]:block" />;
 const FIELD = 'min-h-12 w-full rounded-[14px] border-2 border-outline bg-surface-container-lowest px-3 text-base';
 
 interface PriceRow {
@@ -154,16 +157,18 @@ export function ListingEditor({
         ) : null}
         {state.notice ? <FormMessage tone="success">{state.notice}</FormMessage> : null}
 
-        <Card as="section" aria-labelledby="ls-teach" className="flex flex-col gap-5 p-4 sm:p-6">
-          <h2 id="ls-teach" className="text-[20px] font-bold leading-7">
-            What you offer
-          </h2>
-          <fieldset
-            className="m-0 flex flex-col gap-2.5 border-0 p-0"
-            aria-describedby="ls-subjects-hint ls-subjects-error"
-          >
-            <legend className="mb-2.5 p-0 text-sm font-bold leading-5">Subjects</legend>
-            <div className="flex flex-wrap gap-2.5">
+        <section
+          aria-labelledby="ls-teach"
+          className={cx(SHELL, 'flex flex-col gap-5 pb-6 [&>*:not(:first-child)]:mx-5 sm:[&>*:not(:first-child)]:mx-6')}
+        >
+          <div className={HEAD}>
+            <h2 id="ls-teach" className="font-headline text-[26px] font-bold leading-8">
+              What you offer
+            </h2>
+          </div>
+          <fieldset className={cx(TILE, 'm-0')} aria-describedby="ls-subjects-hint ls-subjects-error">
+            <legend className={cx(TILE_KEY, 'float-left mb-1 p-0')}>Subjects</legend>
+            <div className="clear-both flex flex-wrap gap-2">
               {approvedSubjects.map((s) => (
                 <label key={s} className={CHOICE}>
                   <input
@@ -172,14 +177,15 @@ export function ListingEditor({
                     value={s}
                     checked={subjects.includes(s)}
                     onChange={(ev) => setSubjects((xs) => toggle(xs, s, ev.target.checked))}
-                    className="h-[22px] w-[22px] accent-primary"
+                    className="absolute inset-0 m-0 size-full cursor-pointer appearance-none opacity-0"
                   />
+                  {TICK}
                   {SUBJECTS[s as SubjectId]?.name ?? s}
                 </label>
               ))}
             </div>
             <Err id="ls-subjects-error" text={e.subjects} />
-            <span id="ls-subjects-hint" className="text-sm text-on-surface-variant">
+            <span id="ls-subjects-hint" className="text-[13px] leading-[18px] text-on-surface-variant">
               Only the subjects AA Pro approved on your profile. To add another, change your{' '}
               <Link href="/teacher/profile" className="font-bold underline">
                 profile
@@ -187,9 +193,9 @@ export function ListingEditor({
               ; it is reviewed first.
             </span>
           </fieldset>
-          <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0" aria-describedby="ls-grades-error">
-            <legend className="mb-2.5 p-0 text-sm font-bold leading-5">Grades</legend>
-            <div className="flex flex-wrap gap-2.5">
+          <fieldset className={cx(TILE, 'm-0')} aria-describedby="ls-grades-error">
+            <legend className={cx(TILE_KEY, 'float-left mb-1 p-0')}>Grades</legend>
+            <div className="clear-both flex flex-wrap gap-2">
               {approvedGrades.map((g) => (
                 <label key={g} className={CHOICE}>
                   <input
@@ -198,17 +204,18 @@ export function ListingEditor({
                     value={g}
                     checked={grades.includes(g)}
                     onChange={(ev) => setGrades((xs) => toggle(xs, g, ev.target.checked))}
-                    className="h-[22px] w-[22px] accent-primary"
+                    className="absolute inset-0 m-0 size-full cursor-pointer appearance-none opacity-0"
                   />
+                  {TICK}
                   Grade {g}
                 </label>
               ))}
             </div>
             <Err id="ls-grades-error" text={e.grades} />
           </fieldset>
-          <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0" aria-describedby="ls-curricula-error">
-            <legend className="mb-2.5 p-0 text-sm font-bold leading-5">Curriculum you know well (optional)</legend>
-            <div className="flex flex-wrap gap-2.5">
+          <fieldset className={cx(TILE, 'm-0')} aria-describedby="ls-curricula-error">
+            <legend className={cx(TILE_KEY, 'float-left mb-1 p-0')}>Curriculum you know well (optional)</legend>
+            <div className="clear-both flex flex-wrap gap-2">
               {curriculaOptions.map((c) => (
                 <label key={c} className={CHOICE}>
                   <input
@@ -217,50 +224,69 @@ export function ListingEditor({
                     value={c}
                     checked={curricula.includes(c)}
                     onChange={(ev) => setCurricula((xs) => toggle(xs, c, ev.target.checked))}
-                    className="h-[22px] w-[22px] accent-primary"
+                    className="absolute inset-0 m-0 size-full cursor-pointer appearance-none opacity-0"
                   />
+                  {TICK}
                   {c}
                 </label>
               ))}
             </div>
             <Err id="ls-curricula-error" text={e.curricula} />
           </fieldset>
-          <div className="flex max-w-[320px] flex-col gap-1.5">
-            <label htmlFor="ls-exp" className="text-sm font-bold leading-5">
-              Years of teaching (optional)
-            </label>
-            <input
-              id="ls-exp"
-              name="experienceYears"
-              inputMode="numeric"
-              maxLength={2}
-              value={experience}
-              onChange={(ev) => setExperience(ev.target.value)}
-              aria-invalid={e.experienceYears ? true : undefined}
-              aria-describedby="ls-exp-hint ls-exp-error"
-              className={cx(FIELD, e.experienceYears ? 'border-error' : '')}
-            />
-            <Err id="ls-exp-error" text={e.experienceYears} />
-            <span id="ls-exp-hint" className="text-sm text-on-surface-variant">
-              Shown as “as stated by the teacher”, never as verified.
-            </span>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className={TILE}>
+              <label htmlFor="ls-exp" className={TILE_KEY}>
+                Years of teaching (optional)
+              </label>
+              <input
+                id="ls-exp"
+                name="experienceYears"
+                inputMode="numeric"
+                maxLength={2}
+                value={experience}
+                placeholder="e.g. 6"
+                onChange={(ev) => setExperience(ev.target.value)}
+                aria-invalid={e.experienceYears ? true : undefined}
+                aria-describedby="ls-exp-hint ls-exp-error"
+                className={cx(
+                  'h-14 w-36 rounded-[16px] border border-transparent bg-surface-container-low px-4 font-headline text-[28px] font-bold text-on-surface outline-none focus:border-primary focus:bg-surface-container-lowest focus:ring-4 focus:ring-primary/15',
+                  e.experienceYears ? 'border-error' : '',
+                )}
+              />
+              <Err id="ls-exp-error" text={e.experienceYears} />
+              <span id="ls-exp-hint" className="text-[13px] leading-[18px] text-on-surface-variant">
+                Shown as “as stated by the teacher”, never as verified.
+              </span>
+            </div>
+            <div className={TILE}>
+              <span className={TILE_KEY}>How you teach</span>
+              <span className="flex items-center gap-2 text-[15px] font-bold">
+                <Icon name="videocam" size={20} />
+                Online (Zoom)
+              </span>
+              <span className="text-[13px] text-on-surface-variant">Online only for now.</span>
+              <span className={cx(TILE_KEY, 'mt-2')}>Usually free</span>
+              <span className="text-[13px] text-on-surface-variant">
+                Taken from your weekly times on{' '}
+                <Link href="/teacher/availability" className="font-bold underline">
+                  Availability
+                </Link>
+                .
+              </span>
+            </div>
           </div>
-          <p className="text-[15px]">
-            <strong>How you teach:</strong> Online (Zoom). Online only for now.
-          </p>
-          <p className="text-[15px]">
-            <strong>Usually free:</strong> taken from your weekly times on{' '}
-            <Link href="/teacher/availability" className="font-bold underline">
-              Availability
-            </Link>
-            .
-          </p>
-        </Card>
+        </section>
 
         {pricingV2 ? null : (
-          <Card as="section" aria-labelledby="ls-prices" className="flex flex-col gap-4 p-4 sm:p-6">
-            <div className="flex flex-col gap-1">
-              <h2 id="ls-prices" className="text-[20px] font-bold leading-7">
+          <section
+            aria-labelledby="ls-prices"
+            className={cx(
+              SHELL,
+              'flex flex-col gap-5 pb-6 [&>*:not(:first-child)]:mx-5 sm:[&>*:not(:first-child)]:mx-6',
+            )}
+          >
+            <div className={cx(HEAD, 'flex-col')}>
+              <h2 id="ls-prices" className="font-headline text-[26px] font-bold leading-8">
                 Asking prices (up to {PRICES_MAX}, optional)
               </h2>
               <p className="text-[15px] leading-[22px] text-on-surface-variant">
@@ -417,27 +443,38 @@ export function ListingEditor({
               Weekly, every-two-weeks and monthly plans need the number of sessions. Sessions are up to 40 minutes.
               Prices are shown in their own currency and never converted.
             </p>
-          </Card>
+          </section>
         )}
 
-        <Card as="section" aria-labelledby="ls-publish" className="flex flex-col gap-4 p-4 sm:p-6">
-          <h2 id="ls-publish" className="text-[20px] font-bold leading-7">
-            Before you publish
-          </h2>
+        <section
+          aria-labelledby="ls-publish"
+          className={cx(SHELL, 'flex flex-col gap-5 pb-6 [&>*:not(:first-child)]:mx-5 sm:[&>*:not(:first-child)]:mx-6')}
+        >
+          <div className={HEAD}>
+            <h2 id="ls-publish" className="font-headline text-[26px] font-bold leading-8">
+              Before you publish
+            </h2>
+          </div>
           <p className="text-[15px] leading-[22px]">
             Anyone on the internet, signed in or not, will see the details in “What parents see”. Your email, phone and
             students are never shown.
           </p>
-          <label className="flex items-start gap-3.5 text-[15px] leading-[22px]">
+          <label className="group relative flex cursor-pointer items-start gap-3 rounded-[20px] border border-card-border bg-surface-container-lowest p-4 has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary-fixed/30 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary">
             <input
               type="checkbox"
               name="consent"
               value="yes"
               aria-invalid={e.consent ? true : undefined}
               aria-describedby={e.consent ? 'ls-consent-error' : undefined}
-              className="mt-0.5 h-6 w-6 flex-none accent-primary"
+              className="absolute inset-0 m-0 size-full cursor-pointer appearance-none opacity-0"
             />
-            <span>
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-[8px] border-2 border-outline bg-surface-container-lowest text-on-primary group-has-[:checked]:border-primary group-has-[:checked]:bg-primary"
+            >
+              <Icon name="check" size={16} className="hidden group-has-[:checked]:block" />
+            </span>
+            <span className="text-[15px] leading-[22px]">
               I agree to AA Pro showing these details publicly. I can pause or withdraw my listing at any time.
             </span>
           </label>
@@ -454,13 +491,21 @@ export function ListingEditor({
               Save as draft
             </Button>
           </div>
-        </Card>
+        </section>
       </div>
 
-      <Card as="section" aria-labelledby="ls-preview" className="flex flex-col gap-4 p-4 sm:p-6 lg:sticky lg:top-6">
-        <h2 id="ls-preview" className="text-[20px] font-bold leading-7">
-          What parents see
-        </h2>
+      <section
+        aria-labelledby="ls-preview"
+        className={cx(
+          SHELL,
+          'flex flex-col gap-5 pb-6 [&>*:not(:first-child)]:mx-5 sm:[&>*:not(:first-child)]:mx-6 lg:sticky lg:top-6',
+        )}
+      >
+        <div className={HEAD}>
+          <h2 id="ls-preview" className="font-headline text-[26px] font-bold leading-8">
+            What parents see
+          </h2>
+        </div>
         <ListingDetails
           listing={preview}
           photoSrc={preview.photoId ? `/teacher-photo/${preview.photoId}` : null}
@@ -470,7 +515,7 @@ export function ListingEditor({
         <p className="rounded-[14px] bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant">
           Never shown: your email, phone or the children you teach.
         </p>
-      </Card>
+      </section>
     </form>
   );
 }
