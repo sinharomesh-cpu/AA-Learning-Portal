@@ -7,8 +7,7 @@ import { AccessDenied } from '@/components/states/AccessDenied';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
 import { EmptyState } from '@/components/states/States';
 import { dayAndTime } from '@/lib/linkRequests';
-import { PRICE_MODEL_LABEL } from '@/lib/listing';
-import { PAYMENT_NOTE } from '@/lib/rateNegotiation';
+import { PAYMENT_NOTE, modelLabel } from '@/lib/rateNegotiation';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
@@ -83,7 +82,7 @@ export default async function ParentRatesPage({
               <NegotiationCard
                 n={n}
                 side="parent"
-                title={`${n.teacherName} · ${n.childName ?? `Grade ${n.grade}${n.curriculum ? ` · ${n.curriculum}` : ''} (not added yet)`} · ${PRICE_MODEL_LABEL[n.model]}`}
+                title={`${n.teacherName} · ${n.childName ?? `Grade ${n.grade}${n.curriculum ? ` · ${n.curriculum}` : ''} (not added yet)`} · ${modelLabel(n.model)}`}
                 about={about(n)}
                 otherName={n.teacherName}
                 timeZone={tz}

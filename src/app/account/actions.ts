@@ -92,6 +92,11 @@ export async function signInWithPasswordAction(_prev: FormState, fd: FormData): 
   const connect = str(fd, 'connect');
   const rate = str(fd, 'rate');
   if (/^t-[a-z0-9]{10}$/.test(connect) && /^[0-2]$/.test(rate)) redirect(`/teachers/${connect}/propose?price=${rate}`);
+  // CR-15: back to the same package ("p") or hourly time ("h<weekday>-<start>-<end>").
+  if (/^t-[a-z0-9]{10}$/.test(connect) && rate === 'p') redirect(`/teachers/${connect}/propose?kind=package`);
+  const h = /^h([1-7])-(\d{1,4})-(\d{1,4})$/.exec(rate);
+  if (/^t-[a-z0-9]{10}$/.test(connect) && h)
+    redirect(`/teachers/${connect}/propose?kind=hourly&slot=${h[1]}:${h[2]}:${h[3]}`);
   if (/^t-[a-z0-9]{10}$/.test(connect)) redirect(`/teachers/${connect}/connect`);
   if (role === 'parent') {
     const remembered = await takeRememberedConnect(db(), result.account.id);

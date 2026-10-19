@@ -12,6 +12,7 @@ import { proposalForm, prospectiveLabel } from '@/server/rateNegotiations';
 import { realAuthEnabled } from '@/server/realAuth';
 import { getViewer } from '@/server/session';
 import { ProposeForm } from './ProposeForm';
+import { ProposeOfferForm } from './ProposeOfferForm';
 
 export const metadata: Metadata = { title: 'Propose a rate', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -27,11 +28,17 @@ export default async function ProposePage({
   searchParams,
 }: {
   params: Promise<{ publicId: string }>;
-  searchParams: Promise<{ price?: string }>;
+  searchParams: Promise<{ price?: string; kind?: string; slot?: string }>;
 }) {
   const { publicId } = await params;
-  const { price } = await searchParams;
+  const { price, kind, slot } = await searchParams;
+  // CR-15: which offer to preselect ("hourly|weekday:start:end" or "package").
   const priceIndex = price && /^[0-2]$/.test(price) ? Number(price) : 0;
+  const validSlot = slot && /^[1-7]:\d{1,4}:\d{1,4}$/.test(slot) ? slot : null;
+  const initialOffer = kind === 'package' ? 'package' : kind === 'hourly' && validSlot ? `hourly|${validSlot}` : '';
+  // Sign-in brings the parent back here (account/actions.ts): an earlier price, the package or a time.
+  const signInRate =
+    kind === 'package' ? 'p' : kind === 'hourly' && validSlot ? `h${validSlot.replace(/:/g, '-')}` : String(priceIndex);
   const available = !isDemoMode() && realAuthEnabled();
   const listing = available ? await getPublicListing(db(), publicId) : null;
   const viewer = await getViewer();
@@ -65,7 +72,7 @@ export default async function ProposePage({
         </p>
         <div className="flex flex-wrap gap-3">
           <LinkButton href={`/create-account?connect=${listing.publicId}`}>Create a parent account</LinkButton>
-          <LinkButton href={`/sign-in?connect=${listing.publicId}&rate=${priceIndex}`} variant="secondary">
+          <LinkButton href={`/sign-in?connect=${listing.publicId}&rate=${signInRate}`} variant="secondary">
             I already have an account — sign in
           </LinkButton>
         </div>
@@ -86,7 +93,52 @@ export default async function ProposePage({
     );
   } else {
     const form = await proposalForm(db(), viewer.id, publicId);
-    if (!form || form.prices.length === 0) {
+    const v2 = form?.v2 ?? null;
+    const openSlots = v2?.hourly ? v2.slots.filter((t) => t.negotiable) : [];
+    const openPackage = v2?.package && v2.packageNegotiable ? v2.package : null;
+    if (form && v2 && (openSlots.length || openPackage)) {
+      const names = new Map(form.children.map((k) => [`child:${k.id}`, k.name]));
+      body = (
+        <div className="flex max-w-[860px] flex-col gap-5">
+          <div className="flex flex-col gap-1">
+            <h1 className={cx(H1, 'md:text-[38px] md:leading-[46px]')}>Propose to {form.teacherName}</h1>
+            <p className="text-[15px] text-on-surface-variant">
+              The teacher answers within 14 days, or the proposal expires.
+            </p>
+          </div>
+          <div className="pub-card rounded-lg p-5 md:p-8">
+            <ProposeOfferForm
+              publicId={form.publicId}
+              teacherName={form.teacherName}
+              subjects={form.subjects}
+              hourly={openSlots.length ? v2.hourly : null}
+              slots={openSlots.map(({ weekday, start, end }) => ({ weekday, start, end }))}
+              pkg={openPackage}
+              timeZone={v2.timeZone}
+              kids={form.children.map((k) => ({
+                id: k.id,
+                label: `${k.name} · Grade ${k.grade}${k.curriculum ? ` · ${k.curriculum}` : ''}`,
+                subjects: k.subjects,
+              }))}
+              waits={form.waits.map((w) => ({
+                childKey: w.childKey,
+                model: w.model,
+                text: `${form.teacherName} and you ended a ${w.model === 'package' ? 'package' : 'hourly'} proposal for ${names.has(w.childKey) ? names.get(w.childKey) : prospectiveLabel(w.childKey)} with a decline. You can propose again from ${dayAndTime(w.until, viewer.timeZone)}.`,
+              }))}
+              initial={initialOffer}
+            />
+          </div>
+          <p className="text-sm text-on-surface-variant">
+            Up to {form.limits.activePerParent} proposals can be open at once, and {form.limits.newPerDay} new ones a
+            day, counting hourly and package proposals together. Follow yours in{' '}
+            <Link href="/parent/enquiries/rates" className="font-bold underline">
+              Rate proposals
+            </Link>
+            .
+          </p>
+        </div>
+      );
+    } else if (!form || form.prices.length === 0) {
       body = (
         <div className="pub-card flex max-w-[720px] flex-col items-start gap-3 rounded-lg p-6 md:p-8">
           <h1 className={H1}>Fixed prices only</h1>

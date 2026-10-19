@@ -3,9 +3,10 @@ import { Card } from '@/components/Card';
 import { StatusChip, type ChipKind } from '@/components/StatusChip';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { dayAndTime, DECLINE_REASON_TEXT, shortDay } from '@/lib/linkRequests';
-import { PRICE_MODEL_LABEL } from '@/lib/listing';
-import { amountText, describeTerms, OFFERS_MAX, type Side } from '@/lib/rateNegotiation';
+import { amountText, describeTerms, OFFERS_MAX, type Side, modelLabel } from '@/lib/rateNegotiation';
 import type { NegotiationView } from '@/server/rateNegotiations';
+import { describePackage } from '@/lib/pricing';
+import { formatMinute, WEEKDAYS } from '@/lib/usualTimes';
 import { RateActions } from './RateActions';
 
 const subjectName = (s: string) => SUBJECTS[s as SubjectId]?.name ?? s;
@@ -75,8 +76,21 @@ export function NegotiationCard({
         <StatusChip kind={kind}>{label}</StatusChip>
       </div>
       <p className="text-[15px] leading-[22px]">
-        {subjectName(n.subject)} · {PRICE_MODEL_LABEL[n.model]} · asking price {asking}
+        {subjectName(n.subject)} · {n.kind === 'hourly' ? 'Hourly lessons' : modelLabel(n.model)} · asking price{' '}
+        {asking}
       </p>
+      {n.kind === 'hourly' && n.slot ? (
+        <p className="text-sm text-on-surface-variant">
+          Time: {WEEKDAYS[n.slot.weekday - 1]} {formatMinute(n.slot.start)}–{formatMinute(n.slot.end)} (
+          {n.slot.timeZone}) · {n.asking.minutes}-minute lessons · price only; no commitment to further lessons
+        </p>
+      ) : null}
+      {n.kind === 'package' && n.packageTerms ? (
+        <p className="text-sm text-on-surface-variant">
+          {describePackage(n.packageTerms)} · price only; these terms don&apos;t change. Agreeing a price doesn&apos;t
+          start the package: both of you confirm its terms later.
+        </p>
+      ) : null}
       {active && latest ? (
         <p className="text-[15px] leading-[22px]">
           <strong>
@@ -126,9 +140,8 @@ export function NegotiationCard({
           {side === 'parent' && n.askAgainFrom && n.askAgainFrom > new Date() ? (
             <>
               {' '}
-              · you can start a new proposal with this teacher for {about}&apos;s{' '}
-              {PRICE_MODEL_LABEL[n.model].toLowerCase()} price from{' '}
-              <strong>{dayAndTime(n.askAgainFrom, timeZone)}</strong>
+              · you can start a new proposal with this teacher for {about}&apos;s {modelLabel(n.model).toLowerCase()}{' '}
+              price from <strong>{dayAndTime(n.askAgainFrom, timeZone)}</strong>
             </>
           ) : null}
         </p>
@@ -172,6 +185,7 @@ export function NegotiationCard({
           active={active}
           offers={n.offers}
           model={n.model}
+          kind={n.kind}
           currency={n.currency}
           latestText={describeTerms({ ...terms, ...latest })}
           latestAmount={amountText({ currency: n.currency, amountMinor: latest.amountMinor })}

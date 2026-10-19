@@ -61,7 +61,8 @@ export default async function SignInPage({
   const connectId = typeof params.connect === 'string' && /^t-[a-z0-9]{10}$/.test(params.connect) ? params.connect : '';
   const connectName = real && connectId ? (await getPublicListing(db(), connectId))?.name : undefined;
   // CR-13 RN1: back to the same teacher and price to propose a rate.
-  const rate = typeof params.rate === 'string' && /^[0-2]$/.test(params.rate) ? params.rate : undefined;
+  const rate =
+    typeof params.rate === 'string' && /^([0-2]|p|h[1-7]-\d{1,4}-\d{1,4})$/.test(params.rate) ? params.rate : undefined;
   const viewer = await getViewer();
   if (viewer) redirect(ROLE_HOME[viewer.role]);
   const demo = isDemoMode();

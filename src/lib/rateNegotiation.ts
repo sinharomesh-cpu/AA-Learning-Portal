@@ -1,4 +1,4 @@
-import { describePrice, formatAmount, type Currency, type PriceModel } from './listing';
+import { describePrice, formatAmount, type Currency, PRICE_MODEL_LABEL, type PriceModel } from './listing';
 
 /**
  * Teacher rate negotiation (CR-13; FR-040; OC-99, OC-100). Shared by the server rules and the
@@ -23,6 +23,11 @@ export const RATE_LIMIT_RANGES = {
   newPerDay: { min: 1, max: 100 },
 };
 
+/** CR-15: the earlier price bases plus the learning package (FR-043). */
+export type NegotiationModel = PriceModel | 'package';
+export type NegotiationKind = 'legacy' | 'hourly' | 'package';
+export const modelLabel = (m: NegotiationModel) => (m === 'package' ? 'Learning package' : PRICE_MODEL_LABEL[m]);
+
 export type NegotiationStatus = 'pending' | 'countered' | 'accepted' | 'declined' | 'withdrawn' | 'expired';
 export type Side = 'parent' | 'teacher';
 export const isActiveStatus = (s: NegotiationStatus) => s === 'pending' || s === 'countered';
@@ -40,7 +45,7 @@ export function parseOfferAmount(text: string): number | null {
 }
 
 export interface OfferTerms {
-  model: PriceModel;
+  model: NegotiationModel;
   currency: Currency;
   amountMinor: number;
   sessions: number | null;
@@ -49,12 +54,17 @@ export interface OfferTerms {
 
 /** "₹3,400 a month · 8 lessons × 40 min". */
 export const describeTerms = (t: OfferTerms) =>
-  describePrice({ ...t }).replace(/sessions? ×/, (m) => (m.startsWith('session ') ? 'lesson ×' : 'lessons ×'));
+  t.model === 'package'
+    ? `${formatAmount(t.currency, t.amountMinor)} for the whole package`
+    : describePrice({ ...t, model: t.model }).replace(/sessions? ×/, (m) =>
+        m.startsWith('session ') ? 'lesson ×' : 'lessons ×',
+      );
 
 export const amountText = (t: Pick<OfferTerms, 'currency' | 'amountMinor'>) => formatAmount(t.currency, t.amountMinor);
 
 /** "a month", "per hour" … for form labels. */
-export const PER_PERIOD: Record<PriceModel, string> = {
+export const PER_PERIOD: Record<NegotiationModel, string> = {
+  package: 'for the whole package',
   hourly: 'per hour',
   weekly: 'a week',
   biweekly: 'every two weeks',
