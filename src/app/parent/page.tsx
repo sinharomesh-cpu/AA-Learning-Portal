@@ -298,8 +298,9 @@ export default async function ParentHomePage() {
               </li>
             </ul>
           ) : null}
+          {/* CR-16 Q-5 (OC-117): the button opens the Notifications page; no preferences in CR-16. */}
           <LinkButton href="/parent/notifications" variant="secondary" className="self-start">
-            Notification settings
+            Notifications
           </LinkButton>
         </Card>
       </div>

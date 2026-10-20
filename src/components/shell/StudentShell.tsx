@@ -3,6 +3,9 @@ import { Wordmark } from '@/components/Wordmark';
 import { Icon } from '@/components/icons/Icon';
 import { ThemeToggle } from '@/components/public/ThemeToggle';
 import { OfflineBanner } from '@/components/states/OfflineBanner';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { NotificationCountsProvider } from '@/components/notifications/NotificationCounts';
+import type { ShellNotifications } from '@/server/notifications/view';
 import { AccountMenu } from './AccountMenu';
 import { NavLink } from './NavLink';
 
@@ -23,13 +26,16 @@ const ITEMS = [
 export function StudentShell({
   displayName,
   initial,
+  notifications,
   children,
 }: {
   displayName: string;
   initial: string;
+  /** CR-16: the child-friendly bell and "Your updates" sheet (D-7). */
+  notifications?: ShellNotifications | null;
   children: ReactNode;
 }) {
-  return (
+  const shell = (
     <div className="flex min-h-dvh flex-col bg-background pb-24 lg:pb-0">
       <a
         href="#main"
@@ -56,6 +62,7 @@ export function StudentShell({
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          {notifications ? <NotificationBell /> : null}
           <AccountMenu displayName={displayName} initial={initial} roleLabel="Student" child />
         </div>
       </header>
@@ -97,5 +104,17 @@ export function StudentShell({
         )}
       </nav>
     </div>
+  );
+  if (!notifications) return shell;
+  return (
+    <NotificationCountsProvider
+      role={notifications.role}
+      seeAll={false}
+      initialUnread={notifications.unread}
+      initialBadges={{}}
+      renderedAt={notifications.renderedAt}
+    >
+      {shell}
+    </NotificationCountsProvider>
   );
 }

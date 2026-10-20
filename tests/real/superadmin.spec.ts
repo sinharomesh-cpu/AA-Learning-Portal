@@ -102,8 +102,18 @@ test('next time, the Super Admin needs the password and a fresh code', async ({ 
   await page.getByLabel('Security code').fill(await codeIn(secret, 30));
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page).toHaveURL(/\/admin$/);
+  // CR-16 AC-47 (D-6): admin pages have no bell and make no notification requests.
+  const actions: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.headers()['next-action']) actions.push(r.url());
+  });
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
+  await expect(page.getByTestId('notification-bell')).toHaveCount(0);
   await page.goto('/admin/security');
   await expect(page.getByTestId('codes-left')).toHaveText('10');
+  await expect(page.getByTestId('notification-bell')).toHaveCount(0);
+  expect(actions).toEqual([]);
 });
 
 test('a recovery code works once instead of the phone', async ({ page }) => {
@@ -167,6 +177,8 @@ test('the Super Admin adds an Admin who can only read the audit log', async ({ p
   await a.getByRole('button', { name: 'Turn on security codes' }).click();
   await a.getByRole('link', { name: "I've saved them" }).click();
   await expect(a).toHaveURL(/\/admin$/);
+  // CR-16 AC-47 (D-6): no bell for an Admin either.
+  await expect(a.getByTestId('notification-bell')).toHaveCount(0);
   const menu = a.getByRole('navigation', { name: 'Admin menu', exact: true });
   await expect(menu.getByRole('link')).toHaveText(['Home', 'Audit log', 'Security']);
   await a.goto('/admin/accounts');
