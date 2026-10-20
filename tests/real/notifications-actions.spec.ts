@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { bell, bellCount, openBell, panel, publishListing, rows, signInAs } from './notificationHelpers';
+import { bell, bellCount, openBell, panel, publishListing, rows, runToRefresh, signInAs } from './notificationHelpers';
 import {
   readAtOf,
   seedChild,
@@ -366,4 +366,119 @@ test('AC-60: failed Show older, Mark all and open change nothing, restore the be
   await expect(page).toHaveURL(/\/parent\/teachers$/);
   await expect.poll(() => readAtOf(sql, firstId)).not.toBeNull();
   expect(await unreadOf(sql, parent.id)).toBe(24);
+});
+
+test('AC-55 (b): the teacher declines a rate proposal; the Enquiries badge and the label change in the same response', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const teacher = await seedTeacher(sql);
+  const parent = await seedParent(sql, 'Esha');
+  const id = await seedRateProposal(sql, parent.id, teacher.id);
+  await seedNote(sql, teacher.id, {
+    kind: 'action',
+    type: 'rate_proposal_received',
+    title: 'Hourly rate proposal from Esha',
+    href: '/teacher/enquiries/rates',
+    entityType: 'rate_proposal',
+    entityId: id,
+    offerSeq: 1,
+  });
+  await signInFrozen(page, teacher.email, /\/teacher$/);
+  const menu = page.getByRole('navigation', { name: 'Teacher menu' });
+  await expect(menu.getByRole('link', { name: 'Enquiries, 1 waiting for you' })).toBeVisible();
+  expect(await labelOf(page, 'Hourly rate proposal from Esha')).toBe('Needs your reply');
+  await menu.getByRole('link', { name: /^Enquiries/ }).click();
+  await page.getByRole('link', { name: 'Rate proposals (1 waiting)' }).click();
+  await expect(page).toHaveURL(/\/teacher\/enquiries\/rates$/);
+  const proposal = page.getByTestId('rate-negotiation').filter({ hasText: 'Esha' });
+  await proposal.getByRole('button', { name: 'Decline' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio').first().check();
+  await dialog.getByRole('button', { name: 'Decline' }).click();
+  await expect(page).toHaveURL(/\/teacher\/enquiries\/rates\?done=declined$/);
+  await expect(menu.getByRole('link', { name: 'Enquiries', exact: true })).toBeVisible();
+  await expect(menu.getByTestId('menu-badge')).toHaveCount(0);
+  expect(await labelOf(page, 'Hourly rate proposal from Esha')).toBe('Done');
+  const [r] = await sql<{ status: string; ended_by: string }[]>`
+    SELECT status, ended_by FROM rate_negotiations WHERE id = ${id}`;
+  expect(r).toEqual({ status: 'declined', ended_by: 'teacher' });
+});
+
+test('AC-55 (b): the parent declines a counter-offer; the My enquiries badge and the label change in the same response', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const parent = await seedParent(sql);
+  const teacher = await seedTeacher(sql);
+  const id = await seedCounteredProposal(sql, parent.id, teacher.id);
+  await seedNote(sql, parent.id, {
+    kind: 'action',
+    type: 'rate_counter_offer',
+    title: 'Counter-offer to decline',
+    href: '/parent/enquiries/rates',
+    entityType: 'rate_proposal',
+    entityId: id,
+    offerSeq: 2,
+  });
+  await signInFrozen(page, parent.email, /\/parent$/);
+  const menu = page.getByRole('navigation', { name: 'Parent menu' });
+  await expect(menu.getByRole('link', { name: 'My enquiries, 1 waiting for you' })).toBeVisible();
+  expect(await labelOf(page, 'Counter-offer to decline')).toBe('Needs your reply');
+  await menu.getByRole('link', { name: /^My enquiries/ }).click();
+  await page.getByRole('navigation', { name: 'Enquiry views' }).getByRole('link', { name: 'Rate proposals' }).click();
+  await expect(page).toHaveURL(/\/parent\/enquiries\/rates$/);
+  const proposal = page.getByTestId('rate-negotiation').filter({ hasText: teacher.name });
+  await proposal.getByRole('button', { name: 'Decline' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Decline' }).click();
+  await expect(page).toHaveURL(/\/parent\/enquiries\/rates\?done=declined$/);
+  await expect(menu.getByRole('link', { name: 'My enquiries', exact: true })).toBeVisible();
+  await expect(menu.getByTestId('menu-badge')).toHaveCount(0);
+  expect(await labelOf(page, 'Counter-offer to decline')).toBe('Done');
+  const [r] = await sql<{ status: string; ended_by: string }[]>`
+    SELECT status, ended_by FROM rate_negotiations WHERE id = ${id}`;
+  expect(r).toEqual({ status: 'declined', ended_by: 'parent' });
+});
+
+test('AC-10: the parent withdraws a link request; the teacher’s Students badge drops at their next refresh with no reload', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const teacher = await seedTeacher(sql);
+  const parent = await seedParent(sql, 'Gita');
+  const child = await seedChild(sql, parent.id, 'Jai');
+  const id = await seedLinkRequest(sql, teacher.id, child.id, parent.id);
+  await seedNote(sql, teacher.id, {
+    kind: 'action',
+    type: 'link_request_received',
+    title: 'New request from Gita',
+    href: '/teacher/students',
+    entityType: 'link_request',
+    entityId: id,
+  });
+  // The teacher's tab stays open with its clock frozen: it changes only at its next refresh.
+  await signInFrozen(page, teacher.email, /\/teacher$/);
+  const menu = page.getByRole('navigation', { name: 'Teacher menu' });
+  await expect(menu.getByRole('link', { name: 'Students, 1 waiting for you' })).toBeVisible();
+
+  const p = await (await browser.newContext()).newPage();
+  await signInAs(p, parent.email);
+  await p.goto('/parent/teachers');
+  await p.getByRole('button', { name: 'Withdraw request' }).click();
+  await p.getByRole('dialog').getByRole('button', { name: 'Withdraw' }).click();
+  await expect(p).toHaveURL(/\/parent\/teachers\?done=withdrawn$/);
+  await p.context().close();
+  const [l] = await sql<{ status: string; ended_as: string }[]>`
+    SELECT status, ended_as FROM teacher_student_links WHERE id = ${id}`;
+  expect(l).toEqual({ status: 'removed', ended_as: 'withdrawn' });
+
+  // No reload: still 1 until the teacher's next 60-second refresh, then 0.
+  await expect(menu.getByRole('link', { name: 'Students, 1 waiting for you' })).toBeVisible();
+  const url = page.url();
+  await runToRefresh(page, 60_000);
+  await expect(menu.getByRole('link', { name: 'Students', exact: true })).toBeVisible();
+  await expect(menu.getByTestId('menu-badge')).toHaveCount(0);
+  expect(page.url()).toBe(url);
+  expect(await labelOf(page, 'New request from Gita')).toBe('No longer needed');
 });
