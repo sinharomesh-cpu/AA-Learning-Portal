@@ -1,12 +1,14 @@
 # CR-16 — In-app notifications (bell) and dashboard action badges
 
-**Version:** 0.7 · 20 Oct 2026 · **Status:** documentation only — **nothing built.** Requirements are **ready for the owner's final approval of N-1 to N-11 and AC-1 to AC-75** (the owner's wording "AC-1 to AC-71" needs to cover the four checks added in v0.7: AC-72, AC-73, AC-74 and AC-75). Business decisions B-1 (option C) and B-2 (existing behaviour) are decided (OC-118, 20 Oct 2026, 09:56 IST); Q-2 to Q-8 and C-1 to C-4 stay decided (OC-117); D-1 to D-11 and the four §11 assumptions stay resolved (OC-115). **Implementation, data migration, test data changes and deployment are NOT authorised** (OC-118). ₹0 spent; no email or WhatsApp message has been sent; no application code, migration, test, test data or deployment was changed for this revision.
+**Version:** 0.8 · 20 Oct 2026 · **Status:** **built on the free test site** — the engine (PR #106, N1) and the bell, panel, pages and badges (PR #107, N2) are merged on main. All 11 CI checks passed on each pull request. The test site auto-deploys and auto-applies migration 0026 on merge; that deploy has **not** been independently confirmed from the build workspace, which cannot reach the site. Verification status per check is in **§20**: AC-9 is design-approved; 68 of AC-1 to AC-75 are fully verified; AC-44, AC-54, AC-55, AC-58, AC-60 and AC-75 are **partially verified (open)**; of the three checks added in v0.8, AC-76 and AC-78 are verified by existing passing tests and AC-77 is open. Owner decisions OC-120 and OC-121 (20 Oct 2026, 17:41–17:42 IST) are recorded; they approve requirement and verification-record changes only. **No further implementation, migration, test-data change or deployment is authorised** until the owner's separate approval. ₹0 spent; no email or WhatsApp message has been sent; no application code, migration or test was changed for this revision.
 **Approval:** **Approved requirements baseline** — the owner approved v0.7, requirements N-1 to N-11 and acceptance checks AC-1 to AC-75, with B-1 (option C) and B-2 confirmed (20 Oct 2026, 11:14 IST, OC-119). This approves requirements, business rules, design and acceptance criteria only. **Implementation, the CR-16 migration, test data changes, data migration and deployment are not authorised** until separate explicit approval. ₹0; no paid services, new infrastructure, email sending or WhatsApp. Editorial note (OC-119): the planned CR-16 migration is renumbered from 0025 to **0026**, because 0025 was used by the separately approved "AA Pro Verified" change (PR #103); no requirement changed.
 
 **Source:** owner requirement "Centralised Notifications and Dashboard Action Badges" (19 Oct 2026, 13:27 IST); decisions OC-106 (14:10 IST), OC-113 (19:21 IST) and OC-115 (23:51 IST); documentation review request OC-116 (20 Oct 2026, 00:07 IST); resolutions OC-117 (20 Oct 2026, 00:56 IST); business decisions OC-118 (20 Oct 2026, 09:56 IST). **Budget:** ₹0 — in-app only; no paid service, no new infrastructure, no email or WhatsApp sending.
 **Boards:** NB0–NB4 on the design canvas (page "CR-16 Notifications"). They show content and behaviour; the build uses the approved signed-in design (tinted card headers, chip-style All / Unread filters, responsive desktop layout, bottom sheet on phones) without changing content, triggers, permissions or behaviour (OC-113 (1)).
 
-**What changed from v0.6:** the owner decided B-1 and B-2 (OC-118). **B-1 — option C:** each bell refresh also runs a **user-scoped expiry check** over only the signed-in user's own, authorised enquiries, link requests and rate proposals, beside the unchanged once-a-minute shared sweep, so an active user sees an expiry notification within about 60 seconds of the expiry, as D-4 says (§0, §7.2, §7.5, §7.6). The earlier "about 2 minutes" worst case now applies only to the listing reminder, not to expiry notifications for active users. **B-2 — existing behaviour kept:** no listing reminder is created after the listing has ended (§7.3). Four checks were added (AC-72 to AC-75, 71 → 75 checks) and five changed (AC-30, AC-44, AC-58, AC-65, AC-71). The final consistency review is recorded in §18. Every change is listed in §17.
+**What changed from v0.7:** implementation status and owner decisions only (OC-120, OC-121). AC-9's design review is approved (design only). Four implementation choices are approved as requirements: no bell in the sample-data preview (AC-77), the access of teachers awaiting approval and of not-approved teachers (§6.2, AC-78), 48 px filter chips (AC-40, consistent with C-3), and parent-only notification of an unanswered enquiry's expiry (§3, AC-76). AC-44, AC-54, AC-55, AC-58, AC-60 and AC-75 stay partially verified, each with its remaining verification method (§20). The AC-75 review was carried out on an isolated, seeded review database (§20.2). No business rule other than the four recorded decisions was changed; privacy, authorisation, idempotency and ₹0 rules are unchanged.
+
+**What changed from v0.6 (kept for history):** the owner decided B-1 and B-2 (OC-118). **B-1 — option C:** each bell refresh also runs a **user-scoped expiry check** over only the signed-in user's own, authorised enquiries, link requests and rate proposals, beside the unchanged once-a-minute shared sweep, so an active user sees an expiry notification within about 60 seconds of the expiry, as D-4 says (§0, §7.2, §7.5, §7.6). The earlier "about 2 minutes" worst case now applies only to the listing reminder, not to expiry notifications for active users. **B-2 — existing behaviour kept:** no listing reminder is created after the listing has ended (§7.3). Four checks were added (AC-72 to AC-75, 71 → 75 checks) and five changed (AC-30, AC-44, AC-58, AC-65, AC-71). The final consistency review is recorded in §18. Every change is listed in §17.
 **What changed from v0.5 (kept for history):** the owner decided Q-2 to Q-8 and accepted C-1 to C-4 (OC-117). Not-approved teachers keep today's restricted access with no bell (§3, §6); the existing profile-change decisions are added as events (§3); notifications whose record the user may no longer see are kept but shown redacted (§8.1); the parent home button becomes "Notifications" (§6); the expiry and listing-reminder sweeps run on bell refreshes and signed-in page loads through one shared once-a-minute throttle (§7.2, §7.3, §7.5); existing email behaviour is unchanged (§5). Five checks were added (AC-67 to AC-71, 66 → 71 checks) and fourteen changed. The Q-8 timing check found that the worst case for an expiry notification becomes about 2 minutes, not D-4's "approximately 60 seconds"; this is **not** decided here and is listed as business decision B-1. *(B-1 and B-2 were decided in v0.7, OC-118: the 2-minute figure no longer applies to expiry notifications for active users.)* Every change is listed in §16; the final quality checks are now in §18 (renumbered in v0.7).
 **What changed from v0.4 (kept for history):** review of the requirement-to-check links (OC-116). No business rule, decision or approved design was changed. Terms are defined once (§0); badge calculations (§4.1), action labels (§6.1), pagination (§6.2), refresh after the user's own action (§7.1), the listing-reminder trigger and timing (§7.3), error and offline behaviour (§7.4) and retention timestamps (§9) are now exact; eleven checks were tightened and twelve added (AC-55 to AC-66, 54 → 66 checks); a full traceability matrix replaces the one-line list (§15). Every change is listed in §14.
 **What changed from v0.3 (kept for history):** D-1 to D-11 decided and the four assumptions accepted (§11); requirements and checks updated to match, and twelve checks added (AC-43 to AC-54) — every change is listed in §12; conflicts with existing checks, the current code and the tests are listed in §13, with eight new questions.
@@ -31,13 +33,19 @@
 | Resolved | C-1 to C-4 | Accepted — OC-117 (§13.5): badges in the same refresh response; keyset paging; 48 × 48 px targets with 8 px spacing; unread rows stay in place under the Unread filter. |
 | Resolved (v0.7) | **B-1 — Expiry timing under the Q-8 throttle** | Decided — OC-118: **option C.** Each bell refresh also runs a user-scoped expiry check over only the signed-in user's own authorised enquiries, link requests and rate proposals (§7.6), beside the unchanged once-a-minute shared sweep. An active user sees an expiry notification within about 60 seconds of the expiry (D-4 met as written; AC-44: at most 65 s). Efficient, idempotent, concurrency-safe, server-derived identity only; expiry durations and rules unchanged (AC-72 to AC-75). |
 | Resolved (v0.7) | **B-2 — Listing reminder after the period has ended** | Decided — OC-118: **existing behaviour approved.** If no qualifying application activity occurs during the listing's final 7 days, no reminder is created after the listing expires. No scheduler or new infrastructure. The "Looking for students" badge still shows renewal due (§7.3, AC-58). |
+| Resolved (v0.8) | **AC-9 — design review** | **Approved — OC-120** (owner, 20 Oct 2026, 17:41 IST) from four screenshots: desktop panel, phone sheet, parent Notifications page, redacted row. Covers the visual design only — not functionality, accessibility, authorisation, privacy or any other check. |
+| Resolved (v0.8) | **Verification of partially covered checks** | **OC-120:** AC-44, AC-54, AC-55, AC-58 and AC-60 stay partially verified until their remaining checks pass; AC-75 review to be completed and documented (§20). |
+| Resolved (v0.8) | **Sample-data preview** | **Approved — OC-121 (1):** no bell, panel or badges in the sample-data preview; the actual application is unchanged (AC-77, DV-95). |
+| Resolved (v0.8) | **Teachers awaiting approval** | **Approved — OC-121 (2):** approval-status notifications only, in the bell panel on the permitted status and profile pages; no full Notifications page and no "See all" link. Not-approved (rejected) or otherwise restricted teachers gain no notification access beyond their permissions (§6.2, AC-78, DV-96). |
+| Resolved (v0.8) | **Filter chip height** | **Approved — OC-121 (3):** All / Unread chips 48 px high, consistent with the agreed 48 × 48 px targets and 8 px spacing (C-3, AC-40, DV-97). |
+| Resolved (v0.8) | **Unanswered enquiry expiry** | **Approved — OC-121 (4):** notify only the parent who raised the enquiry, once; no teacher notification; the enquiry status becomes expired (§3, AC-76). |
 
 **(b) Still needing a decision:**
 
 | | Item | State |
 |---|---|---|
-| Remaining | N-1 to N-11, AC-1 to AC-75 | **Await the owner's final approval** (OC-113 (2)). The owner said (OC-118) they are prepared to approve N-1–N-11 and AC-1–AC-71 after this final consistency review; the approval wording needs to include **AC-72 to AC-75**, added in v0.7 to test B-1 option C. |
-| Remaining | Approval to implement | Separate, later approval. Implementation, data migration (0026), test data changes and deployment are **not** authorised (OC-118). |
+| Resolved | N-1 to N-11, AC-1 to AC-75 | Approved as the requirements baseline (OC-119). AC-76 to AC-78 added in v0.8 to record OC-121. |
+| Remaining | Further implementation | Implementation of v0.7 was approved for the free test site (owner, 20 Oct 2026, 11:31 IST) and is merged (PRs #106, #107). Any further change — including new tests for the open checks in §20 or an index for AC-75 — needs the owner's separate approval (OC-120, OC-121). |
 
 No other business decision is open (§18.8).
 
@@ -115,7 +123,8 @@ Notifications are created **at the business event, in the same database transact
 |---|---|---|---|---|
 | Enquiry sent | Teacher | Action | "New enquiry from Anita" | /teacher/enquiries |
 | Enquiry accepted / declined | Parent | Update | "Teacher B accepted your enquiry" | /parent/enquiries |
-| Enquiry expired / withdrawn | The other side | Update | "Your enquiry to Teacher B expired" | Enquiries page |
+| Enquiry expired (v0.8, OC-121 (4)) | The parent who raised it — once; the teacher gets no expiry notification | Update | "Your enquiry to Teacher B expired" | Enquiries page |
+| Enquiry withdrawn | The teacher it was sent to | Update | "Anita withdrew their enquiry" | Enquiries page |
 | Link request sent (after teacher approval) | Teacher | Action | "Anita asked you to teach a Grade 5 child" | /teacher/students |
 | Link request accepted / declined / expired | Parent | Update | "Teacher B accepted your link request for Kiran" | /parent/teachers |
 | Rate proposal received (hourly / package / earlier price) | Teacher | Action | "New package price proposal" | /teacher/enquiries/rates |
@@ -224,7 +233,8 @@ A decline counts as "Done" because it is the recipient's own answer (D-1 "comple
 | Role | Panel / sheet | Full page | "Show older" |
 |---|---|---|---|
 | Parent | Latest **10**, all notifications (read and unread); "See all notifications" link | **20** per load; All / Unread chips | On the page only: loads the next 20 older items of the active filter; hidden when none are older |
-| Teacher (incl. awaiting approval) | Latest **10**; "See all notifications" link | **20** per load; All / Unread chips; reached only from "See all" | As parent |
+| Teacher (approved) | Latest **10**; "See all notifications" link | **20** per load; All / Unread chips; reached only from "See all" | As parent |
+| Teacher awaiting approval (v0.8, OC-121 (2)) | Latest **10**, approval-status and profile notifications only, on the status and profile pages; **no** "See all" link | **None** — /teacher/notifications sends them to /teacher/status | As parent |
 | Student | Latest **20**, all notifications, child-friendly sheet | **None** in CR-16 | **None.** Older notifications are not reachable by the student in CR-16; they remain stored until retention removes them (§9) |
 
 - **Order:** newest first by `created_at`, then `id` (both descending) so equal times have a stable order.
@@ -467,6 +477,14 @@ Types: **P** positive · **N** negative / authorisation · **D** duplicate / rel
 | AC-74 **(v0.7)** | Counts after the check (§7.2, §7.6): the refresh response that ran the check returns an unread count that already includes the notification just created for the viewer, and menu badges equal their §4.1 values (the same before and after the check); the other party's bell number is correct at their next refresh without any sweep of their own; the related action labels show "No longer needed" (§6.1); when nothing has expired, the counts are unchanged and no row is written. | N-2, N-5, N-7 | P | DB + BR |
 | AC-75 **(v0.7)** | Efficiency (§7.6): a review of the build shows that each user-scoped statement filters by the viewer's id on an indexed column (`EXPLAIN` on a seeded database with other users' rows shows an index scan on the owner or recipient index for each of the three tables, with the parent-side link-request index added in migration 0026 when implementation is approved), touches only the viewer's rows, and adds no table, service, scheduler or stored throttle row; with nothing expired the check writes no row. | N-4, N-7 | R / P | DB + review |
 
+### Owner decisions (v0.8, OC-121)
+
+| Check | Statement | Req | Type | Level |
+|---|---|---|---|---|
+| AC-76 **(v0.8)** | Unanswered enquiry expiry (OC-121 (4)): when a pending enquiry passes `expires_at`, its status becomes `expired` and exactly one `enquiry_expired` notification is created, for the parent who raised it; the teacher receives none; repeated or concurrent sweeps and user-scoped checks create no second notification. | N-1, N-4 | P / D | DB |
+| AC-77 **(v0.8)** | Sample-data preview (OC-121 (1)): with the sample-data mode on, no bell, notification panel or menu badge is shown on any parent, teacher or student page, and no notification request is made; the actual application's behaviour is unchanged. | N-11 | N | BR |
+| AC-78 **(v0.8)** | Teachers awaiting approval and restricted teachers (OC-121 (2)): a teacher awaiting approval sees the bell only on the status and profile pages, with approval-status and profile notifications only, no "See all" link, and /teacher/notifications sends them to /teacher/status; a not-approved or otherwise restricted teacher sees no bell and makes no notification request. Checked on the server, not only hidden in the page. | N-1, N-3 | N | BR + DB |
+
 Numbering note: AC-55 to AC-66 are new in v0.5, AC-67 to AC-71 in v0.6 and AC-72 to AC-75 in v0.7; existing numbers are not changed so earlier references stay valid.
 
 ## 11. Decisions (resolved, OC-115) and assumptions
@@ -661,17 +679,17 @@ Review items (owner, 20 Oct 2026, 00:07 IST): **1** student panel 20 vs AC-3 · 
 
 | Req | Requirement (summary) | Verified by | Test levels | Gaps |
 |---|---|---|---|---|
-| N-1 | Role-based notifications; awaiting-approval teachers only approval / profile; not-approved teachers none; no admin notifications | AC-17, AC-18, AC-19, AC-20, AC-46, AC-47, AC-48, AC-68, AC-69 | DB, BR | None (Q-2 and Q-3 decided, v0.6) |
+| N-1 | Role-based notifications; awaiting-approval teachers only approval / profile; not-approved teachers none; no admin notifications | AC-17, AC-18, AC-19, AC-20, AC-46, AC-47, AC-48, AC-68, AC-69, AC-76, AC-78 | DB, BR | None (Q-2 and Q-3 decided, v0.6) |
 | N-2 | Badges from business records; reading never clears an action | AC-10–AC-16, AC-23, AC-43, AC-54, AC-55 (b), AC-64, AC-71 (g), AC-74 | DB, BR | None |
-| N-3 | Server-side authorisation; no cross-family data | AC-18, AC-20, AC-24, AC-25, AC-26, AC-27, AC-46, AC-49, AC-53, AC-59, AC-64, AC-67, AC-68, AC-72 | DB, BR | None (Q-4 decided, v0.6; user-scoped check limited to authorised records, v0.7) |
-| N-4 | One per recipient per event; labels follow the record; lesson items out of scope | AC-29–AC-33, AC-43, AC-44, AC-45, AC-51, AC-52, AC-57, AC-58, AC-69, AC-71, AC-72, AC-73, AC-75 | DB, BR, review | None (B-2 decided, v0.7: AC-58 tests the approved existing rule) |
+| N-3 | Server-side authorisation; no cross-family data | AC-18, AC-20, AC-24, AC-25, AC-26, AC-27, AC-46, AC-49, AC-53, AC-59, AC-64, AC-67, AC-68, AC-72, AC-78 | DB, BR | None (Q-4 decided, v0.6; user-scoped check limited to authorised records, v0.7) |
+| N-4 | One per recipient per event; labels follow the record; lesson items out of scope | AC-29–AC-33, AC-43, AC-44, AC-45, AC-51, AC-52, AC-57, AC-58, AC-69, AC-71, AC-72, AC-73, AC-75, AC-76 | DB, BR, review | None (B-2 decided, v0.7: AC-58 tests the approved existing rule) |
 | N-5 | Bell: count, list, date and time, read status, mark one / all | AC-1–AC-8, AC-48, AC-60, AC-63, AC-70, AC-74 | DB, BR, U | None |
 | N-6 | Navigation only when authorised; neutral message; redacted list; never grants access | AC-27, AC-28, AC-49, AC-67 | DB, BR | None |
 | N-7 | 60-s refresh when visible; none when hidden; immediate after own actions; refresh triggers the throttled shared sweep and runs the user-scoped expiry check | AC-34, AC-35, AC-44, AC-55, AC-56, AC-58, AC-71, AC-74, AC-75 | DB, BR, review | None (B-1 decided, v0.7: AC-44 bound 65 s) |
 | N-8 | Worksheet: student + each parent; no other students' information | AC-21, AC-22, AC-23 | DB, BR | None |
 | N-9 | Retention 90 days from `read_at`, 180 from `created_at`; hourly clean-up; business records and badges untouched | AC-36, AC-37, AC-50, AC-62 | DB | None |
 | N-10 | Every check specific, testable, traceable; all test types | AC-65, AC-66 (and this matrix, and §18) | review | Verified by review, not by an automated test (by nature) |
-| N-11 | Approved design; responsive; accessible; loading / empty / error states | AC-9, AC-38–AC-42, AC-60, AC-61, AC-70 | U, BR, all suites | Visual match (AC-9) is a screenshot review, not automated |
+| N-11 | Approved design; responsive; accessible; loading / empty / error states | AC-9, AC-38–AC-42, AC-60, AC-61, AC-70, AC-77 | U, BR, all suites | Visual match (AC-9) is a screenshot review, not automated — approved by the owner (OC-120) |
 
 ### 15.2 Checks → requirements
 
@@ -704,6 +722,9 @@ Review items (owner, 20 Oct 2026, 00:07 IST): **1** student panel 20 vs AC-3 · 
 |  |  |  |  | AC-73 | N-4 |
 |  |  |  |  | AC-74 | N-2, N-5, N-7 |
 |  |  |  |  | AC-75 | N-4, N-7 |
+|  |  |  |  | AC-76 | N-1, N-4 |
+|  |  |  |  | AC-77 | N-11 |
+|  |  |  |  | AC-78 | N-1, N-3 |
 
 **Orphans:** none. Every check AC-1 to AC-75 maps to at least one requirement, and every requirement N-1 to N-11 has at least one check (verified in §18.1). N-10 is verified by review (AC-65, AC-66) rather than by an automated test. AC-42 (existing suites unchanged) is mapped to N-11 as in v0.4; it also protects the "existing behaviour preserved" commitment.
 
@@ -776,7 +797,7 @@ Owner's business decisions of 20 Oct 2026, 09:56 IST (OC-118): **B-1 option C ap
 
 ### 18.2 Planned test for every check
 
-Nothing is implemented, so **no CR-16 check has been run**. The result column is the honest one; no passing result is claimed (AC-66). File and test names are the plan for the build and may be refined then; the build report will list the final names and real results.
+(v0.8) CR-16 is built (N1 #106, N2 #107). The actual-result column records real results only; parts not run are stated as not run (AC-66). **The verification status of every check — design-approved, fully verified, partially verified or open — is in §20.** The text below this paragraph is kept from v0.7 for the planned file names.
 
 | Check | Planned test file(s) | Planned test name | Level | Actual result |
 |---|---|---|---|---|
@@ -788,7 +809,7 @@ Nothing is implemented, so **no CR-16 check has been run**. The result column is
 | AC-6 | tests/e2e/notifications.spec.ts | "Mark as read on one row keeps the screen, lowers the bell, leaves badges" | BR | Passed (N2) — tests/real/notifications.spec.ts "AC-6, AC-7, AC-14, AC-55 (a), AC-43 …" (panel) · tests/real/notifications.spec.ts "AC-8, AC-63 …" (page) · tests/unit/NotificationPanel.test.tsx |
 | AC-7 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "Mark all as read clears the bell and leaves badges" | DB + BR | Passed — DB part tests/db/notifications.test.ts (N1); browser part tests/real/notifications.spec.ts "AC-6, AC-7, …" and tests/db/notificationView.test.ts (N2) |
 | AC-8 | tests/e2e/notifications.spec.ts | "Notifications page: 20 per load, Show older, chips, unread rows stay in place (C-4)" | BR | Passed (N2) — tests/real/notifications.spec.ts "AC-8, AC-63 …" (45 rows, Show older ×2, Unread chip = bell number, C-4) |
-| AC-9 | tests/e2e/notifications.spec.ts | "panel and page match the approved design (screenshot review)" | BR (screenshot review) | Screenshots captured for owner review (N2) — tests/real/notifications-phone-a11y.spec.ts (N2_SHOTS: desktop panel, phone sheet, parent page, redacted row); review by the owner not yet done |
+| AC-9 | tests/e2e/notifications.spec.ts | "panel and page match the approved design (screenshot review)" | BR (screenshot review) | Screenshots captured for owner review (N2) — tests/real/notifications-phone-a11y.spec.ts (N2_SHOTS: desktop panel, phone sheet, parent page, redacted row); **design approved by the owner, 20 Oct 2026, 17:41 IST (OC-120)** — visual design only; not a pass of functionality, accessibility, authorisation or privacy checks |
 | AC-10 | tests/db/notificationBadges.test.ts · tests/e2e/notifications.spec.ts | "Students badge rises and falls with link requests" | DB + BR | Passed — DB part tests/db/notificationBadges.test.ts (N1); browser part (N2) tests/real/notifications.spec.ts "AC-44, AC-74 …" (Students badge 1, then 0 after the link request expires, no reload) and tests/real/notifications-phone-a11y.spec.ts "AC-41, AC-61 …" (badge read as "Students, 1 waiting for you"). Accept / decline / withdraw in the browser not run |
 | AC-11 | tests/db/notificationBadges.test.ts | "Enquiries badge counts enquiries and rate proposals on the teacher’s turn" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
 | AC-12 | tests/db/notificationBadges.test.ts | "Looking for students badge: renewal due and package needing details, 0–2" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
@@ -854,7 +875,10 @@ Nothing is implemented, so **no CR-16 check has been run**. The result column is
 | AC-72 | tests/db/notificationUserExpiry.test.ts | "user-scoped check expires only the viewer's authorised records; client ids ignored" | DB | Passed — tests/db/notificationUserExpiry.test.ts (N1) |
 | AC-73 | tests/db/notificationUserExpiry.test.ts | "concurrent refreshes, both parties and races with the shared sweep give one transition and one notification per recipient" | DB | Passed — tests/db/notificationUserExpiry.test.ts (N1) |
 | AC-74 | tests/db/notificationUserExpiry.test.ts · tests/e2e/notifications.spec.ts | "refresh response counts include the new notification; badges unchanged; other party correct" | DB + BR | Passed — DB part (N1); browser part tests/real/notifications.spec.ts "AC-44, AC-74 …" and tests/db/notificationView.test.ts (N2) |
-| AC-75 | tests/db/notificationUserExpiry.test.ts · review of the build | "user-scoped statements use owner indexes and write nothing when nothing has expired" | DB + review | DB part passed — tests/db/notificationUserExpiry.test.ts (N1); review part not run |
+| AC-75 | tests/db/notificationUserExpiry.test.ts · review of the build | "user-scoped statements use owner indexes and write nothing when nothing has expired" | DB + review | DB part passed — tests/db/notificationUserExpiry.test.ts (N1); review carried out 20 Oct 2026 on an isolated seeded review database (§20.2): every statement uses an index scan with the viewer's id; no write when nothing has expired; no other user's row changed. **Finding:** the teacher-side rate-proposal statement scans the whole active-proposals index rather than a teacher-keyed range — **partially verified, open** (§20) |
+| AC-76 | tests/db/notificationSweeps.test.ts · tests/db/notificationUserExpiry.test.ts · tests/db/notifications.test.ts | "enquiry expiry notifies the parent once; never the teacher" | DB | Passed (N1) — recipients equal [parent] and exactly one `enquiry_expired` per enquiry across sweeps, user-scoped checks and a retried failure |
+| AC-77 | — | "no bell in the sample-data preview" | BR | Implemented (DV-95, `shellNotifications` returns nothing in demo mode); **no dedicated assertion yet — open** (§20) |
+| AC-78 | tests/real/notifications-access.spec.ts | awaiting-approval test (bell on status and profile pages; only approval-status rows; no "See all"; /teacher/notifications → /teacher/status) · "AC-68: a not-approved teacher sees the status message as today, no bell and makes no notification requests" | BR + DB | Passed (N2, CI on PR #107) — every part asserted in the browser; server-side refusal also in tests/db/notificationAccess.test.ts (N1). "Otherwise restricted" accounts (suspended or closed) cannot sign in, so they reach no page with a bell |
 
 **Existing tests that must keep passing** (they cover behaviour CR-16 must not change):
 
@@ -931,4 +955,55 @@ This revision (v0.7) changed **documentation only**: this document and the decis
 
 ## 19. What I need from you
 
-Final approval of N-1 to N-11 and **AC-1 to AC-75** (or changes). The owner's OC-118 wording "AC-1 to AC-71" needs to include the four checks added in v0.7 for B-1 option C: **AC-72** (scope and authorisation), **AC-73** (concurrency and idempotency), **AC-74** (counts after the check) and **AC-75** (efficiency). Approving AC-31 also confirms the §6.1 label table (Q-1). No other decision is open. Implementation, data migration, test data changes and deployment start only after a separate implementation approval.
+Nothing is needed to keep the records accurate. To close the open checks in §20, the owner's separate approval is needed for: (1) adding the browser and component tests listed in §20.1 (test files only; no application change); (2) optionally, an index for the teacher-side rate-proposal check (§20.2) — a new migration, so it needs explicit approval and is not required for correctness. Until then the six partially verified checks and AC-77 stay open.
+
+## 20. Verification status (v0.8, OC-120)
+
+Categories: **Design-approved** — the owner approved the visual design only (OC-120); **Fully verified** — every part of the check has a passing automated test or a completed review, run locally and in CI on PRs #106 and #107; **Partially verified (open)** — some parts passed, others not yet run; **Open** — not yet verified. No check is shown as passed on partial evidence.
+
+| Status | Checks | Count |
+|---|---|---|
+| Design-approved | AC-9 (visual design only; OC-120, 20 Oct 2026, 17:41 IST) | 1 |
+| Fully verified | AC-1–AC-8, AC-10–AC-43, AC-45–AC-53, AC-56, AC-57, AC-59, AC-61–AC-74, AC-76, AC-78 | 70 |
+| Partially verified (open) | AC-44, AC-54, AC-55, AC-58, AC-60, AC-75 | 6 |
+| Open | AC-77 | 1 |
+| **Total** | AC-1 to AC-78 | **78** |
+
+AC-42 counts as fully verified on the CI evidence: the complete existing suites (unit, DB, demo e2e, hosted demo and real-account e2e) passed in CI on PR #107; locally the real-account suite had to run in parts because of the build workspace's memory limit. AC-65 and AC-66 are reviews, recorded as met in §18.2.
+
+### 20.1 Partially verified and open checks
+
+| Check | Tested so far, and result | Not yet verified | Verification still required | Evidence and result once done |
+|---|---|---|---|---|
+| AC-44 | DB: expiry notification created by the user-scoped check for an enquiry, link request and rate proposal while the shared sweep is held — passed (tests/db/notificationUserExpiry.test.ts, notificationSweeps.test.ts). Browser: parent and teacher, shared sweep held, notification in the bell ≤ 65 s after expiry — passed (tests/real/notifications.spec.ts "AC-44, AC-74 …"). | The two timing variants in the browser: refresh just before the expiry time *E* (worst case, ≈ 60 s wait) and just after *E*. | Browser test with the controlled browser clock: one case per variant, for a parent and a teacher, asserting the bell number and list within 65 s and that the shared sweep did not run. | Pending — partially verified |
+| AC-54 | DB: the "Finish your learning package" banner condition is independent of the notification's read status and clears only on completion or withdrawal — passed (tests/db/notificationLabels.test.ts). | Browser: the banner on the teacher dashboard before and after the notification is read, and after the package is completed or withdrawn. | Real-account browser test on /teacher with a package needing details. | Pending — partially verified |
+| AC-55 | Browser with the clock frozen: (a) Mark as read / Mark all change the bell with no reload — passed; (b) teacher answers an enquiry: badge and label updated in the same response — passed; (c) opening a notification shows the lowered number — passed. | (b) for: teacher accepts and declines a link request, answers and counters a rate proposal, renews the listing, completes the package; parent answers, counters and withdraws a rate proposal. | One browser case per action, or an action-level test asserting that each action's response carries the updated badge counts and label (the same server-render path is used, but each action is not yet separately proven). | Pending — partially verified |
+| AC-58 | DB: reminder created by the first sweep in the final 7 days, day-6 catch-up, 100-per-run limit with the 101st in the next run, none after the listing has expired (B-2), never by the user-scoped check — passed (tests/db/notificationSweeps.test.ts). | Browser: the reminder appears in the teacher's bell at their next sign-in, and the "Looking for students" badge shows renewal due after expiry with no reminder. | Real-account browser test with a listing in its final week; timing rules stay verified at DB level (the right level for them). | Pending — partially verified |
+| AC-60 | DB: failed mark read / mark all / open change no row — passed. Component: all error states — passed (tests/unit/NotificationPanel.test.tsx). Browser: offline banner and one check on reconnect, failed mark read with restored number and retry, failed refresh, failed list — passed (tests/real/notifications.spec.ts "AC-39, AC-60 …"). | Browser: failed "Show older" keeps the shown rows and offers Try again (component level only); failed "Mark all" and failed open not separately asserted in the browser. | Browser test that makes those three requests fail (network route), asserting no row change, the restored bell number and no record or user named in the message. | Pending — partially verified |
+| AC-75 | DB: the user-scoped check writes nothing when nothing has expired and only touches the viewer's rows — passed (tests/db/notificationUserExpiry.test.ts). Review: §20.2 — completed 20 Oct 2026. | The teacher-side rate-proposal statement does not use a teacher-keyed index range (see finding). | Owner decision: accept the current plan (cost grows with the number of open proposals platform-wide, ≈ 4 ms at 6,000 open proposals), or approve a partial index `(teacher_id) WHERE status IN ('pending','countered')` in a new migration, then re-run the EXPLAIN. | Pending — partially verified |
+| AC-77 | Implemented: in sample-data mode `shellNotifications` returns nothing, so no bell, panel or badge renders (DV-95). The demo e2e and hosted-demo suites pass. | No test asserts the absence of the bell and of notification requests in sample-data mode. | Demo browser test on parent, teacher and student pages asserting no bell, no badge and no notification request. | Pending — open |
+
+### 20.2 AC-75 review (20 Oct 2026)
+
+**Database used.** A new, disposable database `cr16_ac75_review` on the build workspace's local PostgreSQL 16 server (127.0.0.1), created for this review, given the schema with the application's normal migration step (26 migrations, as the DB test suite does), seeded with synthetic rows only, and dropped afterwards. No existing, shared or production database was touched, and no migration was run anywhere else. Migration 0025 (AA Pro Verified) and 0026 (CR-16) were already merged earlier; nothing was applied to the test site for this review.
+
+**Seed (synthetic).** 2,000 parents, 500 teachers, 3,000 children with guardian links; 100,000 enquiries (5 % pending, half of those past expiry); 60,000 teacher–child link rows (10 % requested, half past expiry); 60,000 rate proposals (10 % open, half past expiry). Statistics refreshed with `ANALYZE`. The planner's normal choices were used (sequential scans **not** disabled).
+
+**Statements reviewed** — the six user-scoped `UPDATE`s run by `userScopedExpiryCheck` (src/server/notifications/sweep.ts) through `expireEnquiries`, `expireLinkRequests` and `expireRateNegotiations` with a teacher or parent scope. Results of `EXPLAIN (ANALYZE, BUFFERS)` inside a rolled-back transaction:
+
+| # | Table, scope | Plan | Index used | Rows expired | Time |
+|---|---|---|---|---|---|
+| 1 | Enquiries, teacher | Bitmap index scan | `teacher_enquiries_teacher (teacher_id, status, sent_at)` — teacher and status in the index condition | 100 | 2.4 ms |
+| 2 | Enquiries, parent | Index scan | `teacher_enquiries_parent (parent_id, status, sent_at)` | 0 | 0.02 ms |
+| 3 | Link requests, teacher | Bitmap index scan | `teacher_student_links_requested (teacher_id, requested_at) WHERE status = 'requested'` (migration 0020) | 5 | 2.6 ms |
+| 4 | Link requests, parent | Index scan, then guardian-link check by primary key | `teacher_student_links_parent_requested (created_by_parent_id) WHERE status = 'requested'` — **added in migration 0026** | 0 | 0.03 ms |
+| 5 | Rate proposals, teacher | Index scan | `rate_negotiations_one_active` (partial, open proposals only), with `teacher_id` as a non-leading column | 120 | 3.9 ms (80 index/heap pages read) |
+| 6 | Rate proposals, parent | Index scan | `rate_negotiations_one_active` with `parent_id` as the leading column | 0 | 0.06 ms |
+
+**Migration 0026's index.** The parent-side link-request index is the one the parent statement uses (row 4); without it that statement would have no parent-keyed index. Note on numbering: the CR-16 index is in **migration 0026**, not 0025; 0025 is the AA Pro Verified migration.
+
+**Writes.** (a) For a teacher with nothing expired, running the three teacher-scope statements wrote **0 rows** (PostgreSQL transaction statistics: 0 inserts, updates or deletes). (b) For a teacher with expired records, 225 of that teacher's rows were updated and a before/after fingerprint of all **219,561** other users' rows in the three tables showed **0 changed**. The check adds no table, service, scheduler or throttle row (§7.6): `userScopedExpiryCheck` calls only the three existing expiry functions.
+
+**Finding.** Statement 5 uses an index scan, but `teacher_id` is not the index's leading column, so PostgreSQL reads the whole partial index of open proposals platform-wide rather than one teacher's range. It is fast at this scale and correct; its cost grows with the total number of open proposals. AC-75 therefore stays **partially verified** until the owner accepts this plan or approves an index (§19).
+
+**Scripts and output** were kept in the build workspace only (not committed): seed, EXPLAIN and write-check SQL with their outputs.
