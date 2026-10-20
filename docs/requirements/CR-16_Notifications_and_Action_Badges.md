@@ -46,7 +46,7 @@
 |---|---|---|
 | Resolved | N-1 to N-11, AC-1 to AC-75 | Approved as the requirements baseline (OC-119). AC-76 to AC-78 added in v0.8 to record OC-121. |
 | Resolved | Tests for the open checks | Added with the owner's approval as test files only (branch cr16-open-check-tests): AC-44, AC-54, AC-55, AC-58, AC-60 and AC-77 are fully verified (§20). |
-| Remaining | **AC-75 — teacher-side rate-proposal index** | Open, pending the owner's index decision (the options presented to the owner; §20.1, §20.2). Any index would be a new migration (0027), which is **not approved**. Any other further change also needs the owner's separate approval (OC-120, OC-121). |
+| Remaining | **AC-75 — teacher-side rate-proposal index** | Open, pending the owner's index decision (options presented to the owner on 20 Oct 2026: (a) accept AC-75 as met with the growth note recorded; (b) approve migration 0027 adding `rate_negotiations_teacher_open (teacher_id) WHERE status IN ('pending','countered')`; (c) accept now and revisit before launch. Measured at 60,000 open proposals on an isolated review database: teacher expiry check 10.9 → 5.9 ms, teacher with nothing expired 2.6 → 0.08 ms, teacher Enquiries badge count 8.6 → 0.55 ms; index 440 kB; no measurable write overhead; §20.1, §20.2). Any index would be a new migration (0027), which is **not approved**. Any other further change also needs the owner's separate approval (OC-120, OC-121). |
 
 No other business decision is open (§18.8).
 
@@ -956,7 +956,7 @@ This revision (v0.7) changed **documentation only**: this document and the decis
 
 ## 19. What I need from you
 
-One decision only: **AC-75** — the owner's decision on the teacher-side rate-proposal index (the options presented to the owner; §20.1, §20.2). Adding an index would be a new migration (0027), which is **not approved**; it is not required for correctness. Until then AC-75 stays partially verified (open). AC-44, AC-54, AC-55, AC-58, AC-60 and AC-77 are fully verified (§20; passed locally (3/3), CI result recorded on merge). Counts: 1 design-approved (AC-9), 76 fully verified, 1 partially verified (AC-75), 0 open — 78 checks.
+One decision only: **AC-75** — the owner's decision on the teacher-side rate-proposal index (options presented to the owner on 20 Oct 2026: (a) accept AC-75 as met with the growth note recorded; (b) approve migration 0027 adding `rate_negotiations_teacher_open (teacher_id) WHERE status IN ('pending','countered')`; (c) accept now and revisit before launch. Measured at 60,000 open proposals on an isolated review database: teacher expiry check 10.9 → 5.9 ms, teacher with nothing expired 2.6 → 0.08 ms, teacher Enquiries badge count 8.6 → 0.55 ms; index 440 kB; no measurable write overhead; §20.1, §20.2). Adding an index would be a new migration (0027), which is **not approved**; it is not required for correctness. Until then AC-75 stays partially verified (open). AC-44, AC-54, AC-55, AC-58, AC-60 and AC-77 are fully verified (§20; passed locally (3/3), CI result recorded on merge). Counts: 1 design-approved (AC-9), 76 fully verified, 1 partially verified (AC-75), 0 open — 78 checks.
 
 ## 20. Verification status (v0.8, OC-120)
 
