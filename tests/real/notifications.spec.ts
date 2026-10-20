@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { type Browser, expect, type Page, test } from '@playwright/test';
 import {
   actionRequests,
   bell,
@@ -6,13 +6,18 @@ import {
   childSignIn,
   openBell,
   panel,
+  publishListing,
+  refreshOnReturn,
   rows,
+  runToRefresh,
   setHidden,
   signInAs,
 } from './notificationHelpers';
 import {
   holdSharedSweep,
+  listingReminders,
   readAtOf,
+  releaseSharedSweep,
   seedActiveLink,
   seedChild,
   seedDb,
@@ -24,7 +29,9 @@ import {
   seedRateProposal,
   seedShare,
   seedTeacher,
+  setListingEnd,
   sharedSweepAt,
+  type Sql,
   unreadOf,
 } from './notificationSeed';
 
@@ -549,6 +556,229 @@ test('AC-44, AC-74: an active user sees an expiry notification within 65 s while
     SELECT count(*)::int AS n FROM notifications WHERE entity_id IN (${enquiry}, ${link}, ${proposal}, ${teacherOnly})`;
   expect(n!.n).toBe(6);
   await t.context().close();
+});
+
+/**
+ * AC-44 timing variants (§7.2, §7.5, §7.6). A parent and a teacher each have an enquiry, a link
+ * request and a rate proposal that pass `expires_at` at E; the other party of every record never
+ * signs in, so only the user's own refresh can expire them (the shared sweep is held). Both
+ * browser clocks are frozen: the 60-second refresh runs only when the test moves the clock, and
+ * E is real (database) time.
+ *  - "before": the last refresh before E runs just before it (worst case), so the notification
+ *    comes with the next one, exactly 60 s (browser clock) later.
+ *  - "after": the first refresh after E runs just after it.
+ * Either way the refresh that shows it is at most 60 s after E and its request completes within
+ * 5 s, so the notification is in the bell number and the list at most 65 s after E.
+ */
+async function expiryTiming(page: Page, browser: Browser, sql: Sql, variant: 'before' | 'after') {
+  const parent = await seedParent(sql);
+  const child = await seedChild(sql, parent.id);
+  const quietTeacher = await seedTeacher(sql);
+  const teacher = await seedTeacher(sql);
+  const quietParent = await seedParent(sql);
+  const quietChild = await seedChild(sql, quietParent.id);
+
+  await page.clock.install();
+  await signInAs(page, parent.email);
+  await expect(page).toHaveURL(/\/parent$/);
+  const t = await (await browser.newContext()).newPage();
+  await t.clock.install();
+  await signInAs(t, teacher.email);
+  await expect(t).toHaveURL(/\/teacher$/);
+  await page.clock.pauseAt(new Date(Date.now() + 1_000));
+  await t.clock.pauseAt(new Date(Date.now() + 1_000));
+  // Both tabs refresh now (as on becoming visible), so the next refresh is 60 s (browser clock) away.
+  await refreshOnReturn(page);
+  await refreshOnReturn(t);
+  await expect(bellCount(page)).toHaveCount(0);
+  await expect(bellCount(t)).toHaveCount(0);
+
+  const E = new Date(Date.now() + (variant === 'before' ? 12_000 : 3_000));
+  const mine = {
+    enquiry: await seedEnquiry(sql, parent.id, quietTeacher.id, E),
+    link: await seedLinkRequest(sql, quietTeacher.id, child.id, parent.id, E),
+    proposal: await seedRateProposal(sql, parent.id, quietTeacher.id, E),
+  };
+  const theirs = {
+    enquiry: await seedEnquiry(sql, quietParent.id, teacher.id, E),
+    link: await seedLinkRequest(sql, teacher.id, quietChild.id, quietParent.id, E),
+    proposal: await seedRateProposal(sql, quietParent.id, teacher.id, E),
+  };
+  // No shared sweep may run: it is held inside its minute from before E to the end of the test.
+  const held = await holdSharedSweep(sql);
+  const statuses = async () =>
+    (
+      await sql<{ s: string }[]>`
+        SELECT status AS s FROM teacher_enquiries WHERE id IN (${mine.enquiry}, ${theirs.enquiry})
+        UNION ALL SELECT status FROM teacher_student_links WHERE id IN (${mine.link}, ${theirs.link})
+        UNION ALL SELECT status FROM rate_negotiations WHERE id IN (${mine.proposal}, ${theirs.proposal})`
+    ).map((r) => r.s);
+  const tMenu = t.getByRole('navigation', { name: 'Teacher menu' });
+  const browserNow = (p: Page) => p.evaluate(() => Date.now());
+  const lastBefore = { parent: 0, teacher: 0 };
+
+  if (variant === 'before') {
+    // The last refresh before E: nothing has expired yet; the badges already count the new records.
+    const done = Math.max(await runToRefresh(page, 60_000), await runToRefresh(t, 60_000));
+    expect(done, 'both refreshes completed before E').toBeLessThan(E.getTime());
+    lastBefore.parent = await browserNow(page);
+    lastBefore.teacher = await browserNow(t);
+    await expect(bellCount(page)).toHaveCount(0);
+    await expect(bellCount(t)).toHaveCount(0);
+    await expect(tMenu.getByRole('link', { name: 'Students, 1 waiting for you' })).toBeVisible();
+    await expect(tMenu.getByRole('link', { name: 'Enquiries, 2 waiting for you' })).toBeVisible();
+    expect(await statuses()).toEqual(['pending', 'pending', 'requested', 'requested', 'pending', 'pending']);
+  }
+  // E passes (real time). No refresh, page load or scheduled job runs in between.
+  await expect.poll(() => Date.now() > E.getTime() + 300, { timeout: 20_000 }).toBe(true);
+  const requests = actionRequests(page);
+  const tRequests = actionRequests(t);
+  if (variant === 'before') {
+    // Worst case: the next refresh is a full 60 s after the one just before E.
+    await page.clock.runFor(59_000);
+    await t.clock.runFor(59_000);
+    await page.waitForTimeout(300);
+    expect(requests).toHaveLength(0);
+    expect(tRequests).toHaveLength(0);
+    await expect(bellCount(page)).toHaveCount(0);
+  }
+  const step = variant === 'before' ? 1_000 : 60_000;
+  // The first refresh at or after E, each at most 60 s (browser clock) after E.
+  const started = Date.now();
+  await runToRefresh(page, step);
+  await expect(bellCount(page)).toHaveText('3', { timeout: 5_000 });
+  expect(Date.now() - started, 'the refresh request completed within 5 s').toBeLessThanOrEqual(5_000);
+  const tStarted = Date.now();
+  await runToRefresh(t, step);
+  await expect(bellCount(t)).toHaveText('1', { timeout: 5_000 });
+  expect(Date.now() - tStarted, 'the refresh request completed within 5 s').toBeLessThanOrEqual(5_000);
+  expect(requests).toHaveLength(1);
+  expect(tRequests).toHaveLength(1);
+  if (variant === 'before') {
+    expect((await browserNow(page)) - lastBefore.parent).toBe(60_000);
+    expect((await browserNow(t)) - lastBefore.teacher).toBe(60_000);
+  }
+  // Badges never waited for the expiry (§4.2): none left.
+  await expect(tMenu.getByTestId('menu-badge')).toHaveCount(0);
+  await openBell(page);
+  await expect(rows(page)).toHaveCount(3);
+  await openBell(t);
+  await expect(rows(t)).toHaveCount(1);
+  await expect(rows(t).first()).toContainText(/expired/i);
+
+  // The shared sweep did not run; each user's own check expired their records.
+  expect((await sharedSweepAt(sql)).getTime()).toBe(held.getTime());
+  expect(await statuses()).toEqual(['expired', 'expired', 'removed', 'removed', 'expired', 'expired']);
+  // One notification per recipient per expiry: enquiry and link request → parent; proposal → both.
+  expect(await unreadOf(sql, parent.id)).toBe(3);
+  expect(await unreadOf(sql, teacher.id)).toBe(1);
+  expect(await unreadOf(sql, quietParent.id)).toBe(3);
+  expect(await unreadOf(sql, quietTeacher.id)).toBe(1);
+  await t.context().close();
+}
+
+test('AC-44 (refresh just before E, worst case): parent and teacher see the expiry notification ≤ 65 s after E; no shared sweep', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await expiryTiming(page, browser, sql, 'before');
+});
+
+test('AC-44 (refresh just after E): parent and teacher see the expiry notification at that refresh; no shared sweep', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await expiryTiming(page, browser, sql, 'after');
+});
+
+test('AC-58 (browser): a listing in its final 7 days gets its reminder from another user’s request; the teacher sees it at their next sign-in', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const teacher = await seedTeacher(sql);
+  const tc = await browser.newContext();
+  const t = await tc.newPage();
+  await signInAs(t, teacher.email);
+  await publishListing(t);
+  await tc.close();
+  // The listing enters its final 7 days; from now on the teacher makes no request at all.
+  const listing = await setListingEnd(sql, teacher.id, new Date(Date.now() + 3 * 86_400_000));
+  expect(await listingReminders(sql, teacher)).toEqual({ notes: 0, emails: 0 });
+
+  // Another signed-in user's page load triggers the shared sweep (Q-6 option B), which creates the
+  // reminder and queues the existing email together.
+  await releaseSharedSweep(sql);
+  const other = await seedParent(sql);
+  await signInAs(page, other.email);
+  await expect(page).toHaveURL(/\/parent$/);
+  await expect.poll(async () => (await listingReminders(sql, teacher)).notes, { timeout: 30_000 }).toBe(1);
+  expect((await listingReminders(sql, teacher)).emails).toBe(1);
+  const [note] = await sql<{ created_at: Date; entity_id: string; kind: string }[]>`
+    SELECT created_at, entity_id, kind FROM notifications WHERE recipient_id = ${teacher.id}`;
+  expect(note!.entity_id).toBe(listing);
+  expect(note!.kind).toBe('reminder');
+
+  // The teacher's next sign-in: the reminder is in the bell; "Looking for students" shows renewal due.
+  const signedInAt = new Date();
+  const t2 = await (await browser.newContext()).newPage();
+  await signInAs(t2, teacher.email);
+  await expect(t2).toHaveURL(/\/teacher$/);
+  expect(note!.created_at.getTime()).toBeLessThan(signedInAt.getTime());
+  await expect(bellCount(t2)).toHaveText('1');
+  const menu = t2.getByRole('navigation', { name: 'Teacher menu' });
+  await expect(menu.getByRole('link', { name: 'Looking for students, 1 waiting for you' })).toBeVisible();
+  await openBell(t2);
+  await expect(rows(t2)).toHaveCount(1);
+  await expect(rows(t2).getByTestId('notification-title')).toHaveText(/^Your listing ends on \d{1,2} \w{3} \d{4}$/);
+  // A reminder carries no action label (§6.1).
+  await expect(rows(t2).first()).not.toContainText(/Needs your reply|Done|No longer needed/);
+  expect(await listingReminders(sql, teacher)).toEqual({ notes: 1, emails: 1 });
+  await t2.context().close();
+});
+
+test('AC-58 (browser, B-2): a listing that ended with no sweep in its final week gets no reminder; the badge shows renewal due', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const teacher = await seedTeacher(sql);
+  const tc = await browser.newContext();
+  const t = await tc.newPage();
+  await signInAs(t, teacher.email);
+  await publishListing(t);
+  await tc.close();
+  // No sweep ran during the final 7 days: the listing goes straight from 60 days left to ended.
+  await setListingEnd(sql, teacher.id, new Date(Date.now() - 3_600_000));
+
+  // Sweeps after the end create nothing: the shared sweep (triggered by another user's page load)…
+  const released = await releaseSharedSweep(sql);
+  const other = await seedParent(sql);
+  await signInAs(page, other.email);
+  await expect(page).toHaveURL(/\/parent$/);
+  await expect
+    .poll(async () => (await sharedSweepAt(sql)).getTime() - released.getTime(), { timeout: 30_000 })
+    .toBeGreaterThan(60_000);
+
+  // …and the teacher's own /teacher/listing load, whose reminder call is unthrottled.
+  const t2 = await (await browser.newContext()).newPage();
+  await signInAs(t2, teacher.email);
+  await expect(t2).toHaveURL(/\/teacher$/);
+  const menu = t2.getByRole('navigation', { name: 'Teacher menu' });
+  await expect(menu.getByRole('link', { name: 'Looking for students, 1 waiting for you' })).toBeVisible();
+  await expect(bellCount(t2)).toHaveCount(0);
+  await menu.getByRole('link', { name: /^Looking for students/ }).click();
+  await expect(t2.getByRole('heading', { level: 1, name: 'Looking for students' })).toBeVisible({ timeout: 30_000 });
+  await expect(t2.getByText('Ended · hidden', { exact: true })).toBeVisible();
+  await expect(t2.getByRole('button', { name: 'Renew listing' })).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Looking for students, 1 waiting for you' })).toBeVisible();
+  await openBell(t2);
+  await expect(panel(t2).getByTestId('notifications-empty')).toBeVisible();
+  // Neither a reminder notification nor the reminder email, then or later.
+  expect(await listingReminders(sql, teacher)).toEqual({ notes: 0, emails: 0 });
+  await t2.context().close();
 });
 
 test('AC-39, AC-60: load and refresh failures, a failed Mark as read and offline keep the page working', async ({
