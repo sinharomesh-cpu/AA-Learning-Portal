@@ -23,8 +23,10 @@ import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
 import { CURRICULA } from './children';
 import type { Db, Sql } from './db/client';
+import * as inApp from './notifications/events';
+import { inTx } from './notifications/notify';
 import { isPricingV2, liveOfferFlags } from './pricingModel';
-import { liveListing } from './teacherEnquiries';
+import { type ExpiryScope, liveListing } from './teacherEnquiries';
 
 /**
  * Teacher rate negotiation (CR-13; FR-040; OC-98, OC-99, OC-100; boards RN1–RN7).
@@ -192,33 +194,45 @@ export async function negotiablePriceFlags(sql: Db, publicId: string, now: Date 
 
 // ------------------------------------------------------------------ expiry (FR-040.12)
 
-/** Negotiations whose 14 days have passed become Expired. Safe to call on every page. */
-export async function expireRateNegotiations(sql: Db, now: Date = new Date()): Promise<number> {
-  const rows = await sql<
-    Array<{ id: string; teacher_id: string; parent_id: string; t_email: string | null; p_email: string | null }>
-  >`
-    WITH e AS (
-      UPDATE rate_negotiations SET status = 'expired', turn = NULL, ended_at = expires_at
-      WHERE status IN ('pending', 'countered') AND expires_at <= ${now}
-      RETURNING id, teacher_id, parent_id)
-    SELECT e.id, e.teacher_id, e.parent_id,
-           CASE WHEN t.status = 'active' THEN t.email END AS t_email,
-           CASE WHEN p.status = 'active' THEN p.email END AS p_email
-    FROM e JOIN accounts t ON t.id = e.teacher_id JOIN accounts p ON p.id = e.parent_id`;
-  for (const r of rows) {
-    await writeAudit(sql, { type: 'RATE_EXPIRED', outcome: 'success', details: { negotiation: r.id } }, now);
-    for (const to of [r.t_email, r.p_email]) {
-      if (to) {
-        await queueEmail(sql, {
-          to,
-          template: 'rate_proposal_expired',
-          payload: {},
-          dedupeKey: `rate_expired:${r.id}:${to}`,
-        });
-      }
-    }
+/**
+ * Negotiations whose 14 days have passed become Expired. Safe to call on every page.
+ * CR-16: the expiry, its audit, the emails and both sides' in-app notifications are one
+ * transaction (§13.2 (2)). With `scope`, only that teacher's or parent's own negotiations (§7.6).
+ */
+export async function expireRateNegotiations(sql: Db, now: Date = new Date(), scope?: ExpiryScope): Promise<number> {
+  if (scope && !(scope.teacherId && UUID.test(scope.teacherId)) && !(scope.parentId && UUID.test(scope.parentId))) {
+    return 0;
   }
-  return rows.length;
+  return inTx(sql, async (tx) => {
+    const rows = await tx<
+      Array<{ id: string; teacher_id: string; parent_id: string; t_email: string | null; p_email: string | null }>
+    >`
+      WITH e AS (
+        UPDATE rate_negotiations SET status = 'expired', turn = NULL, ended_at = expires_at
+        WHERE status IN ('pending', 'countered') AND expires_at <= ${now}
+          ${scope?.teacherId ? tx`AND teacher_id = ${scope.teacherId}` : tx``}
+          ${scope?.parentId ? tx`AND parent_id = ${scope.parentId}` : tx``}
+        RETURNING id, teacher_id, parent_id)
+      SELECT e.id, e.teacher_id, e.parent_id,
+             CASE WHEN t.status = 'active' THEN t.email END AS t_email,
+             CASE WHEN p.status = 'active' THEN p.email END AS p_email
+      FROM e JOIN accounts t ON t.id = e.teacher_id JOIN accounts p ON p.id = e.parent_id`;
+    for (const r of rows) {
+      await writeAudit(tx, { type: 'RATE_EXPIRED', outcome: 'success', details: { negotiation: r.id } }, now);
+      for (const to of [r.t_email, r.p_email]) {
+        if (to) {
+          await queueEmail(tx, {
+            to,
+            template: 'rate_proposal_expired',
+            payload: {},
+            dedupeKey: `rate_expired:${r.id}:${to}`,
+          });
+        }
+      }
+      await inApp.rateExpired(tx, r.id, now);
+    }
+    return rows.length;
+  });
 }
 
 // ------------------------------------------------------------------ the proposal form (RN2)
@@ -598,6 +612,7 @@ export async function proposeRate(
       },
       dedupeKey: `rate_offer:${row!.id}:1`,
     });
+    await inApp.rateOffer(tx, row!.id, 1, 'teacher', now);
     await writeAudit(
       tx,
       {
@@ -712,6 +727,7 @@ export async function counterRate(
                  expires_at = ${expiresAt}
              WHERE id = ${n.id}`;
     await notify(tx, n, side, 'rate_counter_offer', `${seq}`, baseUrl);
+    await inApp.rateOffer(tx, n.id, seq, other(side), now);
     await writeAudit(
       tx,
       { type: 'RATE_COUNTERED', outcome: 'success', actorId, details: { negotiation: n.id, offer: seq, by: side } },
@@ -797,6 +813,7 @@ export async function answerRate(
       'answer',
       baseUrl,
     );
+    await inApp.rateAnswered(tx, n.id, side, answer, now);
     await writeAudit(
       tx,
       {
@@ -830,6 +847,7 @@ export async function withdrawRate(
              SET status = 'withdrawn', turn = NULL, ended_at = ${now}, ended_by = 'parent', last_action_at = ${now}
              WHERE id = ${n.id}`;
     await notify(tx, n, 'parent', 'rate_proposal_withdrawn', 'withdrawn', baseUrl);
+    await inApp.rateWithdrawn(tx, n.id, now);
     await writeAudit(
       tx,
       { type: 'RATE_WITHDRAWN', outcome: 'success', actorId: parentId, details: { negotiation: n.id } },

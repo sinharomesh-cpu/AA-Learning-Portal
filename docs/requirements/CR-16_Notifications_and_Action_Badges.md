@@ -781,80 +781,80 @@ Nothing is implemented, so **no CR-16 check has been run**. The result column is
 | Check | Planned test file(s) | Planned test name | Level | Actual result |
 |---|---|---|---|---|
 | AC-1 | tests/e2e/notifications.spec.ts | "bell shows on every parent, teacher and student page and on the awaiting-approval status and profile pages" | BR | Not run — not implemented (awaiting approval) |
-| AC-2 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "bell number equals unread count; 1–9 then 9+; hidden at 0" | DB + BR | Not run — not implemented (awaiting approval) |
+| AC-2 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "bell number equals unread count; 1–9 then 9+; hidden at 0" | DB + BR | DB part passed — tests/db/notifications.test.ts (N1); browser part not run (N2) |
 | AC-3 | tests/e2e/notifications.spec.ts | "panel lists latest 10 (adult) / 20 (student) newest first with full date and time" | BR | Not run — not implemented (awaiting approval) |
 | AC-4 | tests/e2e/notifications.spec.ts | "opening the panel marks nothing read" | BR | Not run — not implemented (awaiting approval) |
 | AC-5 | tests/e2e/notifications.spec.ts | "clicking a row marks only that row read and opens its page through the open step" | BR | Not run — not implemented (awaiting approval) |
 | AC-6 | tests/e2e/notifications.spec.ts | "Mark as read on one row keeps the screen, lowers the bell, leaves badges" | BR | Not run — not implemented (awaiting approval) |
-| AC-7 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "Mark all as read clears the bell and leaves badges" | DB + BR | Not run — not implemented (awaiting approval) |
+| AC-7 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "Mark all as read clears the bell and leaves badges" | DB + BR | DB part passed — tests/db/notifications.test.ts (N1); browser part not run (N2) |
 | AC-8 | tests/e2e/notifications.spec.ts | "Notifications page: 20 per load, Show older, chips, unread rows stay in place (C-4)" | BR | Not run — not implemented (awaiting approval) |
 | AC-9 | tests/e2e/notifications.spec.ts | "panel and page match the approved design (screenshot review)" | BR (screenshot review) | Not run — not implemented (awaiting approval) |
-| AC-10 | tests/db/notificationBadges.test.ts · tests/e2e/notifications.spec.ts | "Students badge rises and falls with link requests" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-11 | tests/db/notificationBadges.test.ts | "Enquiries badge counts enquiries and rate proposals on the teacher’s turn" | DB | Not run — not implemented (awaiting approval) |
-| AC-12 | tests/db/notificationBadges.test.ts | "Looking for students badge: renewal due and package needing details, 0–2" | DB | Not run — not implemented (awaiting approval) |
-| AC-13 | tests/db/notificationBadges.test.ts | "My enquiries badge follows the parent’s turn" | DB | Not run — not implemented (awaiting approval) |
-| AC-14 | tests/db/notificationBadges.test.ts · tests/e2e/notifications.spec.ts | "reading notifications never changes a badge" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-15 | tests/db/notificationBadges.test.ts | "completing the action clears the badge without reading" | DB | Not run — not implemented (awaiting approval) |
-| AC-16 | tests/db/notificationBadges.test.ts | "past-expiry item not counted before any sweep" | DB | Not run — not implemented (awaiting approval) |
-| AC-17 | tests/db/notifications.test.ts | "each §3 event notifies exactly the listed recipients once; rejection notifies nobody" | DB | Not run — not implemented (awaiting approval) |
-| AC-18 | tests/db/notifications.test.ts · tests/e2e/notifications-access.spec.ts | "teacher notifications never contain a child’s name or id" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-19 | tests/db/notifications.test.ts | "student receives learning updates only" | DB | Not run — not implemented (awaiting approval) |
-| AC-20 | tests/db/notifications.test.ts | "parent never notified about another family’s child or after guardian link ends" | DB | Not run — not implemented (awaiting approval) |
-| AC-21 | tests/db/notifications.test.ts | "worksheet share notifies the student and each active parent" | DB | Not run — not implemented (awaiting approval) |
-| AC-22 | tests/db/notifications.test.ts | "multi-child worksheet share names only each child’s own item" | DB | Not run — not implemented (awaiting approval) |
-| AC-23 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "reading a worksheet notification never marks the homework done" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-24 | tests/db/notifications.test.ts · tests/e2e/notifications-access.spec.ts | "list, count and page return only the signed-in user’s rows; signed-out goes to sign-in" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-25 | tests/db/notifications.test.ts | "marking another user’s notification is not found and changes nothing" | DB | Not run — not implemented (awaiting approval) |
-| AC-26 | tests/db/notifications.test.ts | "notification link must be an internal path" | DB | Not run — not implemented (awaiting approval) |
-| AC-27 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "access ended: five causes plus already-read case show only the neutral message" | BR + DB | Not run — not implemented (awaiting approval) |
+| AC-10 | tests/db/notificationBadges.test.ts · tests/e2e/notifications.spec.ts | "Students badge rises and falls with link requests" | DB + BR | DB part passed — tests/db/notificationBadges.test.ts (N1); browser part not run (N2) |
+| AC-11 | tests/db/notificationBadges.test.ts | "Enquiries badge counts enquiries and rate proposals on the teacher’s turn" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
+| AC-12 | tests/db/notificationBadges.test.ts | "Looking for students badge: renewal due and package needing details, 0–2" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
+| AC-13 | tests/db/notificationBadges.test.ts | "My enquiries badge follows the parent’s turn" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
+| AC-14 | tests/db/notificationBadges.test.ts · tests/e2e/notifications.spec.ts | "reading notifications never changes a badge" | DB + BR | DB part passed — tests/db/notificationBadges.test.ts (N1); browser part not run (N2) |
+| AC-15 | tests/db/notificationBadges.test.ts | "completing the action clears the badge without reading" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
+| AC-16 | tests/db/notificationBadges.test.ts | "past-expiry item not counted before any sweep" | DB | Passed — tests/db/notificationBadges.test.ts · tests/db/notificationSweeps.test.ts (N1) |
+| AC-17 | tests/db/notifications.test.ts | "each §3 event notifies exactly the listed recipients once; rejection notifies nobody" | DB | Passed — tests/db/notifications.test.ts · tests/db/notificationLabels.test.ts (N1) |
+| AC-18 | tests/db/notifications.test.ts · tests/e2e/notifications-access.spec.ts | "teacher notifications never contain a child’s name or id" | DB + BR | DB part passed — tests/db/notifications.test.ts · tests/db/notificationAccess.test.ts (N1); browser part not run (N2) |
+| AC-19 | tests/db/notifications.test.ts | "student receives learning updates only" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-20 | tests/db/notifications.test.ts | "parent never notified about another family’s child or after guardian link ends" | DB | Passed — tests/db/notifications.test.ts · tests/db/notificationAccess.test.ts (N1) |
+| AC-21 | tests/db/notifications.test.ts | "worksheet share notifies the student and each active parent" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-22 | tests/db/notifications.test.ts | "multi-child worksheet share names only each child’s own item" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-23 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "reading a worksheet notification never marks the homework done" | DB + BR | DB part passed — tests/db/notifications.test.ts (N1); browser part not run (N2) |
+| AC-24 | tests/db/notifications.test.ts · tests/e2e/notifications-access.spec.ts | "list, count and page return only the signed-in user’s rows; signed-out goes to sign-in" | DB + BR | DB part passed — tests/db/notifications.test.ts (N1); browser part not run (N2) |
+| AC-25 | tests/db/notifications.test.ts | "marking another user’s notification is not found and changes nothing" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-26 | tests/db/notifications.test.ts | "notification link must be an internal path" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-27 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "access ended: five causes plus already-read case show only the neutral message" | BR + DB | DB part passed — tests/db/notificationAccess.test.ts (N1); browser part not run (N2) |
 | AC-28 | tests/e2e/notifications-access.spec.ts | "opening an authorised notification lands on the right page" | BR | Not run — not implemented (awaiting approval) |
-| AC-29 | tests/db/notifications.test.ts | "same event twice creates one notification" | DB | Not run — not implemented (awaiting approval) |
-| AC-30 | tests/db/notificationSweeps.test.ts | "expiry processed twice or concurrently (including the user-scoped check) creates one notification per side" | DB | Not run — not implemented (awaiting approval) |
-| AC-31 | tests/db/notificationLabels.test.ts · tests/e2e/notifications.spec.ts | "action label per §6.1 cell, independent of read status" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-32 | tests/db/notifications.test.ts | "rolled-back event creates no notification" | DB | Not run — not implemented (awaiting approval) |
-| AC-33 | tests/db/notificationSweeps.test.ts | "listing reminder once per period; renewal starts a new one" | DB | Not run — not implemented (awaiting approval) |
+| AC-29 | tests/db/notifications.test.ts | "same event twice creates one notification" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-30 | tests/db/notificationSweeps.test.ts | "expiry processed twice or concurrently (including the user-scoped check) creates one notification per side" | DB | Passed — tests/db/notificationSweeps.test.ts · tests/db/notificationUserExpiry.test.ts (N1) |
+| AC-31 | tests/db/notificationLabels.test.ts · tests/e2e/notifications.spec.ts | "action label per §6.1 cell, independent of read status" | DB + BR | DB part passed — tests/db/notificationLabels.test.ts (N1); browser part not run (N2) |
+| AC-32 | tests/db/notifications.test.ts | "rolled-back event creates no notification" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-33 | tests/db/notificationSweeps.test.ts | "listing reminder once per period; renewal starts a new one" | DB | Passed — tests/db/notificationSweeps.test.ts (N1) |
 | AC-34 | tests/e2e/notifications.spec.ts | "new notification appears within 60 s while visible" | BR | Not run — not implemented (awaiting approval) |
 | AC-35 | tests/e2e/notifications.spec.ts | "hidden tab makes no requests; one check on return" | BR | Not run — not implemented (awaiting approval) |
-| AC-36 | tests/db/notifications.test.ts | "retention 90 / 180 days at one-second boundaries" | DB | Not run — not implemented (awaiting approval) |
-| AC-37 | tests/db/notifications.test.ts | "retention never changes business records or badges" | DB | Not run — not implemented (awaiting approval) |
+| AC-36 | tests/db/notifications.test.ts | "retention 90 / 180 days at one-second boundaries" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-37 | tests/db/notifications.test.ts | "retention never changes business records or badges" | DB | Passed — tests/db/notifications.test.ts (N1) |
 | AC-38 | tests/unit/NotificationPanel.test.tsx · tests/e2e/notifications.spec.ts | "loading skeleton and empty states, child-friendly student empty state" | U + BR | Not run — not implemented (awaiting approval) |
 | AC-39 | tests/unit/NotificationPanel.test.tsx · tests/e2e/notifications.spec.ts | "load failure: bell without number, Try again, badges still work" | U + BR | Not run — not implemented (awaiting approval) |
 | AC-40 | tests/e2e/notifications-phone-a11y.spec.ts | "phone 390 px: bottom sheet, no sideways scroll, 48 × 48 px targets, 8 px spacing" | BR | Not run — not implemented (awaiting approval) |
 | AC-41 | tests/e2e/notifications-phone-a11y.spec.ts | "keyboard, focus, names and axe on panel, sheet and page" | BR | Not run — not implemented (awaiting approval) |
 | AC-42 | all existing suites | "existing dashboards, enquiries, rate proposals, homework and listing behave as before" | all | Not run — not implemented (awaiting approval) |
-| AC-43 | tests/db/notificationLabels.test.ts · tests/e2e/notifications.spec.ts | "resolving an action does not mark read; reading never changes the record" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-44 | tests/db/notificationSweeps.test.ts · tests/e2e/notifications.spec.ts | "active user sees an expiry notification within 65 s while the shared sweep is held (user-scoped check)" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-45 | tests/db/notificationSweeps.test.ts | "expiry durations and rules unchanged" | DB | Not run — not implemented (awaiting approval) |
-| AC-46 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "awaiting-approval teacher: bell on status and profile pages, approval and profile notifications only" | DB + BR | Not run — not implemented (awaiting approval) |
+| AC-43 | tests/db/notificationLabels.test.ts · tests/e2e/notifications.spec.ts | "resolving an action does not mark read; reading never changes the record" | DB + BR | DB part passed — tests/db/notificationLabels.test.ts (N1); browser part not run (N2) |
+| AC-44 | tests/db/notificationSweeps.test.ts · tests/e2e/notifications.spec.ts | "active user sees an expiry notification within 65 s while the shared sweep is held (user-scoped check)" | DB + BR | DB part passed — tests/db/notificationSweeps.test.ts (N1); browser part not run (N2) |
+| AC-45 | tests/db/notificationSweeps.test.ts | "expiry durations and rules unchanged" | DB | Passed — tests/db/notificationSweeps.test.ts (N1) |
+| AC-46 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "awaiting-approval teacher: bell on status and profile pages, approval and profile notifications only" | DB + BR | DB part passed — tests/db/notifications.test.ts · tests/db/notificationAccess.test.ts (N1); browser part not run (N2) |
 | AC-47 | tests/e2e/notifications.spec.ts | "admin pages: no bell, no notification requests" | BR + existing suites | Not run — not implemented (awaiting approval) |
 | AC-48 | tests/e2e/notifications.spec.ts | "parent menu item and home button open the page; teacher via See all; no student page" | BR | Not run — not implemented (awaiting approval) |
-| AC-49 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "a notification never grants access; changed ids show nothing more" | BR + DB | Not run — not implemented (awaiting approval) |
-| AC-50 | tests/db/notifications.test.ts | "clean-up at most hourly; concurrent requests run it once" | DB | Not run — not implemented (awaiting approval) |
-| AC-51 | tests/db/notifications.test.ts | "no lesson, placeholder or simulated booking notification exists" | DB + review | Not run — not implemented (awaiting approval) |
-| AC-52 | tests/db/notifications.test.ts | "existing emails queued exactly as before, independently; nothing sent" | DB | Not run — not implemented (awaiting approval) |
+| AC-49 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "a notification never grants access; changed ids show nothing more" | BR + DB | DB part passed — tests/db/notificationAccess.test.ts (N1); browser part not run (N2) |
+| AC-50 | tests/db/notifications.test.ts | "clean-up at most hourly; concurrent requests run it once" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-51 | tests/db/notifications.test.ts | "no lesson, placeholder or simulated booking notification exists" | DB + review | DB part passed — tests/db/notifications.test.ts (N1); review part not run |
+| AC-52 | tests/db/notifications.test.ts | "existing emails queued exactly as before, independently; nothing sent" | DB | Passed — tests/db/notifications.test.ts (N1) |
 | AC-53 | tests/e2e/notifications-access.spec.ts | "public pages: no bell, no requests, no notification data in HTML" | BR | Not run — not implemented (awaiting approval) |
-| AC-54 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "CR-15 banner independent of the notification’s read status" | DB + BR | Not run — not implemented (awaiting approval) |
+| AC-54 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "CR-15 banner independent of the notification’s read status" | DB + BR | DB part passed — tests/db/notificationLabels.test.ts (N1); browser part not run (N2) |
 | AC-55 | tests/e2e/notifications.spec.ts | "own actions update bell, badges and labels with the clock frozen" | BR | Not run — not implemented (awaiting approval) |
 | AC-56 | tests/e2e/notifications.spec.ts | "refresh returns bell and badges in one response; other tab converges in 60 s" | BR | Not run — not implemented (awaiting approval) |
-| AC-57 | tests/db/notificationSweeps.test.ts | "reminder and email in one transaction; concurrency; exclusions; renewal" | DB | Not run — not implemented (awaiting approval) |
-| AC-58 | tests/db/notificationSweeps.test.ts · tests/e2e/notifications.spec.ts | "reminder timing under option B, catch-up, 100-per-run limit; none after the listing expires (B-2)" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-59 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "no cross-account leakage by id across five accounts" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-60 | tests/unit/NotificationPanel.test.tsx · tests/e2e/notifications.spec.ts · tests/db/notifications.test.ts | "offline, failed mark read, mark all, Show older and open" | U + BR + DB | Not run — not implemented (awaiting approval) |
+| AC-57 | tests/db/notificationSweeps.test.ts | "reminder and email in one transaction; concurrency; exclusions; renewal" | DB | Passed — tests/db/notificationSweeps.test.ts (N1) |
+| AC-58 | tests/db/notificationSweeps.test.ts · tests/e2e/notifications.spec.ts | "reminder timing under option B, catch-up, 100-per-run limit; none after the listing expires (B-2)" | DB + BR | DB part passed — tests/db/notificationSweeps.test.ts (N1); browser part not run (N2) |
+| AC-59 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "no cross-account leakage by id across five accounts" | DB + BR | DB part passed — tests/db/notificationAccess.test.ts (N1); browser part not run (N2) |
+| AC-60 | tests/unit/NotificationPanel.test.tsx · tests/e2e/notifications.spec.ts · tests/db/notifications.test.ts | "offline, failed mark read, mark all, Show older and open" | U + BR + DB | DB part passed — tests/db/notifications.test.ts (N1); component and browser parts not run (N2) |
 | AC-61 | tests/unit/NotificationPanel.test.tsx · tests/e2e/notifications-phone-a11y.spec.ts | "live region, names, not colour alone, contrast, reduced motion, text size" | U + BR | Not run — not implemented (awaiting approval) |
-| AC-62 | tests/db/notifications.test.ts | "read_at set once; late read keeps its clock; time zone irrelevant" | DB | Not run — not implemented (awaiting approval) |
-| AC-63 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "keyset paging stable with new arrivals and equal times" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-64 | tests/db/notificationBadges.test.ts | "each badge equals its §4.1 definition for two users of each role" | DB | Not run — not implemented (awaiting approval) |
+| AC-62 | tests/db/notifications.test.ts | "read_at set once; late read keeps its clock; time zone irrelevant" | DB | Passed — tests/db/notifications.test.ts (N1) |
+| AC-63 | tests/db/notifications.test.ts · tests/e2e/notifications.spec.ts | "keyset paging stable with new arrivals and equal times" | DB + BR | DB part passed — tests/db/notifications.test.ts (N1); browser part not run (N2) |
+| AC-64 | tests/db/notificationBadges.test.ts | "each badge equals its §4.1 definition for two users of each role" | DB | Passed — tests/db/notificationBadges.test.ts (N1) |
 | AC-65 | review of the build report | "traceability and test-type coverage" | review | Not run — not implemented (awaiting approval) |
 | AC-66 | review of the build report | "build report lists test file, name and real result for every check" | review | Not run — not implemented (awaiting approval) |
-| AC-67 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "redacted list display after access ends; restored when access returns" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-68 | tests/db/notifications.test.ts · tests/e2e/notifications-access.spec.ts | "not-approved teacher: status page as today, no bell, no notifications" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-69 | tests/db/notifications.test.ts | "profile change approved / declined notifies the teacher once" | DB | Not run — not implemented (awaiting approval) |
+| AC-67 | tests/db/notificationAccess.test.ts · tests/e2e/notifications-access.spec.ts | "redacted list display after access ends; restored when access returns" | DB + BR | DB part passed — tests/db/notificationAccess.test.ts (N1); browser part not run (N2) |
+| AC-68 | tests/db/notifications.test.ts · tests/e2e/notifications-access.spec.ts | "not-approved teacher: status page as today, no bell, no notifications" | DB + BR | DB part passed — tests/db/notificationAccess.test.ts · tests/db/notifications.test.ts (N1); browser part not run (N2) |
+| AC-69 | tests/db/notifications.test.ts | "profile change approved / declined notifies the teacher once" | DB | Passed — tests/db/notifications.test.ts (N1) |
 | AC-70 | tests/e2e/notifications.spec.ts | "parent home button reads Notifications; no preference controls" | BR | Not run — not implemented (awaiting approval) |
-| AC-71 | tests/db/notificationSweeps.test.ts | "shared sweep runs once a minute across concurrent requests; catch-up; idempotent; user-scoped checks do not touch the throttle" | DB | Not run — not implemented (awaiting approval) |
-| AC-72 | tests/db/notificationUserExpiry.test.ts | "user-scoped check expires only the viewer's authorised records; client ids ignored" | DB | Not run — not implemented (awaiting approval) |
-| AC-73 | tests/db/notificationUserExpiry.test.ts | "concurrent refreshes, both parties and races with the shared sweep give one transition and one notification per recipient" | DB | Not run — not implemented (awaiting approval) |
-| AC-74 | tests/db/notificationUserExpiry.test.ts · tests/e2e/notifications.spec.ts | "refresh response counts include the new notification; badges unchanged; other party correct" | DB + BR | Not run — not implemented (awaiting approval) |
-| AC-75 | tests/db/notificationUserExpiry.test.ts · review of the build | "user-scoped statements use owner indexes and write nothing when nothing has expired" | DB + review | Not run — not implemented (awaiting approval) |
+| AC-71 | tests/db/notificationSweeps.test.ts | "shared sweep runs once a minute across concurrent requests; catch-up; idempotent; user-scoped checks do not touch the throttle" | DB | Passed — tests/db/notificationSweeps.test.ts (N1) |
+| AC-72 | tests/db/notificationUserExpiry.test.ts | "user-scoped check expires only the viewer's authorised records; client ids ignored" | DB | Passed — tests/db/notificationUserExpiry.test.ts (N1) |
+| AC-73 | tests/db/notificationUserExpiry.test.ts | "concurrent refreshes, both parties and races with the shared sweep give one transition and one notification per recipient" | DB | Passed — tests/db/notificationUserExpiry.test.ts (N1) |
+| AC-74 | tests/db/notificationUserExpiry.test.ts · tests/e2e/notifications.spec.ts | "refresh response counts include the new notification; badges unchanged; other party correct" | DB + BR | DB part passed — tests/db/notificationUserExpiry.test.ts (N1); browser part not run (N2) |
+| AC-75 | tests/db/notificationUserExpiry.test.ts · review of the build | "user-scoped statements use owner indexes and write nothing when nothing has expired" | DB + review | DB part passed — tests/db/notificationUserExpiry.test.ts (N1); review part not run |
 
 **Existing tests that must keep passing** (they cover behaviour CR-16 must not change):
 

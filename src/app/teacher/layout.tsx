@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AdultShell } from '@/components/shell/AdultShell';
 import { TEACHER_MENU, TEACHER_PENDING_MENU } from '@/config/menus';
+import { triggerSignedInMaintenance } from '@/server/notifications/pageLoad';
 import { teacherApprovalStatus } from '@/server/teacherProfile';
 import { getViewer } from '@/server/session';
 
@@ -11,6 +12,8 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
   const pending = viewer.status === 'pending_approval';
   // A rejected teacher sees only the status message (OC-72): no menu at all.
   const rejected = pending && (await teacherApprovalStatus(viewer.id)) === 'rejected';
+  // CR-16 §7.2: the shared sweep and clean-up (not for a not-approved teacher, Q-2).
+  if (!rejected) await triggerSignedInMaintenance();
   return (
     <AdultShell
       role="teacher"

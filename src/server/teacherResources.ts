@@ -3,6 +3,7 @@ import { SUBJECT_IDS, type SubjectId } from '@/fixtures/subjects';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql, Tx } from './db/client';
 import { storeUploadedFile } from './files/pieces';
+import { resourceShared } from './notifications/events';
 import { removeFile, type StoreResult } from './files/store';
 
 /**
@@ -96,10 +97,14 @@ async function linkedIn(sql: Db, teacherId: string, subject: string, studentIds:
   return new Set(rows.map((r) => r.student_id));
 }
 
+/** CR-16 §3: each new share tells that student and each of their active parents (N-8). */
 async function insertShares(tx: Tx, resourceId: string, studentIds: string[], now: Date): Promise<void> {
   for (const id of studentIds) {
-    await tx`INSERT INTO resource_shares (resource_id, student_id, shared_at) VALUES (${resourceId}, ${id}, ${now})
-             ON CONFLICT (resource_id, student_id) WHERE unshared_at IS NULL DO NOTHING`;
+    const [share] = await tx<Array<{ id: string }>>`
+      INSERT INTO resource_shares (resource_id, student_id, shared_at) VALUES (${resourceId}, ${id}, ${now})
+      ON CONFLICT (resource_id, student_id) WHERE unshared_at IS NULL DO NOTHING
+      RETURNING id`;
+    if (share) await resourceShared(tx, share.id, now);
   }
 }
 

@@ -4,6 +4,7 @@ import type { Currency, ListingPrice, ListingSnapshot } from '@/lib/listing';
 import { checkHourly, lessonPriceMinor, PACKAGE_CLASSES_MIN, PACKAGE_TERMS_VERSION } from '@/lib/pricing';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql } from './db/client';
+import { packageNeedsDetails } from './notifications/events';
 import { getUsualSlots } from './pricingModel';
 
 /**
@@ -276,11 +277,15 @@ export async function applyPricingMigration(sql: Sql, actorId: string, now: Date
                  WHERE id = ${l.id}`;
         }
         if (plan.package === 'needs_review' && m) {
-          await tx`INSERT INTO learning_packages (teacher_id, status, currency, price_minor, classes, lesson_minutes,
+          const [pkg] = await tx<Array<{ id: string }>>`
+                 INSERT INTO learning_packages (teacher_id, status, currency, price_minor, classes, lesson_minutes,
                                                 negotiable, terms_version, review_issues, legacy_source)
                  VALUES (${l.teacher_id}, 'needs_review', ${m.currency}, ${m.amountMinor}, ${m.sessions},
                          ${m.minutes}, false, ${PACKAGE_TERMS_VERSION}, ${plan.packageIssues},
-                         ${tx.json({ model: 'monthly', currency: m.currency, amountMinor: m.amountMinor, sessions: m.sessions, minutes: m.minutes })})`;
+                         ${tx.json({ model: 'monthly', currency: m.currency, amountMinor: m.amountMinor, sessions: m.sessions, minutes: m.minutes })})
+                 RETURNING id`;
+          // CR-16 §3 (assumption 3): the teacher is told in AA Pro; the home banner stays as it is.
+          await packageNeedsDetails(tx, pkg!.id, l.teacher_id, now);
         }
         if (plan.copyChanges && l.published) {
           const hourly =

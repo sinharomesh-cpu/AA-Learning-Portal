@@ -6,6 +6,8 @@ import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
 import { CURRICULA } from './children';
 import type { Db, Sql } from './db/client';
+import { enquiryAnswered, enquiryExpired, enquiryReceived, enquiryWithdrawn } from './notifications/events';
+import { inTx } from './notifications/notify';
 
 /**
  * Connect with teacher and enquiries (PR-D4a; boards D3, D4, D6, D11; OC-76, OC-77, OC-79 C,
@@ -184,9 +186,38 @@ export type SendResult =
   | { ok: false; reason: 'duplicate'; existingId: string }
   | { ok: false; reason: 'invalid'; problems: EnquiryProblem[] };
 
-/** Marks waiting enquiries older than 14 days as expired (E-4). Safe to call on every page. */
-export async function expireEnquiries(sql: Db, now: Date = new Date()): Promise<void> {
-  await sql`UPDATE teacher_enquiries SET status = 'expired' WHERE status = 'pending' AND expires_at <= ${now}`;
+/**
+ * Limits an expiry sweep to one signed-in user's own records (CR-16 §7.6, the user-scoped check).
+ * The id always comes from the server-side session.
+ */
+export interface ExpiryScope {
+  teacherId?: string;
+  parentId?: string;
+}
+
+/**
+ * Marks waiting enquiries older than 14 days as expired (E-4). Safe to call on every page.
+ * CR-16: one transaction with the parent's in-app notification (§13.2 (1), (2)); returns the
+ * enquiries it expired. With `scope`, only that teacher's or parent's own enquiries (§7.6).
+ */
+export async function expireEnquiries(
+  sql: Db,
+  now: Date = new Date(),
+  scope?: ExpiryScope,
+): Promise<Array<{ id: string; teacher_id: string; parent_id: string }>> {
+  if (scope && !(scope.teacherId && UUID.test(scope.teacherId)) && !(scope.parentId && UUID.test(scope.parentId))) {
+    return [];
+  }
+  return inTx(sql, async (tx) => {
+    const rows = await tx<Array<{ id: string; teacher_id: string; parent_id: string }>>`
+      UPDATE teacher_enquiries SET status = 'expired'
+      WHERE status = 'pending' AND expires_at <= ${now}
+        ${scope?.teacherId ? tx`AND teacher_id = ${scope.teacherId}` : tx``}
+        ${scope?.parentId ? tx`AND parent_id = ${scope.parentId}` : tx``}
+      RETURNING id, teacher_id, parent_id`;
+    for (const r of rows) await enquiryExpired(tx, r.id, now);
+    return rows;
+  });
 }
 
 export async function sendEnquiry(
@@ -271,6 +302,7 @@ export async function sendEnquiry(
               ${message || null}, ${now}, ${new Date(now.getTime() + ENQUIRY_DAYS * DAY)})
       RETURNING id`;
     await tx`INSERT INTO rate_events (account_id, kind, occurred_at) VALUES (${parentId}, 'enquiry_new', ${now})`;
+    await enquiryReceived(tx, row!.id, now);
     await tx`DELETE FROM pending_connects WHERE account_id = ${parentId}`;
     const [teacher] = await tx<Array<{ email: string; display_name: string }>>`
       SELECT email, display_name FROM accounts WHERE id = ${live.teacher_id}`;
@@ -343,6 +375,7 @@ export async function answerEnquiry(
       },
       dedupeKey: `enquiry_answer:${enquiryId}`,
     });
+    await enquiryAnswered(tx, enquiryId, decision, now);
     await writeAudit(
       tx,
       {
@@ -371,6 +404,7 @@ export async function withdrawEnquiry(
                           WHERE id = ${enquiryId} AND parent_id = ${parentId} AND status = 'pending' AND expires_at > ${now}
                           RETURNING teacher_id`;
     if (rows.length === 0) return { ok: false, reason: 'not_found' };
+    await enquiryWithdrawn(tx, enquiryId, now);
     await writeAudit(
       tx,
       { type: 'ENQUIRY_WITHDRAWN', outcome: 'success', actorId: parentId, details: { enquiry: enquiryId } },

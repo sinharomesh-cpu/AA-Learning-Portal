@@ -2,6 +2,7 @@ import 'server-only';
 import { looksLikeEmail, maskEmail, normaliseEmail } from './auth/accounts';
 import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
+import { profileChangeDecision, teacherDecision } from './notifications/events';
 import { revokeAllSessions } from './auth/sessions';
 import { issueSetPassword } from './auth/setPasswordLink';
 import { parentsToTellOfRejection, revalidateTeacherLinks } from './teacherLinks';
@@ -545,9 +546,17 @@ export async function decideTeacher(
   if (note.length < 3) return { ok: false, reason: 'note_required' };
   return sql.begin(async (tx) => {
     const [t] = await tx<
-      Array<{ email: string; display_name: string; has_password: boolean; origin: string; approval_status: string }>
+      Array<{
+        email: string;
+        display_name: string;
+        has_password: boolean;
+        origin: string;
+        approval_status: string;
+        submitted_at: Date | null;
+      }>
     >`
-      SELECT a.email, a.display_name, a.password_hash IS NOT NULL AS has_password, p.origin, p.approval_status
+      SELECT a.email, a.display_name, a.password_hash IS NOT NULL AS has_password, p.origin, p.approval_status,
+             p.submitted_at
       FROM accounts a JOIN teacher_profiles p ON p.account_id = a.id
       WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'pending_approval'
         AND p.approval_status IN ('draft', 'submitted')
@@ -592,6 +601,8 @@ export async function decideTeacher(
           now,
         );
       }
+      // CR-16 §3 (D-5): created in the transaction that makes the teacher active.
+      await teacherDecision(tx, teacherId, 'approved', t.submitted_at, now);
     } else {
       await queueEmail(tx, {
         to: t.email,
@@ -599,6 +610,8 @@ export async function decideTeacher(
         payload: { name: t.display_name, signInUrl: `${input.baseUrl}/sign-in` },
         dedupeKey: `teacher_decision:${teacherId}:${now.getTime()}`,
       });
+      // CR-16 Q-2: "changes requested" is told in AA Pro; "not approved" creates no notification.
+      if (input.decision === 'changes') await teacherDecision(tx, teacherId, 'changes_requested', t.submitted_at, now);
     }
     await writeAudit(
       tx,
@@ -666,8 +679,8 @@ export async function decideProfileChange(
   const note = input.note.trim().slice(0, 1000);
   if (note.length < 3) return { ok: false, reason: 'note_required' };
   return sql.begin(async (tx) => {
-    const [t] = await tx<Array<{ email: string; display_name: string }>>`
-      SELECT a.email, a.display_name
+    const [t] = await tx<Array<{ email: string; display_name: string; change_submitted_at: Date }>>`
+      SELECT a.email, a.display_name, p.change_submitted_at
       FROM accounts a JOIN teacher_profiles p ON p.account_id = a.id
       WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active'
         AND p.approval_status = 'approved' AND p.change_submitted_at IS NOT NULL
@@ -695,6 +708,7 @@ export async function decideProfileChange(
       payload: { name: t.display_name, profileUrl: `${input.baseUrl}/teacher/profile` },
       dedupeKey: `teacher_profile_change:${teacherId}:${now.getTime()}`,
     });
+    await profileChangeDecision(tx, teacherId, decision, t.change_submitted_at, now);
     await writeAudit(
       tx,
       {

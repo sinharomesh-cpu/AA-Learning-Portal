@@ -17,6 +17,9 @@ import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
 import { issueSetPassword } from './auth/setPasswordLink';
 import type { Db, Sql } from './db/client';
+import { linkRequestAnswered, linkRequestExpired, linkRequestReceived } from './notifications/events';
+import { inTx } from './notifications/notify';
+import type { ExpiryScope } from './teacherEnquiries';
 
 /**
  * Parent–teacher linking (PR2; boards 57, 58, M-25; OC-36, OC-41, OC-62) with the teacher's
@@ -111,41 +114,58 @@ const firstName = (name: string | null) => (name ?? '').trim().split(/\s+/)[0] ?
 /**
  * FR-038.6: waiting requests older than 14 days expire. Safe to call on every page; the parent
  * is told in AA Pro (My teachers) and an email is queued (never claimed as delivered).
+ * CR-16: the expiry, its audit, the email and the parent's in-app notification are one
+ * transaction (§13.2 (2)). With `scope`, only that teacher's requests, or the requests that parent
+ * made for a child they are still the active guardian of (§7.6).
  */
-export async function expireLinkRequests(sql: Db, now: Date = new Date()): Promise<number> {
-  const rows = await sql<
-    Array<{
-      id: string;
-      teacher: string;
-      teacher_id: string;
-      parent: string | null;
-      email: string | null;
-      child: string;
-    }>
-  >`
-    WITH e AS (
-      UPDATE teacher_student_links SET status = 'removed', removed_at = expires_at, ended_as = 'expired'
-      WHERE status = 'requested' AND expires_at <= ${now}
-      RETURNING id, teacher_id, student_id, created_by_parent_id)
-    SELECT e.id, e.teacher_id, t.display_name AS teacher, p.display_name AS parent, p.email, c.display_name AS child
-    FROM e JOIN accounts t ON t.id = e.teacher_id JOIN accounts c ON c.id = e.student_id
-    LEFT JOIN accounts p ON p.id = e.created_by_parent_id AND p.status = 'active'`;
-  for (const r of rows) {
-    await writeAudit(
-      sql,
-      { type: 'LINK_REQUEST_EXPIRED', outcome: 'success', subjectId: r.teacher_id, details: { request: r.id } },
-      now,
-    );
-    if (r.email) {
-      await queueEmail(sql, {
-        to: r.email,
-        template: 'parent_link_request_expired',
-        payload: { name: firstName(r.parent), teacher: r.teacher, child: r.child },
-        dedupeKey: `link_request_expired:${r.id}`,
-      });
-    }
+export async function expireLinkRequests(sql: Db, now: Date = new Date(), scope?: ExpiryScope): Promise<number> {
+  if (scope && !(scope.teacherId && UUID.test(scope.teacherId)) && !(scope.parentId && UUID.test(scope.parentId))) {
+    return 0;
   }
-  return rows.length;
+  return inTx(sql, async (tx) => {
+    const rows = await tx<
+      Array<{
+        id: string;
+        teacher: string;
+        teacher_id: string;
+        parent: string | null;
+        email: string | null;
+        child: string;
+      }>
+    >`
+      WITH e AS (
+        UPDATE teacher_student_links l SET status = 'removed', removed_at = expires_at, ended_as = 'expired'
+        WHERE status = 'requested' AND expires_at <= ${now}
+          ${scope?.teacherId ? tx`AND l.teacher_id = ${scope.teacherId}` : tx``}
+          ${
+            scope?.parentId
+              ? tx`AND l.created_by_parent_id = ${scope.parentId}
+                   AND EXISTS (SELECT 1 FROM guardian_links g WHERE g.parent_id = ${scope.parentId}
+                                 AND g.student_id = l.student_id AND g.status = 'active')`
+              : tx``
+          }
+        RETURNING id, teacher_id, student_id, created_by_parent_id)
+      SELECT e.id, e.teacher_id, t.display_name AS teacher, p.display_name AS parent, p.email, c.display_name AS child
+      FROM e JOIN accounts t ON t.id = e.teacher_id JOIN accounts c ON c.id = e.student_id
+      LEFT JOIN accounts p ON p.id = e.created_by_parent_id AND p.status = 'active'`;
+    for (const r of rows) {
+      await writeAudit(
+        tx,
+        { type: 'LINK_REQUEST_EXPIRED', outcome: 'success', subjectId: r.teacher_id, details: { request: r.id } },
+        now,
+      );
+      if (r.email) {
+        await queueEmail(tx, {
+          to: r.email,
+          template: 'parent_link_request_expired',
+          payload: { name: firstName(r.parent), teacher: r.teacher, child: r.child },
+          dedupeKey: `link_request_expired:${r.id}`,
+        });
+      }
+      await linkRequestExpired(tx, r.id, now);
+    }
+    return rows.length;
+  });
 }
 
 /** Board 57 / TR2: the parent's teachers, with every live link or request and recently ended requests. */
@@ -297,12 +317,15 @@ async function sendRequests(
   for (const c of fresh) {
     const requestedAt = status === 'requested' ? now : null;
     const expiresAt = status === 'requested' ? addDays(now, REQUEST_DAYS) : null;
-    await tx`INSERT INTO teacher_student_links
+    const [row] = await tx<Array<{ id: string }>>`INSERT INTO teacher_student_links
                (teacher_id, student_id, created_by_parent_id, source, status, subjects,
                 requested_at, expires_at, parent_message, created_at)
              VALUES (${teacherId}, ${c.childId}, ${parentId}, 'parent_added', ${status}, ${unique(c.subjects)},
-                     ${requestedAt}, ${expiresAt}, ${message}, ${now})`;
+                     ${requestedAt}, ${expiresAt}, ${message}, ${now})
+             RETURNING id`;
     created.push(c.childId);
+    // CR-16 §3: a request that reaches the teacher tells them in AA Pro (held ones on approval).
+    if (status === 'requested') await linkRequestReceived(tx, row!.id, now);
   }
   return { created, skipped };
 }
@@ -853,6 +876,7 @@ export async function revalidateTeacherLinks(
                SET status = 'requested', requested_at = ${now}, expires_at = ${addDays(now, REQUEST_DAYS)}
                WHERE id = ${l.id}`;
       sentToTeacher += 1;
+      await linkRequestReceived(tx, l.id, now);
     }
     if (dropped.length && l.parent_email) {
       await queueEmail(tx, {
@@ -1108,6 +1132,7 @@ export async function acceptLinkRequest(
         dedupeKey: `link_request_answered:${row.id}`,
       });
     }
+    await linkRequestAnswered(tx, row.id, 'accept', now);
     return {
       ok: true,
       studentId: row.student_id,
@@ -1170,6 +1195,7 @@ export async function declineLinkRequest(
         dedupeKey: `link_request_answered:${row.id}`,
       });
     }
+    await linkRequestAnswered(tx, row.id, 'decline', now);
     return { ok: true };
   });
 }
