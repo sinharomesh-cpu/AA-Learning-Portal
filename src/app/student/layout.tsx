@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StudentShell } from '@/components/shell/StudentShell';
 import { triggerSignedInMaintenance } from '@/server/notifications/pageLoad';
+import { shellNotifications } from '@/server/notifications/view';
 import { getViewer } from '@/server/session';
 
 /**
@@ -12,7 +13,7 @@ export default async function StudentLayout({ children }: { children: ReactNode 
   if (viewer?.role !== 'student') return <>{children}</>;
   await triggerSignedInMaintenance();
   return (
-    <StudentShell displayName={viewer.displayName} initial={viewer.initial}>
+    <StudentShell displayName={viewer.displayName} initial={viewer.initial} notifications={await shellNotifications()}>
       {children}
     </StudentShell>
   );

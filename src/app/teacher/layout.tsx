@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { AdultShell } from '@/components/shell/AdultShell';
 import { TEACHER_MENU, TEACHER_PENDING_MENU } from '@/config/menus';
 import { triggerSignedInMaintenance } from '@/server/notifications/pageLoad';
+import { shellNotifications } from '@/server/notifications/view';
 import { teacherApprovalStatus } from '@/server/teacherProfile';
 import { getViewer } from '@/server/session';
 
@@ -22,6 +23,8 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
       menuNote={pending && !rejected ? 'Other pages open once your profile is approved.' : undefined}
       displayName={viewer.displayName}
       initial={viewer.initial}
+      // CR-16: no bell for a not-approved teacher (Q-2); status and profile only while waiting (D-5).
+      notifications={rejected ? null : await shellNotifications()}
     >
       {children}
     </AdultShell>

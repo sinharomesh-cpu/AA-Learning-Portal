@@ -4,6 +4,9 @@ import { Icon, type SymbolName } from '@/components/icons/Icon';
 import { ThemeToggle } from '@/components/public/ThemeToggle';
 import { OfflineBanner } from '@/components/states/OfflineBanner';
 import { ROLE_LABEL, type Role } from '@/lib/roles';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { MenuBadge, NotificationCountsProvider } from '@/components/notifications/NotificationCounts';
+import type { ShellNotifications } from '@/server/notifications/view';
 import { AccountMenu } from './AccountMenu';
 import { MobileMenu } from './MobileMenu';
 import { NavLink } from './NavLink';
@@ -25,6 +28,8 @@ interface AdultShellProps {
   initial: string;
   /** A short line under the menu, e.g. why some items are greyed out. */
   menuNote?: string;
+  /** CR-16: the bell and menu badges (signed-in parents and teachers only; none for admins, D-6). */
+  notifications?: ShellNotifications | null;
   children: ReactNode;
 }
 
@@ -32,7 +37,7 @@ interface AdultShellProps {
  * CMP-ShellAdult: one sidebar shell, a separate menu per role (G1-02 Appendix A).
  * Desktop shows the sidebar; phones get a "Menu" disclosure (board 52).
  */
-export function AdultShell({ role, menu, displayName, initial, menuNote, children }: AdultShellProps) {
+export function AdultShell({ role, menu, displayName, initial, menuNote, notifications, children }: AdultShellProps) {
   const roleLabel = ROLE_LABEL[role];
   const navLabel = `${roleLabel} menu`;
   const links = (layout: 'side' | 'sheet') => [
@@ -51,6 +56,7 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
           key={item.href}
           href={item.href}
           exact={item.exact}
+          badgeLabel={item.label}
           className="flex min-h-12 items-center gap-3 rounded-full px-4 text-[15px] font-bold no-underline"
           activeClassName="bg-primary text-on-primary hover:text-on-primary"
           inactiveClassName={
@@ -61,6 +67,7 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
         >
           {item.icon ? <Icon name={item.icon} /> : null}
           {item.label}
+          <MenuBadge href={item.href} />
         </NavLink>
       ),
     ),
@@ -86,7 +93,7 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
     </span>
   );
 
-  return (
+  const shell = (
     <div className="flex min-h-dvh bg-background">
       <a
         href="#main"
@@ -113,6 +120,7 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
             <div className="hidden lg:block">
               <ThemeToggle />
             </div>
+            {notifications ? <NotificationBell /> : null}
             <MobileMenu label={navLabel}>{links('sheet')}</MobileMenu>
             <AccountMenu displayName={displayName} initial={initial} roleLabel={roleLabel} />
           </div>
@@ -125,5 +133,17 @@ export function AdultShell({ role, menu, displayName, initial, menuNote, childre
         </main>
       </div>
     </div>
+  );
+  if (!notifications) return shell;
+  return (
+    <NotificationCountsProvider
+      role={notifications.role}
+      seeAll={notifications.seeAll}
+      initialUnread={notifications.unread}
+      initialBadges={notifications.badges}
+      renderedAt={notifications.renderedAt}
+    >
+      {shell}
+    </NotificationCountsProvider>
   );
 }
