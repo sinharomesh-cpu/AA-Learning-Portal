@@ -165,16 +165,18 @@ export interface NoteInput {
   entityId: string;
   createdAt?: Date;
   read?: boolean;
+  /** Rate-proposal action notifications: the offer number they announce (§5, §6.1). */
+  offerSeq?: number;
 }
 
 /** One notification, stored as notify() stores it (unique event key, internal link). */
 export async function seedNote(sql: Sql, recipient: string, n: NoteInput): Promise<string> {
   const created = n.createdAt ?? new Date();
   const [row] = await sql<{ id: string }[]>`
-    INSERT INTO notifications (recipient_id, kind, type, title, body, href, entity_type, entity_id, dedupe_key,
-                               created_at, read_at)
+    INSERT INTO notifications (recipient_id, kind, type, title, body, href, entity_type, entity_id, offer_seq,
+                               dedupe_key, created_at, read_at)
     VALUES (${recipient}, ${n.kind ?? 'update'}, ${n.type ?? 'seeded_update'}, ${n.title}, ${n.body ?? ''}, ${n.href},
-            ${n.entityType}, ${n.entityId}, ${`seed:${hex()}${hex()}:${recipient}`}, ${created},
+            ${n.entityType}, ${n.entityId}, ${n.offerSeq ?? null}, ${`seed:${hex()}${hex()}:${recipient}`}, ${created},
             ${n.read ? created : null})
     RETURNING id`;
   return row!.id;
@@ -229,6 +231,91 @@ export async function seedRateProposal(
   await sql`INSERT INTO rate_offers (negotiation_id, seq, made_by, amount_minor, minutes)
             VALUES (${row!.id}, 1, 'parent', 55000, 40)`;
   return row!.id;
+}
+
+/**
+ * A rate proposal on the parent's turn (CR-13): the parent's offer 1, then the teacher's
+ * counter-offer 2 (status countered).
+ */
+export async function seedCounteredProposal(
+  sql: Sql,
+  parent: string,
+  teacher: string,
+  expiresAt: Date = new Date(Date.now() + 14 * 86_400_000),
+): Promise<string> {
+  // Stored in the order the application writes it: the parent's first offer, then the counter-offer.
+  const id = await seedRateProposal(sql, parent, teacher, expiresAt);
+  await sql`INSERT INTO rate_offers (negotiation_id, seq, made_by, amount_minor, minutes)
+            VALUES (${id}, 2, 'teacher', 58000, 40)`;
+  await sql`UPDATE rate_negotiations SET status = 'countered', turn = 'parent', offers = 2, last_action_at = now()
+            WHERE id = ${id}`;
+  return id;
+}
+
+/** Moves the teacher's (published) listing to end at `expiresAt`, with no reminder for that period yet. */
+export async function setListingEnd(sql: Sql, teacher: string, expiresAt: Date): Promise<string> {
+  const [row] = await sql<{ id: string }[]>`
+    UPDATE teacher_listings SET expires_at = ${expiresAt}, reminder_queued_for = NULL
+    WHERE teacher_id = ${teacher} AND status = 'published' RETURNING id`;
+  if (!row) throw new Error('The teacher has no published listing.');
+  return row.id;
+}
+
+/** Listing-reminder notifications and queued reminder emails for one teacher. */
+export async function listingReminders(sql: Sql, teacher: Adult): Promise<{ notes: number; emails: number }> {
+  const [r] = await sql<{ notes: number; emails: number }[]>`
+    SELECT (SELECT count(*)::int FROM notifications WHERE recipient_id = ${teacher.id} AND type = 'listing_reminder')
+             AS notes,
+           (SELECT count(*)::int FROM email_outbox WHERE to_address = ${teacher.email}
+                                                    AND template = 'listing_expiry_reminder') AS emails`;
+  return r!;
+}
+
+/** Lets the next signed-in request claim the shared sweep (§7.5): the last run is long ago. */
+export async function releaseSharedSweep(sql: Sql): Promise<Date> {
+  const [r] = await sql<{ t: Date }[]>`
+    UPDATE notification_throttles SET last_run_at = now() - interval '10 minutes' WHERE name = 'shared_sweep'
+    RETURNING last_run_at AS t`;
+  return r!.t;
+}
+
+/** Usual weekly times (CR-15 package class times are chosen from them): Monday and Wednesday 5–6 pm. */
+export async function seedUsualTimes(sql: Sql, teacher: string): Promise<void> {
+  await sql`INSERT INTO teacher_usual_times (teacher_id, weekday, start_minute, end_minute)
+            VALUES (${teacher}, 1, 1020, 1080), (${teacher}, 3, 1020, 1080)`;
+}
+
+/**
+ * A learning package converted from an old monthly price that still needs details (CR-15 A5):
+ * status needs_review, as the conversion stores it, with its "Finish your learning package"
+ * action notification as notify() stores it.
+ */
+export async function seedPackageNeedingDetails(sql: Sql, teacher: string): Promise<{ pkg: string; note: string }> {
+  const [row] = await sql<{ id: string }[]>`
+    INSERT INTO learning_packages (teacher_id, status, currency, price_minor, classes, lesson_minutes, negotiable,
+                                   terms_version, review_issues, legacy_source)
+    VALUES (${teacher}, 'needs_review', 'INR', 850000, 22, 40, false, 'package-terms-draft-v1',
+            ${['details_missing']},
+            ${sql.json({ model: 'monthly', currency: 'INR', amountMinor: 850000, sessions: 22, minutes: 40 })})
+    RETURNING id`;
+  const note = await seedNote(sql, teacher, {
+    kind: 'action',
+    type: 'package_needs_details',
+    title: 'Finish your learning package',
+    body: 'Add the missing details so parents can see it.',
+    href: '/teacher/listing',
+    entityType: 'learning_package',
+    entityId: row!.id,
+  });
+  return { pkg: row!.id, note };
+}
+
+/** The CR-15 pricing model switch (platform-wide; no row = off, as the Super Admin's switch stores it). */
+export async function setPricingV2(sql: Sql, on: boolean): Promise<void> {
+  if (on)
+    await sql`INSERT INTO platform_settings (key, value) VALUES ('pricing_model_v2', 1)
+              ON CONFLICT (key) DO UPDATE SET value = 1`;
+  else await sql`DELETE FROM platform_settings WHERE key = 'pricing_model_v2'`;
 }
 
 /** Holds the shared sweep inside its minute (§7.5): it may not run for 60 s from now. */

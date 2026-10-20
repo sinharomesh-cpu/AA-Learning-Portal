@@ -54,6 +54,46 @@ export function actionResponses(page: Page): Promise<string>[] {
   return bodies;
 }
 
+const isAction = (r: Request) => r.method() === 'POST' && !!r.headers()['next-action'];
+
+/**
+ * Advances the frozen browser clock by `ms` and waits for the bell refresh that this fires
+ * (every notification request is a Server Action). Returns the real time when its response
+ * arrived. Fails if no refresh request is made.
+ */
+export async function runToRefresh(page: Page, ms: number): Promise<number> {
+  const done = page.waitForResponse((r) => isAction(r.request()), { timeout: 15_000 });
+  await page.clock.runFor(ms);
+  await done;
+  return Date.now();
+}
+
+/** Hidden, then visible again: one bell refresh at once, and the 60-second timer restarts from now (§7.2). */
+export async function refreshOnReturn(page: Page): Promise<number> {
+  const done = page.waitForResponse((r) => isAction(r.request()), { timeout: 15_000 });
+  await setHidden(page, true);
+  await setHidden(page, false);
+  await done;
+  return Date.now();
+}
+
+/**
+ * An approved (seeded) teacher publishes their listing on /teacher/listing (board D5), Maths only
+ * so it does not appear in other tests' Science searches. The listing runs for 60 days.
+ */
+export async function publishListing(page: Page) {
+  await page.goto('/teacher/listing');
+  await expect(page.getByRole('heading', { level: 1, name: 'Looking for students' })).toBeVisible({
+    timeout: 30_000,
+  });
+  const offer = page.getByRole('region', { name: 'What you offer' });
+  const science = offer.getByRole('checkbox', { name: 'Science', exact: true });
+  if (await science.isChecked()) await science.uncheck();
+  await page.getByRole('checkbox', { name: /I agree to AA Pro showing these details publicly/ }).check();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(page.getByText(/Published. Parents can see your listing/)).toBeVisible();
+}
+
 export async function setHidden(page: Page, hidden: boolean) {
   await page.evaluate((h) => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (h ? 'hidden' : 'visible') });

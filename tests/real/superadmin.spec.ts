@@ -13,6 +13,15 @@ import {
   sendTeacherProfile,
   signIn,
 } from './helpers';
+import { bellCount, openBell, rows, signInAs } from './notificationHelpers';
+import {
+  readAtOf,
+  seedDb,
+  seedPackageNeedingDetails,
+  seedTeacher,
+  seedUsualTimes,
+  setPricingV2,
+} from './notificationSeed';
 
 /** WP2-5a: owner set-up, security-code sign-in and recovery codes (OC-50, M-26, board 66). */
 
@@ -1738,4 +1747,113 @@ test('CR-15 §5.1: an approved teacher asks for "AA Pro Verified"; the Super Adm
   await expect(panel.getByRole('button', { name: 'Request verification again' })).toBeVisible();
   await vc.close();
   await tc.close();
+});
+
+/**
+ * CR-16 AC-54 and AC-55 (b) "completes the package". The CR-15 switch is platform-wide, so this
+ * runs here, in order with the other CR-15 tests, never beside them. Synthetic teachers whose
+ * monthly price was converted into a package that needs details (as CR-15 A5 stores it).
+ */
+test('CR-16 AC-54, AC-55 (b): "Finish your learning package" shows read or unread and clears only when the package is completed or withdrawn; badge and label change in the same response', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const sql = seedDb();
+  const done = await seedTeacher(sql);
+  const stopped = await seedTeacher(sql);
+  const pkg: Record<string, { pkg: string; note: string }> = {};
+  for (const t of [done, stopped]) {
+    await seedUsualTimes(sql, t.id);
+    pkg[t.id] = await seedPackageNeedingDetails(sql, t.id);
+  }
+  await setPricingV2(sql, true);
+  try {
+    const finish = (p: Page) => p.getByRole('region', { name: 'Finish your learning package' });
+    const labelOf = async (p: Page) => {
+      await openBell(p);
+      const row = rows(p).filter({ hasText: 'Finish your learning package' });
+      await expect(row).toHaveCount(1);
+      const text = await row.innerText();
+      await p.keyboard.press('Escape');
+      return ['Needs your reply', 'No longer needed', 'Done'].find((l) => text.includes(l)) ?? 'none';
+    };
+
+    // The browser clock is frozen after sign-in: no 60-second refresh can run (AC-55).
+    await page.clock.install();
+    await signInAs(page, done.email);
+    await expect(page).toHaveURL(/\/teacher$/);
+    await page.clock.pauseAt(new Date(Date.now() + 5_000));
+    const menu = page.getByRole('navigation', { name: 'Teacher menu' });
+    // AC-54: shown while details are needed and the notification is unread…
+    await expect(finish(page)).toBeVisible();
+    await expect(menu.getByRole('link', { name: 'Looking for students, 1 waiting for you' })).toBeVisible();
+    expect(await labelOf(page)).toBe('Needs your reply');
+    // …and still shown after it is read (a fresh server render of the dashboard).
+    await openBell(page);
+    await rows(page)
+      .filter({ hasText: 'Finish your learning package' })
+      .getByRole('button', { name: /^Mark as read/ })
+      .click();
+    await expect(bellCount(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => readAtOf(sql, pkg[done.id]!.note)).not.toBeNull();
+    await menu.getByRole('link', { name: /^Looking for students/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Looking for students' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await menu.getByRole('link', { name: 'Dashboard' }).click();
+    await expect(page).toHaveURL(/\/teacher$/);
+    await expect(finish(page)).toBeVisible();
+    expect(await labelOf(page)).toBe('Needs your reply');
+
+    // AC-55 (b): completing the package (one Server Action, no navigation) lowers the badge and
+    // updates the label in the response that completes it.
+    await menu.getByRole('link', { name: /^Looking for students/ }).click();
+    const builder = page.getByRole('region', { name: /Learning package/ }).first();
+    await expect(builder).toBeVisible({ timeout: 30_000 });
+    await builder.getByRole('button', { name: '2 a week', exact: true }).click();
+    await builder.getByRole('button', { name: 'Monday 5:00 pm', exact: true }).click();
+    await builder.getByRole('button', { name: 'Wednesday 5:00 pm', exact: true }).click();
+    await expect(builder.getByText('All 2 chosen')).toBeVisible();
+    await builder.getByRole('button', { name: 'Offer this package' }).click();
+    await expect(builder.getByText(/Package saved/)).toBeVisible();
+    await expect(menu.getByRole('link', { name: 'Looking for students', exact: true })).toBeVisible();
+    await expect(menu.getByTestId('menu-badge')).toHaveCount(0);
+    expect(await labelOf(page)).toBe('Done');
+    // AC-54: cleared once completed.
+    await menu.getByRole('link', { name: 'Dashboard' }).click();
+    await expect(page).toHaveURL(/\/teacher$/);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(finish(page)).toHaveCount(0);
+
+    // The other teacher never reads it: the banner shows until the package is withdrawn.
+    const t = await (await browser.newContext()).newPage();
+    await t.clock.install();
+    await signInAs(t, stopped.email);
+    await expect(t).toHaveURL(/\/teacher$/);
+    await t.clock.pauseAt(new Date(Date.now() + 5_000));
+    const tMenu = t.getByRole('navigation', { name: 'Teacher menu' });
+    await expect(finish(t)).toBeVisible();
+    await expect(tMenu.getByRole('link', { name: 'Looking for students, 1 waiting for you' })).toBeVisible();
+    await tMenu.getByRole('link', { name: /^Looking for students/ }).click();
+    await t.getByRole('button', { name: 'Stop offering the package' }).click();
+    await expect(t.getByText(/You no longer offer the package/)).toBeVisible();
+    await expect(tMenu.getByRole('link', { name: 'Looking for students', exact: true })).toBeVisible();
+    await expect(tMenu.getByTestId('menu-badge')).toHaveCount(0);
+    expect(await labelOf(t)).toBe('No longer needed');
+    await tMenu.getByRole('link', { name: 'Dashboard' }).click();
+    await expect(t).toHaveURL(/\/teacher$/);
+    await expect(t.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(finish(t)).toHaveCount(0);
+    expect(await readAtOf(sql, pkg[stopped.id]!.note)).toBeNull();
+    await t.context().close();
+
+    const statuses = await sql<{ teacher_id: string; status: string }[]>`
+      SELECT teacher_id, status FROM learning_packages WHERE teacher_id IN (${done.id}, ${stopped.id})`;
+    expect(statuses.find((s) => s.teacher_id === done.id)!.status).toBe('offered');
+    expect(statuses.find((s) => s.teacher_id === stopped.id)!.status).toBe('draft');
+  } finally {
+    await setPricingV2(sql, false);
+  }
 });
