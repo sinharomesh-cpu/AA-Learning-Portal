@@ -16,6 +16,7 @@ import { CURRICULA } from './children';
 import type { Db, Sql } from './db/client';
 import { EXPERIENCE_MAX } from './teacherProfile';
 import { newPublicId } from './listingIds';
+import { listingReminder } from './notifications/events';
 import { isPricingV2, offersForSnapshot } from './pricingModel';
 import { getUsualTimes } from './teacherUsualTimes';
 
@@ -446,18 +447,24 @@ export async function renewListing(
 
 /**
  * L-2: queue one reminder per listing period, 7 days before it ends (queued only, not sent,
- * until real email is approved). Called when teachers open their pages and when public
- * listings are read, until a scheduler exists. Returns how many were queued.
+ * until real email is approved). Called when a teacher opens /teacher/listing and, since CR-16
+ * (Q-6 option B), by the shared once-a-minute sweep on signed-in requests (§7.3, §7.5). Each run
+ * selects every listing whose window has started and whose period has no reminder yet (catch-up),
+ * earliest-ending first. The in-app reminder is created in the same transaction as the email.
+ * Returns how many were queued.
  */
 export async function queueListingReminders(sql: Sql, baseUrl: string, now: Date = new Date()): Promise<number> {
-  const due = await sql<Array<{ id: string; email: string; name: string; time_zone: string; expires_at: Date }>>`
-    SELECT l.id, a.email, a.display_name AS name, a.time_zone, l.expires_at
+  const due = await sql<
+    Array<{ id: string; teacher_id: string; email: string; name: string; time_zone: string; expires_at: Date }>
+  >`
+    SELECT l.id, l.teacher_id, a.email, a.display_name AS name, a.time_zone, l.expires_at
     FROM teacher_listings l JOIN accounts a ON a.id = l.teacher_id
     JOIN teacher_profiles t ON t.account_id = a.id
     WHERE l.status = 'published' AND l.expires_at > ${now}
       AND l.expires_at <= ${new Date(now.getTime() + REMINDER_DAYS * DAY)}
       AND l.reminder_queued_for IS DISTINCT FROM l.expires_at
       AND a.status = 'active' AND t.approval_status = 'approved'
+    ORDER BY l.expires_at, l.id
     LIMIT 100`;
   let queued = 0;
   for (const d of due) {
@@ -478,6 +485,7 @@ export async function queueListingReminders(sql: Sql, baseUrl: string, now: Date
         payload: { name: d.name, endsOn, listingUrl: `${baseUrl}/teacher/listing` },
         dedupeKey: `listing_reminder:${d.id}:${d.expires_at.toISOString()}`,
       });
+      await listingReminder(tx, { id: d.id, teacherId: d.teacher_id, expiresAt: d.expires_at, endsOn }, now);
       queued += 1;
     });
   }
