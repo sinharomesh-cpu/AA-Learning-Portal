@@ -256,7 +256,8 @@ test('AC-6, AC-7, AC-14, AC-55 (a), AC-43: Mark as read and Mark all keep the sc
   // AC-43: reading never changes the record or its label; the badge stays.
   await expect(row).toContainText('Needs your reply');
   await expect(menu.getByRole('link', { name: 'Enquiries, 1 waiting for you' })).toBeVisible();
-  expect(await readAtOf(sql, action)).not.toBeNull();
+  // The screen updates before the server confirms; wait for the save rather than reading at once.
+  await expect.poll(() => readAtOf(sql, action)).not.toBeNull();
   await expect(page.getByTestId('bell-live')).toHaveText('2 unread notifications');
 
   await panel(page).getByRole('button', { name: 'Mark all as read' }).click();
@@ -264,7 +265,7 @@ test('AC-6, AC-7, AC-14, AC-55 (a), AC-43: Mark as read and Mark all keep the sc
   await expect(bell(page)).toHaveAccessibleName('Notifications, 0 unread');
   await expect(rows(page).and(page.locator('[data-unread="true"]'))).toHaveCount(0);
   await expect(menu.getByRole('link', { name: 'Enquiries, 1 waiting for you' })).toBeVisible();
-  expect(await unreadOf(sql, teacher.id)).toBe(0);
+  await expect.poll(() => unreadOf(sql, teacher.id)).toBe(0);
   const [e] = await sql<{ status: string }[]>`SELECT status FROM teacher_enquiries WHERE id = ${enquiry}`;
   expect(e!.status).toBe('pending');
 });
