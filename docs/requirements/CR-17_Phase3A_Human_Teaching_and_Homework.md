@@ -1,6 +1,6 @@
 # CR-17 — Phase 3A: Human Teaching and Homework (audit and plan)
 
-**Version:** revision 3 · 21 Oct 2026 · **Status:** planning record. Owner approvals so far: OC-123 (01:40 IST: 10–40 minute lessons, teacher-created Zoom links, packages deferred, synthetic data and adults only, in-app notifications as a testing limitation), OC-124 (02:01 IST: Zoom and child-safety review before any real-child session; Vercel free-plan rule as launch dependency; no upgrades or spending) and OC-125 (12:34 IST: D3A-19, the three-layer migration gate, and PR 1 only). **PRs 2–8, migrations M1–M4 and every item marked "awaiting your decision" or "verification required" below are not approved.**
+**Version:** revision 3.1 · 21 Oct 2026 · **Status:** planning record (3.1: V-2 verified; 12-month retention clean-up recorded as launch requirement PL-05, OC-126). Owner approvals so far: OC-123 (01:40 IST: 10–40 minute lessons, teacher-created Zoom links, packages deferred, synthetic data and adults only, in-app notifications as a testing limitation), OC-124 (02:01 IST: Zoom and child-safety review before any real-child session; Vercel free-plan rule as launch dependency; no upgrades or spending) and OC-125 (12:34 IST: D3A-19, the three-layer migration gate, and PR 1 only). **PRs 2–8, migrations M1–M4 and every item marked "awaiting your decision" or "verification required" below are not approved.**
 
 This file is a copy of the owner-reviewed Claude Doc "AA Pro Phase 3A — Human Teaching and Homework: Audit and Plan" (revision 3), kept in the repository for traceability. The decision register (§3) and the plan text are unchanged from that review; the diagram in §4 is described in its table.
 
@@ -266,7 +266,7 @@ Impact key: **F** functional · **S** security and privacy · **DB** database ·
 | Id | What to verify | Who | Impact | Blocks |
 | --- | --- | --- | --- | --- |
 | V-1 | /admin/storage figures and the Neon dashboard (storage, compute, transfer) | You | ₹, DB | PR 6 |
-| V-2 | The test database's `schema_migrations` list matches 0001–0026 (SQL in §5.1) | You, in the Neon SQL editor | DB | PR 2 |
+| V-2 | **Verified (owner, 21 Oct 2026, 13:55 IST).** The test database's `schema_migrations` list has 26 rows, 0001–0026; the 0024, 0025 and 0026 times match the preview builds in §5.1 | You, in the Neon SQL editor | DB | — (closed) |
 | V-3 | Zoom terms, account eligibility, meeting settings and child-safety rules for under-16s | You and your adviser | S | Any real-child session |
 | V-4 | Whether the CR-15 pricing switch is on in the test database | You, on /admin | F | PR 2 |
 | V-5 | Real size of a converted homework photo | Me, in PR 6 tests | ₹ | Friends & Family test |
@@ -318,7 +318,7 @@ Phase 3A needs four additive migrations, M1 to M4. None changes or deletes an ex
 - The runner records every migration with a fingerprint (SHA-256). A build fails if an applied migration later changed or is missing from the code. The latest main deployment (212f80f, 20 Oct 15:38 UTC) **succeeded**, so the database holds exactly 0001–0026 with the same contents as main: nothing unmerged, nothing altered.
 - Only one of the 188 builds failed: a preview on 17 Oct of a homepage styling change with no new migration.
 - **What changed:** only what those 26 merged migrations define. No recovery action is needed.
-- Not directly verified: the database's own `schema_migrations` table, which I can't reach. You can confirm it in the Neon SQL editor with `SELECT name, applied_at FROM schema_migrations ORDER BY name;` (V-2).
+- Verified by the owner on 21 Oct 2026 (13:55 IST) in the Neon SQL editor: `SELECT name, applied_at FROM schema_migrations ORDER BY name;` returned 26 rows, 0001–0026 (V-2). An example table created by Neon's sample script during that check (`playing_with_neon`) was dropped by the owner and its absence confirmed.
 
 **The gate (PR 1, proposed, D3A-19).** Three layers, so that no single mistake lets a migration through:
 
@@ -357,7 +357,7 @@ Phase 3A needs four additive migrations, M1 to M4. None changes or deletes an ex
 
 **Storage.** Lessons, links, questions, answers and feedback are text, a few kilobytes per child per week. Homework photos are the only large data (§6).
 
-**Clean-ups** (12-month homework, 7-day links) run during normal signed-in page loads, at most once an hour, on the existing timer table. The 15-minute reminder does not depend on them (§2.9).
+**Clean-ups** (12-month homework, 7-day links) run during normal signed-in page loads, at most once an hour, on the existing timer table. **Limitation (OC-126):** a clean-up triggered by page loads runs only when someone uses the site, so it cannot guarantee deletion on time. For the Friends & Family test this is acceptable; reliable, scheduled 12-month homework deletion is a launch requirement (PL-05). The 15-minute reminder does not depend on them (§2.9).
 
 **Not touched:** existing users, links, prices, rates, resources, notifications and AA Pro Verified data. PL-01's index is not part of Phase 3A.
 
