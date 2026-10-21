@@ -125,6 +125,30 @@ export async function mayStillSee(sql: Db, v: NotificationViewer, n: StoredNotif
       }
       return false;
     }
+    case 'assignment': {
+      // CR-17 PR 5: the student's own visible homework; a parent's own child's; the teacher's own
+      // homework while linked to that child in its subject (W-11).
+      const target = sql`
+        SELECT t.student_id, a.teacher_id, a.subject, a.visible_from FROM assignment_targets t
+        JOIN assignments a ON a.id = t.assignment_id WHERE t.id = ${id}`;
+      if (v.role === 'student') {
+        return one(sql`SELECT 1 FROM (${target}) x WHERE x.student_id = ${v.id} AND x.visible_from <= now()`);
+      }
+      if (v.role === 'parent') {
+        return one(sql`
+          SELECT 1 FROM (${target}) x
+          JOIN guardian_links g ON g.student_id = x.student_id AND g.parent_id = ${v.id} AND g.status = 'active'
+          WHERE x.visible_from <= now()`);
+      }
+      if (v.role === 'teacher') {
+        return one(sql`
+          SELECT 1 FROM (${target}) x
+          JOIN teacher_student_links l ON l.teacher_id = x.teacher_id AND l.student_id = x.student_id
+            AND l.status = 'active' AND x.subject = ANY (l.subjects)
+          WHERE x.teacher_id = ${v.id}`);
+      }
+      return false;
+    }
     case 'listing':
       return v.role === 'teacher' && one(sql`SELECT 1 FROM teacher_listings WHERE id = ${id} AND teacher_id = ${v.id}`);
     case 'learning_package':

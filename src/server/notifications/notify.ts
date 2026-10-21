@@ -18,7 +18,15 @@ import type { Db, Sql, Tx } from '../db/client';
 
 export type NotificationKind = 'action' | 'update' | 'reminder';
 export type EntityType =
-  'enquiry' | 'link_request' | 'rate_proposal' | 'resource_share' | 'listing' | 'learning_package' | 'teacher_profile';
+  | 'enquiry'
+  | 'link_request'
+  | 'rate_proposal'
+  | 'resource_share'
+  | 'listing'
+  | 'learning_package'
+  | 'teacher_profile'
+  // CR-17 PR 5: a student's homework (assignment_targets.id).
+  | 'assignment';
 
 export interface NotifyInput {
   recipientId: string;
