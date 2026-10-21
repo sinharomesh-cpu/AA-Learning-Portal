@@ -35,8 +35,30 @@ const OWNER = 'owner@example.com';
 const PHRASE = ['owner', 'keeps', 'the', 'keys'].join(' ');
 const codeIn = (secret: string, seconds = 0) => generate({ secret, epoch: Math.floor(Date.now() / 1000) + seconds });
 
+/**
+ * Waits until the page has finished changing: loaded, and the same non-empty title for half a
+ * second. These tests run against `next dev`, which compiles a route on its first visit and can
+ * re-render the page (and its title) a moment after a client-side link; an accessibility check
+ * taken in that moment saw an empty title (CI, 21 Oct 2026).
+ */
+async function settled(page: Page) {
+  await page.waitForLoadState('load');
+  let last = '';
+  await expect
+    .poll(
+      async () => {
+        const now = await page.title();
+        const steady = now.trim() !== '' && now === last;
+        last = now;
+        return steady;
+      },
+      { intervals: [250, 250, 250, 500], timeout: 20_000 },
+    )
+    .toBe(true);
+}
+
 async function noSeriousA11yIssues(page: Page) {
-  await expect(page).toHaveTitle(/\S/);
+  await settled(page);
   // Design audit (OC-110): AUDIT_SHOTS=<folder> saves every page these tests check.
   if (process.env.AUDIT_SHOTS) {
     const name = new URL(page.url()).pathname.replace(/[^a-z0-9]+/gi, '_') || '_';
@@ -711,7 +733,9 @@ test('board 65: a parent finds an approved teacher and asks them; a decline star
 
   // "Add as my teacher" (C-1 option (a)): only subjects both have; a request the teacher answers (CR-12).
   await result.getByRole('link', { name: 'Add as my teacher' }).click();
-  await expect(p.getByRole('heading', { level: 1, name: `Add ${teacherName}` })).toBeVisible();
+  // The first visit to this page compiles it on the dev server, which can take longer than the
+  // default 5 seconds on a CI machine (CI, 20 and 21 Oct 2026).
+  await expect(p.getByRole('heading', { level: 1, name: `Add ${teacherName}` })).toBeVisible({ timeout: 20_000 });
   await noSeriousA11yIssues(p);
   expect(await p.content()).not.toContain(teacherEmail);
   const subjects = p.getByRole('group', { name: 'Subjects for Isha' });
