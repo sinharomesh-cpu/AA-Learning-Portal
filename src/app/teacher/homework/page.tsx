@@ -11,6 +11,7 @@ import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { type LibraryCard, type LibraryFilters, type LibraryStatus, listWorksheets } from '@/server/worksheets';
+import { HomeworkTabs } from './HomeworkTabs';
 import { ArchiveWorksheetButton, DuplicateButton } from './LibraryForms';
 
 export const metadata: Metadata = { title: 'Homework' };
@@ -112,6 +113,11 @@ function Card({ card, timeZone, demo }: { card: LibraryCard; timeZone: string; d
               </>
             ) : (
               <>
+                {card.status === 'ready' && card.kind === 'exercise' ? (
+                  <LinkButton href={`/teacher/homework/${card.id}/assign`} aria-label={`Assign ${card.title}`}>
+                    Assign
+                  </LinkButton>
+                ) : null}
                 <LinkButton href={`/teacher/homework/${card.id}`} variant="secondary" aria-label={`Edit ${card.title}`}>
                   {card.status === 'draft' ? 'Continue editing' : 'Edit'}
                 </LinkButton>
@@ -165,6 +171,7 @@ export default async function TeacherHomeworkPage({
     status,
   };
   const demo = isDemoMode();
+  const assigned = one('assigned');
   const lib = demo
     ? {
         cards: DEMO_WORKSHEETS.filter((c) => status === 'all' || c.status === status),
@@ -199,6 +206,17 @@ export default async function TeacherHomeworkPage({
         </p>
       ) : null}
 
+      <HomeworkTabs current="library" />
+      {assigned ? (
+        <p
+          role="status"
+          className="m-0 rounded-[16px] border border-success-border bg-success-container px-4 py-3 text-[15px] leading-[22px] text-on-success-container"
+        >
+          {assigned === 'later'
+            ? 'Scheduled. The student sees it from the date you chose; it shows under To review as Scheduled until then.'
+            : 'Assigned. The student sees it under My homework, and their parent is told in AA Pro.'}
+        </p>
+      ) : null}
       <section aria-labelledby="library-heading" id="library" className="flex scroll-mt-24 flex-col gap-4">
         <h2 id="library-heading" className="m-0 text-[22px] font-bold leading-8">
           My worksheets

@@ -1,4 +1,5 @@
 import 'server-only';
+import { noteVisibleHomework } from '../assignments';
 import type { Db, Sql } from '../db/client';
 import { type ActionLabel, actionLabel, loadViewer, mayStillSee, type StoredNotification } from './access';
 import { type MenuBadges, menuBadges } from './badges';
@@ -159,6 +160,12 @@ export async function refreshBell(sql: Sql, accountId: string, baseUrl: string, 
     console.error('CR-16 shared sweep could not start.', (error as Error).message);
   }
   await userScopedExpiryCheck(sql, v, now);
+  // CR-17 PR 5 (W-7): homework that has become visible since the last visit.
+  try {
+    await noteVisibleHomework(sql, v, now);
+  } catch (error) {
+    console.error('Homework notifications could not be checked.', (error as Error).message);
+  }
   try {
     await cleanupNotifications(sql, now);
   } catch (error) {

@@ -1,4 +1,5 @@
 import 'server-only';
+import { noteVisibleHomework } from '../assignments';
 import { db } from '../db/client';
 import { getRealSession } from '../session';
 import { loadViewer, type NotificationViewer } from './access';
@@ -111,6 +112,13 @@ export async function shellNotifications(): Promise<ShellNotifications | null> {
     return null;
   }
   if (!v || v.standing === 'none') return null;
+  // CR-17 PR 5 (W-7): a student's or parent's visit creates "New homework" notifications for
+  // work that has become visible since; the bell below already counts them.
+  try {
+    await noteVisibleHomework(db(), v);
+  } catch (error) {
+    console.error('Homework notifications could not be checked.', (error as Error).message);
+  }
   let unread: number | null = null;
   let badges: MenuBadges = {};
   try {

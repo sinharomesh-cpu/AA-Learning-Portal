@@ -8,6 +8,8 @@ import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { listResourcesForStudent } from '@/server/teacherResources';
+import { formatDue, HomeworkStatus } from '@/components/homework/HomeworkStatus';
+import { type HomeworkItem, listHomeworkForStudent } from '@/server/assignments';
 
 export const metadata: Metadata = { title: 'My homework' };
 export const dynamic = 'force-dynamic';
@@ -30,7 +32,8 @@ const DEMO: SharedResourceView[] = [
 
 /**
  * Board HW5: the student's homework page. "From my teachers" shows files teachers shared with
- * this student only (CR-07 H-2b), by subject, chapter and teacher. Homework itself arrives with H-3.
+ * this student only (CR-07 H-2b), by subject, chapter and teacher. Homework set for this student
+ * (CR-17 PR 5) is listed first, only once its date has arrived (W-7).
  */
 export default async function StudentHomeworkPage({ searchParams }: { searchParams: Promise<{ subject?: string }> }) {
   const access = await requireRole('student');
@@ -38,6 +41,7 @@ export default async function StudentHomeworkPage({ searchParams }: { searchPara
   const demo = isDemoMode();
   // The student comes from the session only (FR-002.2).
   const all: SharedResourceView[] = demo ? DEMO : await listResourcesForStudent(db(), access.viewer.id);
+  const homework: HomeworkItem[] = demo ? [] : await listHomeworkForStudent(db(), access.viewer.id);
   const subjects = [...new Set(all.map((r) => r.subject))] as SubjectId[];
   const { subject } = await searchParams;
   const chosen = subjects.includes(subject as SubjectId) ? (subject as SubjectId) : null;
@@ -46,9 +50,41 @@ export default async function StudentHomeworkPage({ searchParams }: { searchPara
   return (
     <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5 lg:gap-6">
       <h1 className="text-headline-lg-mobile lg:text-headline-lg">My homework</h1>
-      <p className="m-0 rounded-[16px] bg-surface-container-low px-4 py-3 text-[16px] leading-6">
-        Homework from your teachers will show here soon.
-      </p>
+      <section aria-labelledby="to-do" className="flex flex-col gap-3">
+        <h2 id="to-do" className="m-0 text-headline-sm">
+          Homework set for me
+        </h2>
+        {demo ? (
+          <p className="m-0 text-sm text-on-surface-variant">Homework shows here with real accounts.</p>
+        ) : homework.length ? (
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {homework.map((h) => (
+              <li key={h.targetId}>
+                <Link
+                  href={`/student/homework/${h.targetId}`}
+                  className="flex flex-col gap-2 rounded-[24px] border border-card-border bg-surface-container-lowest p-5 text-on-surface no-underline hover:border-primary hover:text-on-surface"
+                >
+                  <span className="text-[20px] font-bold leading-7">{h.title}</span>
+                  <span className="text-[16px] text-on-surface-variant">
+                    {SUBJECTS[h.subject].name} · from {h.teacherName}
+                    {h.dueAt ? ` · due ${formatDue(h.dueAt, access.viewer.timeZone)}` : ''}
+                  </span>
+                  <HomeworkStatus status={h.status} overdue={h.overdue} late={h.late} attempt={h.attempt} child />
+                  {h.released ? (
+                    <span className="text-[16px] font-bold">
+                      Marks: {h.score} out of {h.maxScore}
+                    </span>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="m-0 rounded-[16px] bg-surface-container-low px-4 py-3 text-[16px] leading-6">
+            No homework right now. When a teacher sets some, it shows here.
+          </p>
+        )}
+      </section>
       <section aria-labelledby="from-teachers" className="flex flex-col gap-3">
         <h2 id="from-teachers" className="m-0 text-headline-sm">
           From my teachers

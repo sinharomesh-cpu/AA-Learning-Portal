@@ -7,6 +7,13 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { getRealSession } from '@/server/session';
 import {
+  assignWorksheet,
+  changeAssignmentDates,
+  releaseResults,
+  saveReview,
+  withdrawAssignment,
+} from '@/server/assignments';
+import {
   type DetailsField,
   duplicateWorksheet,
   questionsToCopy,
@@ -125,4 +132,149 @@ export async function archiveWorksheetAction(_prev: LibraryState, fd: FormData):
 export async function copyQuestionsAction(fromId: string): Promise<QuestionDraft[] | null> {
   const id = await teacherId();
   return questionsToCopy(db(), id, fromId);
+}
+
+// ------------------------------------------------------------------ PR 5: assign, review, release
+
+export interface AssignState {
+  error?: string;
+  /** W-2: the student's grade or board differs; the teacher must tick to confirm. */
+  mismatch?: { grade: boolean; board: boolean };
+}
+
+const DATE_TEXT = {
+  past: 'The assignment date can’t be in the past.',
+  due_before: 'The due date must be on or after the assignment date.',
+  bad: 'Check the dates.',
+} as const;
+
+/** "Assign" (W3): one student, one frozen copy. */
+export async function assignAction(_prev: AssignState, fd: FormData): Promise<AssignState> {
+  const id = await teacherId();
+  const worksheetId = str(fd, 'worksheetId');
+  const later = str(fd, 'when') === 'later';
+  const r = await assignWorksheet(db(), id, {
+    worksheetId,
+    studentId: str(fd, 'studentId'),
+    visibleOn: later ? str(fd, 'visibleOn') : '',
+    dueOn: str(fd, 'dueOn'),
+    dueTime: str(fd, 'dueTime'),
+    releaseMode: str(fd, 'releaseMode'),
+    showAnswers: str(fd, 'showAnswers') === '1',
+    confirmMismatch: str(fd, 'confirmMismatch') === '1',
+  });
+  if (r.ok) {
+    revalidatePath('/teacher/homework');
+    redirect(`/teacher/homework?assigned=${r.scheduled ? 'later' : 'now'}#library`);
+  }
+  switch (r.reason) {
+    case 'mismatch':
+      return {
+        error: 'This student’s grade or board is different. Tick “I’ve checked it suits” to assign it anyway.',
+        mismatch: { grade: r.grade, board: r.board },
+      };
+    case 'not_linked':
+      return { error: 'Choose a student. Only children linked to you for this subject can be given it.' };
+    case 'not_ready':
+      return { error: 'Mark the worksheet ready before assigning it.' };
+    case 'dates':
+      return { error: DATE_TEXT[r.problem] };
+    case 'invalid':
+      return { error: '“As soon as marked” works only when every question is marked automatically.' };
+    case 'handwritten_later':
+      return { error: 'Handwritten work can be assigned once parents can upload pages (coming in a later release).' };
+    default:
+      return { error: 'This worksheet is no longer available.' };
+  }
+}
+
+export interface ReviewState {
+  error?: string;
+  notice?: string;
+}
+
+const NOT_AVAILABLE = 'This homework is no longer available to you.';
+
+/** Marks, feedback and outcome (HW4). */
+export async function saveReviewAction(_prev: ReviewState, fd: FormData): Promise<ReviewState> {
+  const id = await teacherId();
+  const targetId = str(fd, 'targetId');
+  const count = Number(str(fd, 'count'));
+  const marks: Array<string | null> = [];
+  const comments: string[] = [];
+  for (let i = 0; i < (Number.isInteger(count) && count >= 0 && count <= 100 ? count : 0); i++) {
+    const m = str(fd, `mark-${i}`).trim();
+    marks.push(m === '' ? null : m);
+    comments.push(str(fd, `comment-${i}`));
+  }
+  const intent = str(fd, 'intent');
+  const r = await saveReview(db(), id, targetId, {
+    marks: marks.map((m) => (m === null ? null : Number(m))),
+    comments,
+    feedback: str(fd, 'feedback'),
+    outcome: intent === 'revision' ? 'revision' : 'reviewed',
+    note: str(fd, 'note'),
+    release: intent === 'release',
+  });
+  if (r.ok) {
+    revalidatePath('/teacher/homework/review');
+    revalidatePath(`/teacher/homework/review/${targetId}`);
+    return {
+      notice:
+        r.status === 'revision_required'
+          ? 'Sent back for a revision. The student and parent can see your note.'
+          : r.released
+            ? 'Marked and released. The student and parent can see the marks now.'
+            : 'Marked. The student sees the marks when you release them.',
+    };
+  }
+  switch (r.reason) {
+    case 'marks':
+      return { error: 'Give a mark for every written answer, from 0 up to the question’s marks.' };
+    case 'invalid':
+      return {
+        error: 'Add a note saying what to change (up to 500 characters). Feedback can be up to 4,000 characters.',
+      };
+    case 'closed':
+      return { error: 'This homework can’t be marked now. It may already be released or withdrawn.' };
+    default:
+      return { error: NOT_AVAILABLE };
+  }
+}
+
+export async function releaseAction(_prev: ReviewState, fd: FormData): Promise<ReviewState> {
+  const id = await teacherId();
+  const targetId = str(fd, 'targetId');
+  const r = await releaseResults(db(), id, targetId);
+  if (!r.ok) return { error: r.reason === 'closed' ? 'Already released, or not marked yet.' : NOT_AVAILABLE };
+  revalidatePath('/teacher/homework/review');
+  revalidatePath(`/teacher/homework/review/${targetId}`);
+  return { notice: 'Released. The student and parent can see the marks now.' };
+}
+
+export async function withdrawAction(_prev: ReviewState, fd: FormData): Promise<ReviewState> {
+  const id = await teacherId();
+  const r = await withdrawAssignment(db(), id, str(fd, 'assignmentId'));
+  if (!r.ok) return { error: r.reason === 'closed' ? 'Reviewed work can’t be withdrawn.' : NOT_AVAILABLE };
+  revalidatePath('/teacher/homework/review');
+  revalidatePath('/teacher/homework');
+  return { notice: 'Withdrawn. It is kept as history and is no longer due.' };
+}
+
+/** W-10: only while the work is still hidden from the student. */
+export async function changeDatesAction(_prev: ReviewState, fd: FormData): Promise<ReviewState> {
+  const id = await teacherId();
+  const r = await changeAssignmentDates(db(), id, str(fd, 'assignmentId'), {
+    visibleOn: str(fd, 'visibleOn'),
+    dueOn: str(fd, 'dueOn'),
+    dueTime: str(fd, 'dueTime'),
+  });
+  if (r.ok) {
+    revalidatePath('/teacher/homework/review');
+    return { notice: 'Dates changed.' };
+  }
+  if (r.reason === 'dates') return { error: DATE_TEXT[r.problem] };
+  if (r.reason === 'visible')
+    return { error: 'The student can already see it, so its date can’t change. Withdraw it instead.' };
+  return { error: NOT_AVAILABLE };
 }
