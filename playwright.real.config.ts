@@ -15,6 +15,9 @@ export default defineConfig({
   // In CI, failures are also posted as check annotations so they can be read without the full log.
   reporter: process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
   timeout: 60_000,
+  // These tests run against `next dev`, which compiles each page on its first visit; on a CI
+  // machine that alone can take longer than Playwright's default 5 s (CI, 20 and 21 Oct 2026).
+  expect: { timeout: 15_000 },
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',
