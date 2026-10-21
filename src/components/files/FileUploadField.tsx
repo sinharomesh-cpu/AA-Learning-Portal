@@ -1,7 +1,8 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
-import { ACCEPTED_FILES, FILE_MAX_BYTES, formatFileSize, pieceRanges, uploadProblemText } from '@/lib/filePieces';
+import { ACCEPTED_FILES, formatFileSize, pieceRanges } from '@/lib/filePieces';
+import { sendInPieces } from '@/lib/uploadClient';
 import { cx } from '@/lib/cx';
 
 type State =
@@ -30,44 +31,14 @@ export function FileUploadField({ name, label, hint, onReady }: FileUploadFieldP
   const [state, setState] = useState<State>({ kind: 'empty' });
 
   async function send(file: File) {
-    if (file.size === 0) return setState({ kind: 'error', message: 'This file is empty. Please choose another file.' });
-    if (file.size > FILE_MAX_BYTES) {
-      return setState({ kind: 'error', message: 'This file is too large. Files can be up to 20 MB.' });
-    }
-    const uploadId = crypto.randomUUID();
-    const ranges = pieceRanges(file.size);
     setState({ kind: 'sending', name: file.name, size: file.size, done: 0 });
-    for (let i = 0; i < ranges.length; i += 1) {
-      const [start, end] = ranges[i]!;
-      const params = new URLSearchParams({
-        upload: uploadId,
-        piece: String(i),
-        of: String(ranges.length),
-        name: file.name,
-      });
-      let res: Response | null = null;
-      // One retry for a dropped connection or a server hiccup; the server replaces a repeated piece.
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          res = await fetch(`/files/upload?${params}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/octet-stream', 'X-AA-Upload': '1' },
-            body: file.slice(start, end),
-          });
-        } catch {
-          res = null;
-        }
-        if (res && res.status < 500) break;
-      }
-      if (!res?.ok) {
-        const reason = res ? (((await res.json().catch(() => ({}))) as { reason?: string }).reason ?? '') : '';
-        setState({ kind: 'error', message: uploadProblemText(reason) });
-        onReady?.(null);
-        return;
-      }
-      setState({ kind: 'sending', name: file.name, size: file.size, done: i + 1 });
+    const r = await sendInPieces(file, (done) => setState({ kind: 'sending', name: file.name, size: file.size, done }));
+    if (!r.ok) {
+      setState({ kind: 'error', message: r.message });
+      onReady?.(null);
+      return;
     }
-    setState({ kind: 'ready', name: file.name, size: file.size, uploadId });
+    setState({ kind: 'ready', name: file.name, size: file.size, uploadId: r.uploadId });
     onReady?.({ name: file.name, size: file.size });
   }
 

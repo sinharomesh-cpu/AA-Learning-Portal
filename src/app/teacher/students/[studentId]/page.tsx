@@ -14,6 +14,7 @@ import { isDemoMode } from '@/server/demo';
 import { getLinkedStudent } from '@/server/teacherLinks';
 import { formatDue, HomeworkStatus } from '@/components/homework/HomeworkStatus';
 import { type ReviewItem, studentResults } from '@/server/assignments';
+import { listBooksForTeacher } from '@/server/books';
 
 export const metadata: Metadata = { title: 'Student' };
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,8 @@ export default async function TeacherStudentPage({ params }: { params: Promise<{
   if (!student) return <AccessDenied viewerRole="teacher" />;
   // Board W4 (W-11): this teacher's own homework for this student, in subjects linked now.
   const results = (await studentResults(db(), access.viewer.id, studentId)) ?? [];
+  // CR-17 PR B1: the parent's published books for this child in subjects linked now (view only).
+  const books = await listBooksForTeacher(db(), access.viewer.id, studentId);
   const chapters = new Map<string, ReviewItem[]>();
   for (const r of results) {
     const key = `${SUBJECTS[r.subject].name} · ${r.chapter ?? 'No chapter'}`;
@@ -77,9 +80,26 @@ export default async function TeacherStudentPage({ params }: { params: Promise<{
         <section aria-labelledby="p-books-and-files" className={SHELL}>
           <PanelHead id="p-books-and-files" title="Books and files" />
           <div className="flex flex-col gap-2 px-5 py-5 sm:px-6">
+            {books.length ? (
+              <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                {books.map((b) => (
+                  <li key={b.id} data-testid="teacher-book" className="flex flex-col gap-1">
+                    <Link href={`/books/${b.id}`} className="font-bold">
+                      {b.title}
+                    </Link>
+                    <span className="text-sm text-on-surface-variant">
+                      {SUBJECTS[b.subject].name} ·{' '}
+                      {b.chapters.length
+                        ? `${b.chapters.length} ${b.chapters.length === 1 ? 'chapter' : 'chapters'}`
+                        : 'the whole book'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <p className="text-sm leading-5 text-on-surface-variant">
-              The parent&apos;s books for your subjects appear here once uploads open. You can read them, not download
-              them.
+              {books.length ? '' : 'No books from the parent for your subjects yet. '}You can read the parent&apos;s
+              books inside AA Pro, not download them.
             </p>
           </div>
         </section>

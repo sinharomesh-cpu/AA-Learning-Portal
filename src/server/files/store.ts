@@ -19,7 +19,7 @@ import { type FileProblem, prepareFile, type StoredMediaType } from './prepare';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = 24 * 60 * 60 * 1000;
 
-export type FilePurpose = 'teacher_resource' | 'submission_page';
+export type FilePurpose = 'teacher_resource' | 'submission_page' | 'book';
 
 /** Where file bytes live. Only the database is used until a paid store is approved (OC-91). */
 interface FileBodies {
@@ -36,6 +36,8 @@ const databaseBodies: FileBodies = {
 const OWNER_ROLE: Record<FilePurpose, 'teacher' | 'parent'> = {
   teacher_resource: 'teacher',
   submission_page: 'parent',
+  // CR-17 PR B1: a parent's book (one PDF, or a chapter's PDF or page photos).
+  book: 'parent',
 };
 
 /** Only active accounts store files; a teacher must also be approved. */
@@ -188,6 +190,30 @@ const ACCESS_RULES: AccessRule[] = [
         AND (s.student_id = ${viewer.id}
              OR EXISTS (SELECT 1 FROM guardian_links g WHERE g.parent_id = ${viewer.id}
                           AND g.student_id = s.student_id AND g.status = 'active'))
+      LIMIT 1`;
+    return Boolean(row);
+  },
+  // A parent's book file (CR-17 PR B1; OC-41(5), OC-74(6)), once the book is published and not
+  // archived: the children it was given to, their active guardians, and teachers linked to such a
+  // child in the book's subject (view only: the file route refuses them a download).
+  async (sql, viewer, file) => {
+    if (file.purpose !== 'book' || !['student', 'parent', 'teacher'].includes(viewer.role)) return false;
+    const [row] = await sql`
+      WITH holders AS (
+        SELECT b.id, b.subject FROM books b
+        WHERE b.status = 'published' AND b.archived_at IS NULL
+          AND (b.file_id = ${file.id} OR EXISTS (
+                SELECT 1 FROM book_chapter_files x JOIN book_chapters c ON c.id = x.chapter_id
+                WHERE x.file_id = ${file.id} AND c.book_id = b.id AND c.archived_at IS NULL AND c.complete))
+      )
+      SELECT 1 FROM holders h JOIN book_children k ON k.book_id = h.id
+      WHERE (${viewer.role} = 'student' AND k.student_id = ${viewer.id})
+         OR (${viewer.role} = 'parent' AND EXISTS (SELECT 1 FROM guardian_links g WHERE g.parent_id = ${viewer.id}
+               AND g.student_id = k.student_id AND g.status = 'active'))
+         OR (${viewer.role} = 'teacher' AND EXISTS (
+               SELECT 1 FROM teacher_student_links l JOIN teacher_profiles t ON t.account_id = l.teacher_id
+               WHERE l.teacher_id = ${viewer.id} AND l.student_id = k.student_id AND l.status = 'active'
+                 AND h.subject = ANY (l.subjects) AND t.approval_status = 'approved'))
       LIMIT 1`;
     return Boolean(row);
   },

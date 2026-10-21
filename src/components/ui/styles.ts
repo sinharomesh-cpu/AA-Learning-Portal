@@ -28,3 +28,6 @@ export const CHOICE_CARD =
 /** Text input / textarea / native select: 1 px outline (3:1 boundary contrast), soft corners, focus ring. */
 export const INPUT =
   'box-border w-full rounded-[16px] border border-outline bg-surface-container-lowest px-4 font-body text-base font-medium text-on-surface outline-none hover:border-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/15 aria-[invalid=true]:border-error';
+
+/** INPUT without the full width, for short fields given their own width (page numbers, chapter numbers). */
+export const INPUT_FIT = INPUT.replace('w-full ', '');
