@@ -25,3 +25,22 @@ PostgreSQL 16. Phase 2 uses **test data only** until D-28 (data residency) is de
 The database also enforces role rules with triggers, as a second line of defence behind the
 application checks: for example, a teacher can be linked only to a child of the linking
 parent, and only a Super Admin can approve a teacher.
+
+## Worksheets and homework (0027, M3)
+
+| Table | Purpose |
+|---|---|
+| `worksheets`, `worksheet_questions` | A Human Teacher's own library (CR-17 PR 4). Never shown to students or parents. A Ready worksheet is complete (checked at commit). |
+| `assignments`, `questions` | The frozen copy given to one student (PR 5). Later library edits never change it. |
+| `assignment_targets` | That one student and the CR-07 status; only allowed status changes; needs an active link in the subject. |
+| `answers`, `assignment_events` | Exercise answers (only while the work is open) and the status history. |
+
+`teacher_resources.resource_type` labels shared files (notes, worksheet, slides, other), and
+`notifications.entity_type` accepts `assignment`.
+
+## Rollbacks (`db/rollback/`)
+
+The runner never runs a migration backwards and refuses a changed or removed one. Each larger
+migration therefore has a prepared revert in `db/rollback/`, tested on a throw-away database
+(`tests/db/m3Rollback.test.ts`). It is used only with the owner's written approval, by copying
+it into `db/migrations` under the next free number. It deletes the records the migration added.

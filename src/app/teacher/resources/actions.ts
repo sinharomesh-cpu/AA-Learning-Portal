@@ -54,6 +54,7 @@ export async function shareResourceAction(_prev: ResourceFormState, fd: FormData
     subject: str(fd, 'subject'),
     chapter: str(fd, 'chapter'),
     note: str(fd, 'note'),
+    resourceType: str(fd, 'resourceType'),
     studentIds,
   });
   if (r.ok) {
@@ -91,6 +92,7 @@ export async function editResourceAction(_prev: ResourceFormState, fd: FormData)
     title: str(fd, 'title'),
     chapter: str(fd, 'chapter'),
     note: str(fd, 'note'),
+    resourceType: str(fd, 'resourceType'),
   });
   if (!r.ok) return { error: r.reason === 'invalid' ? 'Add a title of up to 120 characters.' : NOT_FOUND };
   revalidatePath('/teacher/resources');

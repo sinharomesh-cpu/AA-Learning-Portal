@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { Chip, TileKey } from '@/components/ui/Panel';
 import { PillSelect } from '@/components/ui/PillSelect';
+import { SelectField } from '@/components/ui/SelectField';
 import { TILE, TILE_KEY } from '@/components/ui/styles';
 import { cx } from '@/lib/cx';
 import { Button } from '@/components/Button';
@@ -11,6 +12,7 @@ import { FileUploadField } from '@/components/files/FileUploadField';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { TextField } from '@/components/TextField';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
+import { RESOURCE_TYPE_OPTIONS } from '@/lib/resourceTypes';
 import {
   archiveAction,
   editResourceAction,
@@ -116,6 +118,7 @@ export function ShareForm({ students }: { students: StudentOption[] }) {
           hint="Typed by you, as the student's book names it."
         />
       </div>
+      <SelectField name="resourceType" label="Type" defaultValue="other" options={RESOURCE_TYPE_OPTIONS} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${titleId}-note`} className="text-sm font-bold leading-5">
           Note for students (optional)
@@ -148,22 +151,25 @@ export function EditResource({
   title,
   chapter,
   note,
+  resourceType,
 }: {
   resourceId: string;
   title: string;
   chapter: string | null;
   note: string | null;
+  resourceType: string;
 }) {
   const [state, action, pending] = useResult(editResourceAction);
   const id = useId();
   return (
     <details className="rounded-[16px] border border-card-border bg-surface-container-low px-4 py-2">
-      <summary className="min-h-11 cursor-pointer py-2 font-bold">Edit title, chapter or note</summary>
+      <summary className="min-h-11 cursor-pointer py-2 font-bold">Edit title, type, chapter or note</summary>
       <form action={action} className="flex flex-col gap-3 pb-3 pt-1">
         <input type="hidden" name="resourceId" value={resourceId} />
         <Result state={state} />
         <TextField label="Title" name="title" maxLength={120} required defaultValue={title} />
         <TextField label="Chapter (optional)" name="chapter" maxLength={120} defaultValue={chapter ?? ''} />
+        <SelectField name="resourceType" label="Type" defaultValue={resourceType} options={RESOURCE_TYPE_OPTIONS} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${id}-note`} className="text-sm font-bold leading-5">
             Note for students (optional)

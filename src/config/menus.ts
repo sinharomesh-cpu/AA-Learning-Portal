@@ -72,6 +72,8 @@ export const TEACHER_MENU: MenuItem[] = [
   // Board D6 (approved, OC-82): enquiries from parents (PR-D4a).
   { href: '/teacher/enquiries', label: 'Enquiries', icon: 'forum' },
   { href: '/teacher/resources', label: 'Learning resources', icon: 'library_books' },
+  // Boards W1–W2 (CR-17 PR 4, OC-129): the teacher's worksheet library.
+  { href: '/teacher/homework', label: 'Homework', icon: 'description' },
   { href: '/teacher/profile', label: 'Profile', icon: 'account_circle' },
 ];
 

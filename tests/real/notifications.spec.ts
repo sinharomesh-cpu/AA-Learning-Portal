@@ -414,6 +414,7 @@ test('AC-48, AC-70: the parent menu item and home button "Notifications" open th
     'Looking for students',
     'Enquiries',
     'Learning resources',
+    'Homework',
     'Profile',
   ]);
   await openBell(t);

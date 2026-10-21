@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { SUBJECTS } from '@/fixtures/subjects';
 import { formatFileSize } from '@/lib/filePieces';
+import { RESOURCE_TYPE_LABEL } from '@/lib/resourceTypes';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
@@ -30,7 +31,7 @@ function ResourceItem({ r, students, timeZone }: { r: OwnResource; students: Stu
         <div className="flex min-w-0 flex-col gap-0.5">
           <h3 className="m-0 break-words text-[18px] font-bold leading-6">{r.title}</h3>
           <span className="text-sm leading-5 text-on-surface-variant">
-            {SUBJECTS[r.subject].name}
+            {RESOURCE_TYPE_LABEL[r.resourceType]} · {SUBJECTS[r.subject].name}
             {r.chapter ? ` · ${r.chapter}` : ''} · {r.mediaType === 'application/pdf' ? 'PDF' : 'Picture'} ·{' '}
             {formatFileSize(r.byteSize)} · shared {fmtDate(r.createdAt, timeZone)}
           </span>
@@ -60,7 +61,13 @@ function ResourceItem({ r, students, timeZone }: { r: OwnResource; students: Stu
             ))}
           </div>
           <ShareMore resourceId={r.id} options={more} />
-          <EditResource resourceId={r.id} title={r.title} chapter={r.chapter} note={r.note} />
+          <EditResource
+            resourceId={r.id}
+            title={r.title}
+            chapter={r.chapter}
+            note={r.note}
+            resourceType={r.resourceType}
+          />
           <div>
             <ArchiveButton resourceId={r.id} title={r.title} />
           </div>
