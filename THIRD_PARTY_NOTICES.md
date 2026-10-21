@@ -56,3 +56,21 @@ https://github.com/catdad-experiments/libheif-js and https://github.com/struktur
 > Permission to use, copy, modify, and/or distribute this software for any purpose with or
 > without fee is hereby granted, provided that the above copyright notice and this permission
 > notice appear in all copies.
+
+## PDF reader (pdf.js)
+
+Parents' books (CR-17 PR B1, B-2) are opened in the browser with Mozilla's `pdfjs-dist` 6.4.299,
+to count pages, suggest chapters from the PDF's bookmarks or contents page, and draw pages in the
+book reader. It runs only in the browser; scripts inside PDFs are never run (no scripting build;
+pdf.js 6 does not evaluate code) and XFA forms are off. No book is sent anywhere else. It is distributed under the Apache License, Version 2.0:
+
+> Copyright Mozilla Foundation
+>
+> Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+> except in compliance with the License. You may obtain a copy of the License at
+> https://www.apache.org/licenses/LICENSE-2.0
+>
+> Unless required by applicable law or agreed to in writing, software distributed under the
+> License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+> express or implied. See the License for the specific language governing permissions and
+> limitations under the License.

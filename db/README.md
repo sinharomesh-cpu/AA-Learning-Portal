@@ -38,9 +38,23 @@ parent, and only a Super Admin can approve a teacher.
 `teacher_resources.resource_type` labels shared files (notes, worksheet, slides, other), and
 `notifications.entity_type` accepts `assignment`.
 
+## Parents' books (0028, M6)
+
+| Table | Purpose |
+|---|---|
+| `books` | A parent's book: one complete PDF (used as it is, or split into page-range chapters, also later) or a set of separate chapters (CR-17 PR B1; B-6, B-8). Draft or published; archived. |
+| `book_children` | Which of the parent's own children may read it (checked against active guardian links). |
+| `book_chapters` | Chapters: page ranges inside the one PDF (never overlapping, never past the last page), or separate chapters hidden from readers until their files are in. Titles are the parent's own. |
+| `book_chapter_files` | A separate chapter's files: one PDF, or 1–30 page photos stored as JPEGs, in the parent's order (B-7). |
+
+Book files are `stored_files` with purpose `book`. Readers: the parent owner; once published,
+the children it was given to, their guardians, and teachers linked to such a child in the
+book's subject (view only, no download). Never administrators (W-5).
+`worksheets.source_chapter_id` and `assignments.book_chapter_id` are for PR B2.
+
 ## Rollbacks (`db/rollback/`)
 
 The runner never runs a migration backwards and refuses a changed or removed one. Each larger
 migration therefore has a prepared revert in `db/rollback/`, tested on a throw-away database
-(`tests/db/m3Rollback.test.ts`). It is used only with the owner's written approval, by copying
+(`tests/db/m3Rollback.test.ts`, `tests/db/m6Rollback.test.ts`; revert M6 before M3). It is used only with the owner's written approval, by copying
 it into `db/migrations` under the next free number. It deletes the records the migration added.

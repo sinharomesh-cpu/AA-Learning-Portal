@@ -14,7 +14,8 @@ import { getViewer } from '@/server/session';
  * - `?piece=n`: one piece of at most 3 MB. The free host returns at most 4.5 MB per request, so
  *   the viewer fetches large files piece by piece and joins them in the browser.
  * - no parameter: the whole file (fine for files under 4.5 MB, and locally); `?download=1` asks
- *   the browser to save it. Any allowed viewer may download (OC-90 Q-3).
+ *   the browser to save it. Any allowed viewer may download (OC-90 Q-3), except books: only
+ *   their parent owner (OC-41(5)); others read books in the book viewer.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (isDemoMode()) return notFoundResponse();
@@ -51,5 +52,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const file = await readFileForViewer(sql, viewer.id, id);
   if (!file) return notFoundResponse();
+  // Books (CR-17 PR B1, OC-41(5)): only the parent who uploaded it gets the file itself or a
+  // download. Children and linked teachers read it page by page in AA Pro's book viewer.
+  if (file.meta.purpose === 'book' && file.meta.ownerId !== viewer.id) return notFoundResponse();
   return fileResponse(file.meta, file.body, search.get('download') === '1');
 }

@@ -6,7 +6,7 @@ import { Wordmark } from '@/components/Wordmark';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { fileOutline } from '@/server/files/pieces';
-import { noteRefusedRead } from '@/server/files/store';
+import { mayReadFile, noteRefusedRead } from '@/server/files/store';
 import { getViewer } from '@/server/session';
 
 export const metadata: Metadata = { title: 'File' };
@@ -25,7 +25,10 @@ export default async function FileViewPage({ params }: { params: Promise<{ id: s
   if (viewer.mfaPending) redirect('/security-check');
   const { id } = await params;
   const outline = await fileOutline(db(), viewer.id, id);
-  if (!outline) {
+  // Books (CR-17 PR B1, OC-41(5)): here only for their parent owner, who may download them.
+  // Children and linked teachers read books in the book viewer, with no download.
+  const meta = outline ? await mayReadFile(db(), viewer.id, id) : null;
+  if (!outline || !meta || (meta.purpose === 'book' && meta.ownerId !== viewer.id)) {
     await noteRefusedRead(db(), viewer.id, id);
     // The same role-specific "not found" as every other refused page (board 9).
     return (
