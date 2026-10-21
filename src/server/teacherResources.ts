@@ -1,5 +1,6 @@
 import 'server-only';
 import { SUBJECT_IDS, type SubjectId } from '@/fixtures/subjects';
+import { RESOURCE_TYPE_LABEL, type ResourceTypeId as ResourceType } from '@/lib/resourceTypes';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql, Tx } from './db/client';
 import { storeUploadedFile } from './files/pieces';
@@ -24,6 +25,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = 24 * 60 * 60 * 1000;
 export const ARCHIVE_DAYS = 30;
 const MAX_STUDENTS = 50;
+
+/** CR-17 PR 4: a type label on each shared file (migration 0027). */
+const RESOURCE_TYPES = Object.keys(RESOURCE_TYPE_LABEL) as ResourceType[];
 
 const isSubject = (s: string): s is SubjectId => (SUBJECT_IDS as readonly string[]).includes(s);
 const clean = (s: unknown) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '');
@@ -67,9 +71,17 @@ export interface ResourceDetails {
   subject: unknown;
   chapter?: unknown;
   note?: unknown;
+  /** Notes, worksheet, slides or other; "other" when not given. */
+  resourceType?: unknown;
 }
 
-type Checked = { title: string; subject: SubjectId; chapter: string | null; note: string | null };
+type Checked = {
+  title: string;
+  subject: SubjectId;
+  chapter: string | null;
+  note: string | null;
+  resourceType: ResourceType;
+};
 
 function checkDetails(d: ResourceDetails): Checked | null {
   const title = clean(d.title);
@@ -78,7 +90,9 @@ function checkDetails(d: ResourceDetails): Checked | null {
   const note = cleanNote(d.note);
   if (title.length < 1 || title.length > 120 || !isSubject(subject)) return null;
   if (chapter.length > 120 || note.length > 1000) return null;
-  return { title, subject, chapter: chapter || null, note: note || null };
+  const type = clean(d.resourceType) || 'other';
+  if (!(RESOURCE_TYPES as readonly string[]).includes(type)) return null;
+  return { title, subject, chapter: chapter || null, note: note || null, resourceType: type as ResourceType };
 }
 
 function checkStudents(ids: unknown): string[] | null {
@@ -136,8 +150,9 @@ export async function shareNewResource(
       return { ok: false, detail: 'not_linked' };
     }
     const [row] = await tx<Array<{ id: string }>>`
-      INSERT INTO teacher_resources (teacher_id, file_id, title, subject, chapter, note, created_at, updated_at)
-      VALUES (${teacherId}, ${fileId}, ${details.title}, ${details.subject}, ${details.chapter}, ${details.note}, ${now}, ${now})
+      INSERT INTO teacher_resources (teacher_id, file_id, title, subject, chapter, note, resource_type, created_at, updated_at)
+      VALUES (${teacherId}, ${fileId}, ${details.title}, ${details.subject}, ${details.chapter}, ${details.note},
+              ${details.resourceType}, ${now}, ${now})
       RETURNING id`;
     resourceId = row!.id;
     await insertShares(tx, resourceId, students, now);
@@ -183,7 +198,7 @@ export async function editResource(
   const details = checkDetails({ ...input, subject: own.subject });
   if (!details) return { ok: false, reason: 'invalid' };
   await sql`UPDATE teacher_resources SET title = ${details.title}, chapter = ${details.chapter}, note = ${details.note},
-            updated_at = ${now} WHERE id = ${resourceId}`;
+            resource_type = ${details.resourceType}, updated_at = ${now} WHERE id = ${resourceId}`;
   return { ok: true };
 }
 
@@ -292,6 +307,7 @@ export interface OwnResource {
   subject: SubjectId;
   chapter: string | null;
   note: string | null;
+  resourceType: ResourceType;
   fileId: string;
   mediaType: string;
   byteSize: number;
@@ -313,6 +329,7 @@ export async function listOwnResources(sql: Sql, teacherId: string, now: Date = 
       subject: SubjectId;
       chapter: string | null;
       note: string | null;
+      resource_type: ResourceType;
       file_id: string;
       media_type: string;
       byte_size: number;
@@ -321,7 +338,8 @@ export async function listOwnResources(sql: Sql, teacherId: string, now: Date = 
       shares: Array<{ studentId: string; name: string; linked: boolean }> | null;
     }>
   >`
-    SELECT r.id, r.title, r.subject, r.chapter, r.note, r.file_id, f.media_type, f.byte_size, r.created_at, r.archived_at,
+    SELECT r.id, r.title, r.subject, r.chapter, r.note, r.resource_type, r.file_id, f.media_type, f.byte_size, r.created_at,
+      r.archived_at,
       (SELECT json_agg(json_build_object('studentId', s.student_id, 'name', a.display_name,
                 'linked', EXISTS (SELECT 1 FROM teacher_student_links l WHERE l.teacher_id = r.teacher_id
                    AND l.student_id = s.student_id AND l.status = 'active' AND r.subject = ANY (l.subjects)))
@@ -337,6 +355,7 @@ export async function listOwnResources(sql: Sql, teacherId: string, now: Date = 
     subject: r.subject,
     chapter: r.chapter,
     note: r.note,
+    resourceType: r.resource_type,
     fileId: r.file_id,
     mediaType: r.media_type,
     byteSize: r.byte_size,
@@ -353,6 +372,7 @@ export interface SharedResource {
   subject: SubjectId;
   chapter: string | null;
   note: string | null;
+  resourceType: ResourceType;
   fileId: string;
   mediaType: string;
   byteSize: number;
@@ -370,6 +390,7 @@ type SharedRow = {
   subject: SubjectId;
   chapter: string | null;
   note: string | null;
+  resource_type: ResourceType;
   file_id: string;
   media_type: string;
   byte_size: number;
@@ -385,6 +406,7 @@ const toShared = (r: SharedRow): SharedResource => ({
   subject: r.subject,
   chapter: r.chapter,
   note: r.note,
+  resourceType: r.resource_type,
   fileId: r.file_id,
   mediaType: r.media_type,
   byteSize: r.byte_size,
@@ -401,7 +423,7 @@ const toShared = (r: SharedRow): SharedResource => ({
 async function sharedWith(sql: Db, studentIds: string[]): Promise<SharedResource[]> {
   if (studentIds.length === 0) return [];
   const rows = await sql<SharedRow[]>`
-    SELECT r.id, r.title, r.subject, r.chapter, r.note, r.file_id, f.media_type, f.byte_size,
+    SELECT r.id, r.title, r.subject, r.chapter, r.note, r.resource_type, r.file_id, f.media_type, f.byte_size,
            t.display_name AS teacher_name,
            bool_or(EXISTS (SELECT 1 FROM teacher_student_links l WHERE l.teacher_id = r.teacher_id
                      AND l.student_id = s.student_id AND l.status = 'active')) AS current,

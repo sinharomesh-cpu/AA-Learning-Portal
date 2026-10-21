@@ -166,6 +166,32 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
   });
 });
 
+test.describe('worksheet library in the sample preview (CR-17 PR 4, board W1)', () => {
+  test('shows sample worksheets read-only; parents and students cannot open it', async ({ page }) => {
+    await signInAdult(page, /Teacher A\. Rao/);
+    await page.goto('/teacher/homework');
+    await expect(page.getByRole('heading', { level: 1, name: 'Homework' })).toBeVisible();
+    await expect(page.getByText('Demo: sample worksheets only.')).toBeVisible();
+    await expect(page.getByTestId('worksheet-card')).toHaveCount(3);
+    await expect(page.getByRole('link', { name: 'New worksheet' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Archive / })).toHaveCount(0);
+    await page.getByRole('link', { name: /^Draft · 1/ }).click();
+    await expect(page.getByTestId('worksheet-card')).toHaveCount(1);
+    await expect(page.getByTestId('worksheet-card')).toContainText('2 empty questions from your plan');
+    await expectNoSeriousAxeIssues(page);
+    await expectNoHorizontalScroll(page);
+    await page.goto('/teacher/homework/new');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('New worksheet');
+    await expect(page.getByText('Writing worksheets works with real accounts.')).toBeVisible();
+    await page.context().clearCookies();
+    await signInAdult(page, /Demo Parent/);
+    await page.goto('/teacher/homework');
+    // The teacher area refuses other roles before the page runs (same as /teacher/resources).
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/You can't open this|Page not found/);
+    await expect(page.getByTestId('worksheet-card')).toHaveCount(0);
+  });
+});
+
 test.describe('the same lesson in every view', () => {
   test('a student cannot open parent or teacher pages, including detail pages', async ({ page }) => {
     await signInChild(page, 'Kiran');

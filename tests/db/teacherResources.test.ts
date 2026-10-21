@@ -273,6 +273,28 @@ describe('after a parent removes the teacher (FR-027.2, OC-87 Q-5)', () => {
   });
 });
 
+describe('type label (CR-17 PR 4)', () => {
+  it('defaults to "other", can be set and changed, and refuses unknown types', async () => {
+    const t = await teacher();
+    const kiran = await family();
+    await link(t, kiran, ['science']);
+    const plain = await share(t, [kiran.child]);
+    const notes = await share(t, [kiran.child], 'science', { resourceType: 'notes' });
+    if (!plain.ok || !notes.ok) throw new Error('setup');
+    expect(await share(t, [kiran.child], 'science', { resourceType: 'video' })).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    const types = Object.fromEntries((await listOwnResources(sql, t, T0)).map((r) => [r.id, r.resourceType]));
+    expect(types).toEqual({ [plain.resourceId]: 'other', [notes.resourceId]: 'notes' });
+    expect(await editResource(sql, t, plain.resourceId, { title: 'Slides', resourceType: 'slides' }, T0)).toEqual({
+      ok: true,
+    });
+    const shown = await listResourcesForStudent(sql, kiran.child);
+    expect(shown.find((r) => r.id === plain.resourceId)?.resourceType).toBe('slides');
+  });
+});
+
 describe('share options', () => {
   it('lists only actively linked students with their ticked subjects', async () => {
     const t = await teacher();
