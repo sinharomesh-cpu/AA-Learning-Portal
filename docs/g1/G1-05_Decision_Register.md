@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.92 · 22 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.93 · 23 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,9 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v1.93 changes (owner, 23 Oct 2026, 00:07–00:20 IST — email settings):**
+- **OC-140** Resend sending-only key and email settings added to `aa-pro-test` (Production only); `EMAIL_SENDING` and `EMAIL_ALLOW_ALL_RECIPIENTS` absent; no redeploy.
 
 **v1.92 changes (owner, 22 Oct 2026, 23:25–23:58 IST — email domain):**
 - **OC-139** Resend's four DNS records approved and added; `mail.aaprolearn.com` verified in Resend (Tokyo). No email sending enabled.
@@ -500,6 +503,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-137** | **Launch project created and public domain connected.** The owner created Vercel project `aa-pro-launch` (team Zeus, Hobby, Root Directory `launch`, preset Other, no settings; approved 20:34 IST). Checked on `aa-pro-launch.vercel.app`: approved page, `/sign-in` and `/parent` show the branded not-available page, `/api/…` gives Vercel's plain 404 (no data; cosmetic only, left unchanged), `robots.txt` blocks all, security headers rated A+. Domain connection approved 21:22 IST: `www.aaprolearn.com` → `aa-pro-launch` Production, `aaprolearn.com` 308 redirect to `www`, both Valid Configuration; no DNS records edited. `test.aaprolearn.com` not connected. | Owner, 22 Oct 2026, 20:34 and 21:22 IST | Done; owner confirmed the page is visible (21:49) |
 | **OC-138** | **Test-site address.** Approved 22:05 IST ("will do it first", before the email setup). The owner added `test.aaprolearn.com` to Vercel project `aa-pro-test`, connected to Production with no redirect; Vercel issued the certificate automatically; no DNS records edited. The owner confirmed the test-site password prompt and the test site after signing in (23:23). The `.vercel.app` test address keeps working. | Owner, 22 Oct 2026, 22:05 and 23:23 IST | Done |
 | **OC-139** | **Email domain verified (no sending).** The owner created a free Resend account and added `mail.aaprolearn.com` (region Tokyo, ap-northeast-1; Manual setup, not Auto configure). Resend now issues CNAME-based sending records (Resend Forge) instead of the MX/TXT pair in the plan; both CNAME targets were checked and carry the expected bounce MX and SPF. Approved 23:37 IST ("Approve DNS records") and added in Vercel DNS: TXT `resend._domainkey.mail` (DKIM, 1024-bit RSA key checked), CNAME `send.mail` → `send.forge.rmta.net`, CNAME `rsend.mail` → `rsend-apne1.forge.rmta.net`, TXT `_dmarc` `v=DMARC1; p=none;`. No existing record changed; Vercel's own CAA record untouched; apex SPF still deferred; receiving off. Resend status Verified at 23:58. No API key, no Vercel settings, PR #120 not merged; AA Pro email sending stays off. | Owner, 22 Oct 2026, 23:37 and 23:58 IST | Done |
+| **OC-140** | **Email settings added, sending still off.** The owner created a Resend API key (sending access, `mail.aaprolearn.com` only; never shared in chat) and added to Vercel `aa-pro-test`, Production only: `EMAIL_PROVIDER_API_KEY` (Secret), `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS` (`AA Pro <no-reply@mail.aaprolearn.com>`), `EMAIL_ALLOWED_RECIPIENTS` (the owner's own address only) and `APP_BASE_URL` (`https://test.aaprolearn.com`), all Config except the key. The owner confirmed names, values and Production-only, and that `EMAIL_SENDING` and `EMAIL_ALLOW_ALL_RECIPIENTS` are absent. Vercel's redeploy prompt was dismissed; the settings take effect at the next deployment. Nothing added to `aa-learning-portal`. | Owner, 23 Oct 2026, 00:07–00:20 IST | Done; PR #120 not merged |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
