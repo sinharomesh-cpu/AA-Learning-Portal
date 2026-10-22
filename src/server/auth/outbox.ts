@@ -1,10 +1,12 @@
 import 'server-only';
 import type { Db } from '@/server/db/client';
+import { sendQueuedEmailsAfterResponse } from '@/server/email/schedule';
 
 /**
- * Email outbox (P2-00 §2, migration 0001 `email_outbox`). Every email is written here. Nothing
- * is sent until an email provider is approved (A-02); in development and tests the local
- * mailbox page shows each one. The de-duplication key makes queueing idempotent: a second
+ * Email outbox (P2-00 §2, migration 0001 `email_outbox`). Every email is written here first.
+ * Real sending (Resend free plan, OC-133) is off unless configured and switched on; it then
+ * happens after the request, from the outbox (src/server/email). In development and tests the
+ * local mailbox page shows each one. The de-duplication key makes queueing idempotent: a second
  * request with the same key inside the same window is ignored (§10 duplicate prevention).
  */
 export type EmailTemplate =
@@ -63,6 +65,7 @@ export async function queueEmail(sql: Db, email: QueuedEmail): Promise<boolean> 
     VALUES (${email.to}, ${email.template}, ${sql.json(email.payload)}, ${email.dedupeKey})
     ON CONFLICT (dedupe_key) DO NOTHING
     RETURNING id`;
+  if (rows.length === 1) sendQueuedEmailsAfterResponse();
   return rows.length === 1;
 }
 

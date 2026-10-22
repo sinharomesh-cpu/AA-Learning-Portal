@@ -5,7 +5,7 @@ import { PAID_SERVICES, paidServiceApproved } from './paidServices';
 
 /**
  * OC-91 preventive control: with a $0 budget, no paid service may be approved, installed or
- * called. This test fails the build if a paid SDK is added to package.json or a paid API host
+ * called. The one exception is Resend's free plan for email (OC-133), called without its SDK. This test fails the build if a paid SDK is added to package.json or a paid API host
  * appears in the code, before the owner's written approval is recorded in the register.
  */
 const ROOT = join(__dirname, '..', '..');
@@ -20,9 +20,11 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('paid services register (OC-91, budget $0)', () => {
-  it('no paid service is approved', () => {
-    expect(PAID_SERVICES.filter((s) => s.approvedBy !== null)).toEqual([]);
-    for (const s of PAID_SERVICES) expect(paidServiceApproved(s.id)).toBe(false);
+  it('only Resend email on its free plan is approved (OC-133), with no SDK', () => {
+    expect(PAID_SERVICES.filter((s) => s.approvedBy !== null).map((s) => [s.id, s.approvedBy, s.packages])).toEqual([
+      ['email', 'OC-133', []],
+    ]);
+    for (const s of PAID_SERVICES.filter((x) => x.id !== 'email')) expect(paidServiceApproved(s.id)).toBe(false);
     expect(paidServiceApproved('unknown')).toBe(false);
   });
 
