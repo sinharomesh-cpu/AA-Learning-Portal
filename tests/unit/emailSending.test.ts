@@ -6,13 +6,13 @@ import { RESEND_ENDPOINT, sendWithResend } from '@/server/email/resend';
 import { renderEmail } from '@/server/email/templates';
 
 /** OC-133: Resend free plan, ₹0. Synthetic addresses and a fake API only; nothing is sent. */
-const KEY = 're_test_000000000000';
+const KEY = 're_test_000000000000'; // pragma: allowlist secret (fake key for tests)
 const BASE = {
   EMAIL_PROVIDER: 'resend',
   EMAIL_SENDING: 'on',
   EMAIL_PROVIDER_API_KEY: KEY,
-  EMAIL_FROM_ADDRESS: 'AA Pro <no-reply@send.aapro-sample.org>',
-  EMAIL_ALLOWED_RECIPIENTS: 'delivered@resend.dev, Bounced@resend.dev',
+  EMAIL_FROM_ADDRESS: 'AA Pro <no-reply@example.org>',
+  EMAIL_ALLOWED_RECIPIENTS: 'delivered@example.org, Bounced@example.org',
 };
 
 describe('sending switch', () => {
@@ -21,7 +21,7 @@ describe('sending switch', () => {
     expect(readEmailConfig({ ...BASE, EMAIL_SENDING: '' }).mode).toBe('off');
     expect(readEmailConfig({ ...BASE, EMAIL_PROVIDER: 'sendgrid' }).mode).toBe('off');
     expect(readEmailConfig({ ...BASE, EMAIL_PROVIDER_API_KEY: '' }).mode).toBe('off');
-    expect(readEmailConfig({ ...BASE, EMAIL_PROVIDER_API_KEY: 'sk_live_x' }).mode).toBe('off');
+    expect(readEmailConfig({ ...BASE, EMAIL_PROVIDER_API_KEY: 'sk_live_x' }).mode).toBe('off'); // pragma: allowlist secret (fake, wrong-format key)
     expect(readEmailConfig({ ...BASE, EMAIL_FROM_ADDRESS: 'nobody' }).mode).toBe('off');
     expect(readEmailConfig({ ...BASE, EMAIL_ALLOWED_RECIPIENTS: '' }).mode).toBe('off');
     expect(readEmailConfig({ ...BASE, EMAIL_ALLOWED_RECIPIENTS: 'not-an-address' }).mode).toBe('off');
@@ -34,7 +34,7 @@ describe('sending switch', () => {
     if (c.mode !== 'resend') throw new Error(c.reason);
     expect(c.perDay).toBe(DEFAULT_LIMITS.perDay);
     expect(c.perMonth).toBe(DEFAULT_LIMITS.perMonth);
-    expect([...(c.allowedRecipients ?? [])]).toEqual(['delivered@resend.dev', 'bounced@resend.dev']);
+    expect([...(c.allowedRecipients ?? [])]).toEqual(['delivered@example.org', 'bounced@example.org']);
     expect(readEmailConfig({ ...BASE, EMAIL_DAILY_LIMIT: '101' }).mode).toBe('off');
     expect(readEmailConfig({ ...BASE, EMAIL_MONTHLY_LIMIT: '3001' }).mode).toBe('off');
     expect(readEmailConfig({ ...BASE, EMAIL_DAILY_LIMIT: '5' })).toMatchObject({ perDay: 5 });
@@ -92,7 +92,7 @@ describe('email words', () => {
     for (const t of ALL) {
       const r = renderEmail(t, {
         name: 'Sample Parent',
-        link: 'https://aapro-sample.org/x',
+        link: 'https://example.org/x',
         when: '2026-10-22T03:00:00Z',
       });
       expect(r, t).not.toBeNull();
@@ -106,9 +106,9 @@ describe('email words', () => {
   it('a reset link is the button, with its lifetime; dates in India time', () => {
     const r = renderEmail('password_reset', {
       name: 'Asha',
-      link: 'https://aapro-sample.org/reset-password?token=abc',
+      link: 'https://example.org/reset-password?token=abc',
     })!;
-    expect(r.text).toContain('Choose a new password: https://aapro-sample.org/reset-password?token=abc');
+    expect(r.text).toContain('Choose a new password: https://example.org/reset-password?token=abc');
     expect(r.text).toContain('30 minutes');
     expect(renderEmail('password_changed', { name: 'A', when: '2026-10-22T03:00:00Z' })!.text).toContain(
       '22 October 2026 at 08:30 (India time)',
@@ -140,8 +140,8 @@ function fakeFetch(status: number, body: unknown, headers: Record<string, string
 }
 
 const EMAIL = {
-  from: 'AA Pro <no-reply@send.aapro-sample.org>',
-  to: 'delivered@resend.dev',
+  from: 'AA Pro <no-reply@example.org>',
+  to: 'delivered@example.org',
   subject: 'S',
   text: 'T',
   html: '<p>T</p>',
@@ -157,7 +157,7 @@ describe('Resend client', () => {
     expect(headers.Authorization).toBe(`Bearer ${KEY}`);
     expect(headers['Idempotency-Key']).toBe('aa-pro-outbox-1');
     expect(String(f.calls[0]!.init.body)).not.toContain(KEY);
-    expect(JSON.parse(String(f.calls[0]!.init.body))).toMatchObject({ to: ['delivered@resend.dev'], subject: 'S' });
+    expect(JSON.parse(String(f.calls[0]!.init.body))).toMatchObject({ to: ['delivered@example.org'], subject: 'S' });
   });
 
   it('tells quotas, rate limits, set-up problems, bad emails and outages apart', async () => {
@@ -173,7 +173,7 @@ describe('Resend client', () => {
       [401, { name: 'validation_error' }, {}, { ok: false, kind: 'auth', error: 'validation_error' }],
       [
         403,
-        { name: 'validation_error', message: 'domain not verified for x@y.com' },
+        { name: 'validation_error', message: 'domain not verified for x@example.com' },
         {},
         { ok: false, kind: 'auth', error: 'validation_error' },
       ],

@@ -47,9 +47,9 @@ async function parentWithEmail(email: string) {
 
 describe('the existing password-reset flow with Resend switched on', () => {
   it('switched off (the default): the email is queued and nothing is scheduled or sent', async () => {
-    const email = `off-${Date.now()}@aapro-sample.org`;
+    const email = `off-${Date.now()}@example.org`;
     await parentWithEmail(email);
-    expect(await requestPasswordReset(sql, { email, baseUrl: 'https://aapro-sample.org' })).toMatchObject({ ok: true });
+    expect(await requestPasswordReset(sql, { email, baseUrl: 'https://example.org' })).toMatchObject({ ok: true });
     const [row] = await sql<{ status: string }[]>`SELECT status FROM email_outbox WHERE to_address = ${email}`;
     expect(row!.status).toBe('pending');
     expect(pending).toHaveLength(0);
@@ -57,23 +57,23 @@ describe('the existing password-reset flow with Resend switched on', () => {
   });
 
   it('switched on: the reset email goes to Resend after the response, once, with the link', async () => {
-    const email = `delivered+reset${Date.now()}@resend.dev`;
+    const email = `delivered+reset${Date.now()}@example.org`;
     await parentWithEmail(email);
     Object.assign(process.env, {
       EMAIL_PROVIDER: 'resend',
       EMAIL_SENDING: 'on',
-      EMAIL_PROVIDER_API_KEY: 're_test_000000000000',
-      EMAIL_FROM_ADDRESS: 'AA Pro <no-reply@send.aapro-sample.org>',
+      EMAIL_PROVIDER_API_KEY: 're_test_000000000000', // pragma: allowlist secret (fake key)
+      EMAIL_FROM_ADDRESS: 'AA Pro <no-reply@example.org>',
       EMAIL_ALLOWED_RECIPIENTS: email,
     });
-    expect(await requestPasswordReset(sql, { email, baseUrl: 'https://aapro-sample.org' })).toMatchObject({ ok: true });
+    expect(await requestPasswordReset(sql, { email, baseUrl: 'https://example.org' })).toMatchObject({ ok: true });
     expect(calls).toHaveLength(0); // nothing during the request itself
     expect(pending.length).toBeGreaterThan(0);
     for (const run of pending.splice(0)) await run();
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url).toBe('https://api.resend.com/emails');
     expect(calls[0]!.body.to).toEqual([email]);
-    expect(calls[0]!.body.text).toMatch(/https:\/\/aapro-sample\.org\/reset-password\?token=[A-Za-z0-9_-]+/);
+    expect(calls[0]!.body.text).toMatch(/https:\/\/example\.org\/reset-password\?token=[A-Za-z0-9_-]+/);
     const [row] = await sql<{ status: string; payload: Record<string, string> }[]>`
       SELECT status, payload FROM email_outbox WHERE to_address = ${email}`;
     expect(row!.status).toBe('sent');

@@ -20,11 +20,11 @@ function day() {
   return new Date(`${year}-03-10T06:00:00Z`);
 }
 
-const TEST_LIST = ['delivered@resend.dev', 'bounced@resend.dev'];
+const TEST_LIST = ['delivered@example.org', 'bounced@example.org'];
 const config = (over: Partial<Extract<EmailConfig, { mode: 'resend' }>> = {}): EmailConfig => ({
   mode: 'resend',
-  apiKey: 're_test_000000000000',
-  from: 'AA Pro <no-reply@send.aapro-sample.org>',
+  apiKey: 're_test_000000000000', // pragma: allowlist secret (fake key)
+  from: 'AA Pro <no-reply@example.org>',
   allowedRecipients: new Set(TEST_LIST),
   perDay: 90,
   perMonth: 2900,
@@ -35,7 +35,7 @@ async function queue(to: string, at: Date, template = 'password_reset', payload?
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO email_outbox (to_address, template, payload, dedupe_key, created_at)
     VALUES (${to}, ${template},
-            ${sql.json(payload ?? { name: 'Sample', link: `https://aapro-sample.org/reset-password?token=${randomUUID()}` })},
+            ${sql.json(payload ?? { name: 'Sample', link: `https://example.org/reset-password?token=${randomUUID()}` })},
             ${randomUUID()}, ${at})
     RETURNING id`;
   return row!.id;
@@ -59,21 +59,21 @@ function fakeResend(results: SendResult[] = []) {
 describe('sending queued emails (OC-133)', () => {
   it('is off without a configuration: nothing is touched', async () => {
     const at = day();
-    const id = await queue('delivered@resend.dev', at);
+    const id = await queue('delivered@example.org', at);
     expect(await dispatchPendingEmails(sql, { mode: 'off', reason: 'x' })).toMatchObject({ status: 'off' });
     expect((await statusOf(id)).status).toBe('pending');
   });
 
   it('sends to listed test recipients only, with the outbox id as idempotency key, then removes the link', async () => {
     const at = day();
-    const ok = await queue('Delivered@resend.dev', at);
-    const other = await queue('real.person@aapro-sample.org', at);
+    const ok = await queue('Delivered@example.org', at);
+    const other = await queue('real.person@example.org', at);
     const r = fakeResend();
     expect(await dispatchPendingEmails(sql, config(), { now: () => at, send: r.send })).toMatchObject({
       status: 'done',
       sent: 1,
     });
-    expect(r.sent.map((e) => [e.to, e.idempotencyKey])).toEqual([['Delivered@resend.dev', `aa-pro-outbox-${ok}`]]);
+    expect(r.sent.map((e) => [e.to, e.idempotencyKey])).toEqual([['Delivered@example.org', `aa-pro-outbox-${ok}`]]);
     expect(r.sent[0]!.text).toContain('reset-password?token=');
     const done = await statusOf(ok);
     expect(done.status).toBe('sent');
@@ -89,7 +89,7 @@ describe('sending queued emails (OC-133)', () => {
 
   it('a reset link older than 30 minutes is not sent late', async () => {
     const at = day();
-    const id = await queue('delivered@resend.dev', new Date(at.getTime() - 31 * 60_000));
+    const id = await queue('delivered@example.org', new Date(at.getTime() - 31 * 60_000));
     const r = fakeResend();
     expect(await dispatchPendingEmails(sql, config(), { now: () => at, send: r.send })).toMatchObject({
       cancelled: 1,
@@ -102,8 +102,8 @@ describe('sending queued emails (OC-133)', () => {
 
   it('a bad address is given up; the rest still go', async () => {
     const at = day();
-    const bad = await queue('bounced@resend.dev', at);
-    const good = await queue('delivered@resend.dev', new Date(at.getTime() + 1000));
+    const bad = await queue('bounced@example.org', at);
+    const good = await queue('delivered@example.org', new Date(at.getTime() + 1000));
     const r = fakeResend([{ ok: false, kind: 'rejected', error: 'validation_error' }]);
     expect(await dispatchPendingEmails(sql, config(), { now: () => at, send: r.send })).toMatchObject({
       sent: 1,
@@ -115,8 +115,8 @@ describe('sending queued emails (OC-133)', () => {
 
   it("AA Pro's own daily cap pauses sending until midnight UTC; the email stays queued", async () => {
     const at = day();
-    const a = await queue('delivered@resend.dev', at);
-    const b = await queue('delivered@resend.dev', new Date(at.getTime() + 1000));
+    const a = await queue('delivered@example.org', at);
+    const b = await queue('delivered@example.org', new Date(at.getTime() + 1000));
     const r = fakeResend();
     const out = await dispatchPendingEmails(sql, config({ perDay: 1 }), { now: () => at, send: r.send });
     expect(out).toMatchObject({ status: 'done', sent: 1, stoppedBecause: 'own_daily_limit' });
@@ -133,7 +133,7 @@ describe('sending queued emails (OC-133)', () => {
 
   it("Resend's daily or monthly quota pauses sending; nothing switches to another service", async () => {
     const at = day();
-    const id = await queue('delivered@resend.dev', at);
+    const id = await queue('delivered@example.org', at);
     const r = fakeResend([{ ok: false, kind: 'quota_daily' }]);
     expect(await dispatchPendingEmails(sql, config(), { now: () => at, send: r.send })).toMatchObject({
       status: 'paused',
@@ -146,10 +146,10 @@ describe('sending queued emails (OC-133)', () => {
 
   it('a wrong key or unverified sender pauses for an hour; a busy Resend leaves the email for next time', async () => {
     const at = day();
-    const id = await queue('delivered@resend.dev', at, 'enquiry_accepted', {
+    const id = await queue('delivered@example.org', at, 'enquiry_accepted', {
       name: 'Sample',
       teacher: 'Teacher S.',
-      link: 'https://aapro-sample.org/parent/enquiries',
+      link: 'https://example.org/parent/enquiries',
     });
     const busy = fakeResend([{ ok: false, kind: 'retry', retryAfterSeconds: 1 }]);
     expect(await dispatchPendingEmails(sql, config(), { now: () => at, send: busy.send })).toMatchObject({
@@ -177,7 +177,7 @@ describe('sending queued emails (OC-133)', () => {
 
   it('two senders running at once send each email exactly once', async () => {
     const at = day();
-    const ids = await Promise.all([0, 1, 2, 3].map((i) => queue('delivered@resend.dev', new Date(at.getTime() + i))));
+    const ids = await Promise.all([0, 1, 2, 3].map((i) => queue('delivered@example.org', new Date(at.getTime() + i))));
     const r = fakeResend();
     await Promise.all([
       dispatchPendingEmails(sql, config(), { now: () => at, send: r.send }),

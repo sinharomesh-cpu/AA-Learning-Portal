@@ -6,10 +6,10 @@ import 'server-only';
  *
  *  EMAIL_PROVIDER=resend                 the only provider supported
  *  EMAIL_PROVIDER_API_KEY=re_…           server-side only; never NEXT_PUBLIC_
- *  EMAIL_FROM_ADDRESS="AA Pro <no-reply@send.example.com>"   on a domain verified in Resend
+ *  EMAIL_FROM_ADDRESS="AA Pro <no-reply@example.com>"   on a domain verified in Resend
  *                                        (or onboarding@resend.dev while testing with the list)
  *  EMAIL_SENDING=on                      the deliberate on-switch
- *  EMAIL_ALLOWED_RECIPIENTS=a@x.com,b@y.com   test recipients; others are not sent
+ *  EMAIL_ALLOWED_RECIPIENTS=a@example.com,b@example.org   test recipients; others are not sent
  *  EMAIL_ALLOW_ALL_RECIPIENTS=true       only with the owner's written approval (real users)
  *  EMAIL_DAILY_LIMIT / EMAIL_MONTHLY_LIMIT   AA Pro's own caps, below Resend's free 100 / 3,000
  */

@@ -81,7 +81,7 @@ Sources: <https://resend.com/pricing>, <https://resend.com/docs/api-reference/er
    | --- | --- |
    | `EMAIL_PROVIDER` | `resend` |
    | `EMAIL_PROVIDER_API_KEY` | the `re_…` key (mark Sensitive) |
-   | `EMAIL_FROM_ADDRESS` | `AA Pro <no-reply@mail.your-domain>` (or `onboarding@resend.dev` for step 2) |
+   | `EMAIL_FROM_ADDRESS` | `AA Pro <no-reply@…>` on your verified sending domain (or `onboarding@resend.dev` for step 2) |
    | `EMAIL_ALLOWED_RECIPIENTS` | your own test address(es), comma-separated |
    | `EMAIL_DAILY_LIMIT` / `EMAIL_MONTHLY_LIMIT` | optional; leave empty for 90 / 2,900 |
    | `EMAIL_SENDING` | `on` — only when you approve the first test |

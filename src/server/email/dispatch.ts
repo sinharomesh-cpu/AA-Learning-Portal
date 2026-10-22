@@ -142,9 +142,10 @@ export async function dispatchPendingEmails(
           return 'next';
         }
         const [counts] = await tx<Array<{ today: number; month: number }>>`
-        SELECT count(*) FILTER (WHERE sent_at >= ${startOfUtcDay(now)})::int AS today,
-               count(*) FILTER (WHERE sent_at >= ${startOfUtcMonth(now)})::int AS month
-        FROM email_outbox WHERE status = 'sent' AND sent_at >= ${startOfUtcMonth(now)}`;
+        SELECT count(*) FILTER (WHERE sent_at >= ${startOfUtcDay(now)} AND sent_at < ${nextUtcDay(now)})::int AS today,
+               count(*)::int AS month
+        FROM email_outbox
+        WHERE status = 'sent' AND sent_at >= ${startOfUtcMonth(now)} AND sent_at < ${nextUtcMonth(now)}`;
         if (counts!.today >= config.perDay) {
           const p = { reason: 'own_daily_limit', until: nextUtcDay(now) };
           await pause(t, p.reason, p.until, now);
