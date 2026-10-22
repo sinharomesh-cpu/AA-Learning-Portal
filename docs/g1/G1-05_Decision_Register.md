@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.90 · 22 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.91 · 22 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,9 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v1.91 changes (owner, 22 Oct 2026, 22:05–23:23 IST — test address):**
+- **OC-138** `test.aaprolearn.com` connected to `aa-pro-test` Production; the test-site password still applies (owner confirmed sign-in, 23:23).
 
 **v1.90 changes (owner, 22 Oct 2026, 19:57–21:49 IST — launch page live):**
 - **OC-136** PR #121 merged (`393d93f`); both existing projects rebuilt, no migration, homepage and investor video unchanged.
@@ -492,6 +495,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-135** | **Public domain = "Launching Soon" page only.** `www.aaprolearn.com` shows a static pre-launch page and `aaprolearn.com` redirects to it, until the owner approves the public launch. It must not expose the learning portal, sign-in or sign-up, dashboards, admin, test data or internal functions, and must not redirect to the test or development app. No newsletter, registration, contact or payment features without approval; contact or social links only once verified. Noindex for now. Served by a new static-only Vercel project `aa-pro-launch` (Root Directory `launch`), so the app's code is not in that deployment. Design approved 17:21 ("Page looks fine with the universe logo"), with a tab icon from the same universe illustration. Stage 1 approved: PR #121 opened, not merged. Merging, creating the Vercel project and assigning domains each need separate approval. | Owner, 22 Oct 2026, 17:12 and 17:21 IST | Recorded; PR #121 open |
 | **OC-136** | **PR #121 merged (launch page files only).** Approved 19:57 IST for that PR only, after confirmation that it changes only `launch/`, has no buttons or forms, and cannot apply migrations. Merged as `393d93f`; `aa-learning-portal` and `aa-pro-test` production rebuilt successfully; CI on `main` green; no migration (latest still 0028); homepage and investor video unchanged. The owner deferred the Vercel billing-address warning. | Owner, 22 Oct 2026, 19:57 IST | Done |
 | **OC-137** | **Launch project created and public domain connected.** The owner created Vercel project `aa-pro-launch` (team Zeus, Hobby, Root Directory `launch`, preset Other, no settings; approved 20:34 IST). Checked on `aa-pro-launch.vercel.app`: approved page, `/sign-in` and `/parent` show the branded not-available page, `/api/…` gives Vercel's plain 404 (no data; cosmetic only, left unchanged), `robots.txt` blocks all, security headers rated A+. Domain connection approved 21:22 IST: `www.aaprolearn.com` → `aa-pro-launch` Production, `aaprolearn.com` 308 redirect to `www`, both Valid Configuration; no DNS records edited. `test.aaprolearn.com` not connected. | Owner, 22 Oct 2026, 20:34 and 21:22 IST | Done; owner confirmed the page is visible (21:49) |
+| **OC-138** | **Test-site address.** Approved 22:05 IST ("will do it first", before the email setup). The owner added `test.aaprolearn.com` to Vercel project `aa-pro-test`, connected to Production with no redirect; Vercel issued the certificate automatically; no DNS records edited. The owner confirmed the test-site password prompt and the test site after signing in (23:23). The `.vercel.app` test address keeps working. | Owner, 22 Oct 2026, 22:05 and 23:23 IST | Done |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
