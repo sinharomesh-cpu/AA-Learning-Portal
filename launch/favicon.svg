@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .orbit { fill: none; stroke: #006194; stroke-opacity: 0.55; stroke-width: 3; }
+    .hub { fill: #006194; }
+    .a { fill: #4299e8; }
+    .b { fill: #ffb95f; }
+    @media (prefers-color-scheme: dark) {
+      .orbit { stroke: #45d6e8; stroke-opacity: 0.7; }
+      .hub { fill: #45d6e8; }
+      .a { fill: #8b70ff; }
+      .b { fill: #ffb454; }
+    }
+  </style>
+  <ellipse class="orbit" cx="32" cy="32" rx="29" ry="12" transform="rotate(-18 32 32)" />
+  <circle class="hub" cx="32" cy="32" r="13" />
+  <circle class="a" cx="58" cy="21" r="5" />
+  <circle class="b" cx="7" cy="42" r="4.5" />
+</svg>
