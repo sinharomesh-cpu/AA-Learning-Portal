@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.93 · 23 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.94 · 23 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,9 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v1.94 changes (owner, 23 Oct 2026, 00:36 IST — email code merged):**
+- **OC-141** PR #120 merged (`726c97a`); both projects rebuilt; no migration; email sending still off.
 
 **v1.93 changes (owner, 23 Oct 2026, 00:07–00:20 IST — email settings):**
 - **OC-140** Resend sending-only key and email settings added to `aa-pro-test` (Production only); `EMAIL_SENDING` and `EMAIL_ALLOW_ALL_RECIPIENTS` absent; no redeploy.
@@ -504,6 +507,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-138** | **Test-site address.** Approved 22:05 IST ("will do it first", before the email setup). The owner added `test.aaprolearn.com` to Vercel project `aa-pro-test`, connected to Production with no redirect; Vercel issued the certificate automatically; no DNS records edited. The owner confirmed the test-site password prompt and the test site after signing in (23:23). The `.vercel.app` test address keeps working. | Owner, 22 Oct 2026, 22:05 and 23:23 IST | Done |
 | **OC-139** | **Email domain verified (no sending).** The owner created a free Resend account and added `mail.aaprolearn.com` (region Tokyo, ap-northeast-1; Manual setup, not Auto configure). Resend now issues CNAME-based sending records (Resend Forge) instead of the MX/TXT pair in the plan; both CNAME targets were checked and carry the expected bounce MX and SPF. Approved 23:37 IST ("Approve DNS records") and added in Vercel DNS: TXT `resend._domainkey.mail` (DKIM, 1024-bit RSA key checked), CNAME `send.mail` → `send.forge.rmta.net`, CNAME `rsend.mail` → `rsend-apne1.forge.rmta.net`, TXT `_dmarc` `v=DMARC1; p=none;`. No existing record changed; Vercel's own CAA record untouched; apex SPF still deferred; receiving off. Resend status Verified at 23:58. No API key, no Vercel settings, PR #120 not merged; AA Pro email sending stays off. | Owner, 22 Oct 2026, 23:37 and 23:58 IST | Done |
 | **OC-140** | **Email settings added, sending still off.** The owner created a Resend API key (sending access, `mail.aaprolearn.com` only; never shared in chat) and added to Vercel `aa-pro-test`, Production only: `EMAIL_PROVIDER_API_KEY` (Secret), `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS` (`AA Pro <no-reply@mail.aaprolearn.com>`), `EMAIL_ALLOWED_RECIPIENTS` (the owner's own address only) and `APP_BASE_URL` (`https://test.aaprolearn.com`), all Config except the key. The owner confirmed names, values and Production-only, and that `EMAIL_SENDING` and `EMAIL_ALLOW_ALL_RECIPIENTS` are absent. Vercel's redeploy prompt was dismissed; the settings take effect at the next deployment. Nothing added to `aa-learning-portal`. | Owner, 23 Oct 2026, 00:07–00:20 IST | Done; PR #120 not merged |
+| **OC-141** | **PR #120 merged (email code, sending off).** Approved 00:36 IST after the branch was updated with `main` and all 11 checks passed. Merged as `726c97a`; `aa-pro-test` and `aa-learning-portal` production rebuilt successfully; CI on `main` green; no migration. With `EMAIL_SENDING` unset, emails stay in the test mailbox; links now use `APP_BASE_URL` (`https://test.aaprolearn.com`). The demo cannot send. Switching sending on for one test needs separate approval. | Owner, 23 Oct 2026, 00:36 IST | Done |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
