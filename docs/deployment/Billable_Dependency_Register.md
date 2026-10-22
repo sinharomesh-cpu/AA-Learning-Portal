@@ -31,7 +31,7 @@ A requirement that cannot be finished without a paid service is marked **Blocked
 | E-4 | Vercel **"Preview Comments"** check | Part of Vercel | No | As E-2 | — |
 | E-5 | npm packages (Next.js, React, sharp, postgres, argon2, otplib, qrcode, zod, fonts, test tools) | Open-source code | No | No (licences only) | Licences recorded in `THIRD_PARTY_NOTICES.md` where needed |
 | E-6 | Material Symbols icons, Inter, Outfit and Plus Jakarta Sans fonts | Embedded in the app | No | No | — |
-| E-7 | Email (`email_outbox`) | Queued messages | No: **nothing is sent**; the test mailbox only | Only if a provider key is added | `EMAIL_PROVIDER_API_KEY` must stay empty (OC-65). Guarded by the paid-services test |
+| E-7 | Email (`email_outbox`) via Resend **free plan** (OC-133) | Queued messages; up to 100 a day / 3,000 a month on Resend's free plan | No: free plan only, ₹0. Off until `EMAIL_SENDING=on` and the other settings are set; test recipients only until the owner approves real users | No: Resend's free plan has no overage; over quota, AA Pro pauses and keeps emails queued. AA Pro's own caps (90/2,900) sit below the free limits. No other provider, no paid plan, no card | Only `api.resend.com` is allowed, with no SDK (paid-services test). See `Email_Resend_Setup.md` |
 | E-8 | Placeholders for `ELEVENLABS_*`, `ZOOM_*`, `STORAGE_*`, `EMAIL_PROVIDER_API_KEY` and `WHATSAPP_PROVIDER_API_KEY` in `.env.example` | Names only | No | Only if filled in on Vercel | **Owner check:** none of these is set in either Vercel project. A demo build already refuses to start if any is set |
 | E-9 | Claude (this assistant) | Development | The owner's own Claude plan | — | Outside the AA Pro budget |
 
@@ -42,7 +42,7 @@ No API key, cloud resource or paid SDK was found in the repository. None of the 
 | Service | Needed for | Free alternative used now | Limits of the free alternative |
 |---|---|---|---|
 | AI Teacher voice (Gemini on Google Cloud, OpenAI Realtime, ElevenLabs, Anthropic plus speech, or AWS) | Live AI lessons | A provider-independent controller with a fake provider; the session rules and limits are fully tested | No real voice, no real teaching quality, no real latency or cost measurement |
-| Real email (OC-65) | Confirmations, invitations, reminders | The email outbox plus the test mailbox | No real delivery; addresses can't be verified |
+| Real email (OC-65, OC-133) | Confirmations, invitations, reminders | Code is ready for Resend free; until the owner creates the account, verifies a domain and switches it on, the test mailbox only | No real delivery yet. Booking reminders, contact form and background retries are not built |
 | WhatsApp | Reminders | Not built | — |
 | Zoom | Human-teacher lessons | "Zoom meeting not created yet" | No real meetings or links |
 | Object storage (C-5) | Large files at scale | **Files in AA Pro's database (OC-87)** on Neon's free plan | 1 GB per Neon project: fine for small synthetic files, not for real families' scans. Guarded by OC-96: uploads stop at 90% of the allowance; nothing upgrades (see `Storage_and_Free_Allowance.md`) |

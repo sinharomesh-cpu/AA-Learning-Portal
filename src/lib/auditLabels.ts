@@ -77,6 +77,10 @@ const LABELS: Record<string, string> = {
   STORAGE_LIMIT_CHANGED: 'Storage limit changed',
   STORAGE_WARNING: 'Storage warning level reached',
   STORAGE_UPLOADS_STOPPED: 'Uploads stopped: storage nearly full',
+  EMAIL_SENT: 'Email sent',
+  EMAIL_FAILED: 'Email could not be sent',
+  EMAIL_NOT_SENT: 'Email not sent (link expired)',
+  EMAIL_SENDING_PAUSED: 'Email sending paused',
 };
 
 export function auditLabel(type: string): string {

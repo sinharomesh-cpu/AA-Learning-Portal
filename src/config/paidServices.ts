@@ -55,10 +55,19 @@ export const PAID_SERVICES: readonly PaidService[] = [
   },
   {
     id: 'email',
-    purpose: 'Real email delivery (OC-65)',
+    purpose: 'Real email delivery with Resend, free plan only (OC-65, OC-133)',
+    // OC-133: Resend's free plan at ₹0 a month; no paid plan, no automatic billing, no fallback.
+    // Code may call Resend; sending stays off until the owner switches it on (src/server/email).
+    approvedBy: 'OC-133',
+    packages: [],
+    hosts: ['api.resend.com'],
+  },
+  {
+    id: 'email-other',
+    purpose: 'Other email providers (not chosen)',
     approvedBy: null,
     packages: ['resend', 'postmark', '@sendgrid/mail', 'nodemailer', '@aws-sdk/client-ses', 'mailgun.js'],
-    hosts: ['api.resend.com', 'api.postmarkapp.com', 'api.sendgrid.com', 'api.mailgun.net'],
+    hosts: ['api.postmarkapp.com', 'api.sendgrid.com', 'api.mailgun.net'],
   },
   {
     id: 'whatsapp',
