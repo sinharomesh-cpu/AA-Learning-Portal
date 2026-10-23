@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Sql } from '../db/client';
+import { lessonMaintenance } from '../lessons';
 import { expireRateNegotiations } from '../rateNegotiations';
 import { expireEnquiries } from '../teacherEnquiries';
 import { expireLinkRequests } from '../teacherLinks';
@@ -10,7 +11,8 @@ import type { NotificationViewer } from './access';
  * CR-16 maintenance that runs inside normal signed-in requests — no scheduler, no new service,
  * ₹0 (D-4, D-9, Q-6, Q-8, B-1 option C):
  *
- * - The shared sweep (§7.5): the three expiry sweeps and the listing-reminder sweep, at most once
+ * - The shared sweep (§7.5): the three expiry sweeps, the listing-reminder sweep and, since CR-17
+ *   PR 2, lesson expiry, AA Pro closes and outcome requests (src/server/lessons.ts), at most once
  *   a minute across all users and server instances. Triggered by bell refreshes and signed-in
  *   page loads. The run is claimed with one conditional UPDATE on the database clock, committed
  *   on its own before the sweep starts, so other requests never wait for it. Each sweep selects
@@ -48,6 +50,8 @@ export interface SweepResult {
   linkRequests: number;
   rateProposals: number;
   reminders: number;
+  /** CR-17 PR 2: lesson expiry, AA Pro closes and outcome requests. */
+  lessons: number;
   failed: number;
 }
 
@@ -56,10 +60,21 @@ export interface SweepResult {
  * that fails is caught up by the next run (every run re-selects all due rows).
  */
 export async function runSharedSweep(sql: Sql, baseUrl: string, now: Date = new Date()): Promise<SweepResult> {
-  const result: SweepResult = { ran: false, enquiries: 0, linkRequests: 0, rateProposals: 0, reminders: 0, failed: 0 };
+  const result: SweepResult = {
+    ran: false,
+    enquiries: 0,
+    linkRequests: 0,
+    rateProposals: 0,
+    reminders: 0,
+    lessons: 0,
+    failed: 0,
+  };
   if (!(await claimSharedSweep(sql))) return result;
   result.ran = true;
-  const part = async (fn: () => Promise<number>, key: 'enquiries' | 'linkRequests' | 'rateProposals' | 'reminders') => {
+  const part = async (
+    fn: () => Promise<number>,
+    key: 'enquiries' | 'linkRequests' | 'rateProposals' | 'reminders' | 'lessons',
+  ) => {
     try {
       result[key] = await fn();
     } catch (error) {
@@ -71,6 +86,7 @@ export async function runSharedSweep(sql: Sql, baseUrl: string, now: Date = new 
   await part(() => expireLinkRequests(sql, now), 'linkRequests');
   await part(() => expireRateNegotiations(sql, now), 'rateProposals');
   await part(() => queueListingReminders(sql, baseUrl, now), 'reminders');
+  await part(() => lessonMaintenance(sql, now), 'lessons');
   return result;
 }
 

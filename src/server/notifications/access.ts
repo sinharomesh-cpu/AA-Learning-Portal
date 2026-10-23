@@ -149,6 +149,18 @@ export async function mayStillSee(sql: Db, v: NotificationViewer, n: StoredNotif
       }
       return false;
     }
+    case 'lesson':
+      // CR-17 PR 2: a parent while an active parent of the child (D3A-25); the lesson's own teacher
+      // (their notifications never name the child; the schedule shows linked children only).
+      // Children get no lesson notifications.
+      if (v.role === 'parent') {
+        return one(sql`
+          SELECT 1 FROM lessons l
+          JOIN guardian_links g ON g.student_id = l.student_id AND g.parent_id = ${v.id} AND g.status = 'active'
+          WHERE l.id = ${id}`);
+      }
+      if (v.role === 'teacher') return one(sql`SELECT 1 FROM lessons WHERE id = ${id} AND teacher_id = ${v.id}`);
+      return false;
     case 'listing':
       return v.role === 'teacher' && one(sql`SELECT 1 FROM teacher_listings WHERE id = ${id} AND teacher_id = ${v.id}`);
     case 'learning_package':
@@ -210,6 +222,16 @@ export async function actionLabel(
       if ((r.status === 'accepted' || r.status === 'declined') && r.ended_by === side) return 'Done';
       if ((r.status === 'pending' || r.status === 'countered') && r.turn === side && r.expires_at > now)
         return 'Needs your reply';
+      return 'No longer needed';
+    }
+    case 'lesson': {
+      // CR-17 PR 2: the teacher's lesson request (reply before the deadline) and the outcome request.
+      const [l] = await sql<Array<{ status: string; overdue: boolean; closed_by: string | null; outcome: string | null }>>`
+        SELECT status, reply_deadline <= ${now} AS overdue, closed_by, outcome FROM lessons WHERE id = ${id}`;
+      if (!l || v.role !== 'teacher') return 'No longer needed';
+      if (l.status === 'requested') return l.overdue ? 'No longer needed' : 'Needs your reply';
+      if (l.status === 'confirmed') return l.outcome ? 'Done' : 'Needs your reply';
+      if (l.status === 'declined' && l.closed_by === 'teacher') return 'Done';
       return 'No longer needed';
     }
     case 'learning_package': {

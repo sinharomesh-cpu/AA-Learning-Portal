@@ -17,6 +17,7 @@ import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
 import { issueSetPassword } from './auth/setPasswordLink';
 import type { Db, Sql } from './db/client';
+import { closeLessonsWithoutLink } from './lessons';
 import { linkRequestAnswered, linkRequestExpired, linkRequestReceived } from './notifications/events';
 import { inTx } from './notifications/notify';
 import type { ExpiryScope } from './teacherEnquiries';
@@ -619,6 +620,8 @@ export async function updateTeacherLinks(
         await tx`UPDATE teacher_student_links SET subjects = ${unique(c.subjects)} WHERE id = ${l.id}`;
       }
     }
+    // D3A-24: lessons in a subject that was unticked, or with a child removed, are closed by AA Pro.
+    await closeLessonsWithoutLink(tx, { teacherId }, now);
     if (teacher?.ok) await tellTeacher(tx, teacherId, sent.created.length, baseUrl, now);
     await writeAudit(
       tx,
@@ -774,7 +777,8 @@ async function removeLinks(
         details: { children: active.length },
       },
       now,
-    );
+    );    // D3A-24: AA Pro cancels that child's upcoming lessons with this teacher and closes requests.
+    await closeLessonsWithoutLink(tx, { teacherId }, now);
   }
   if (waiting.length) {
     await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = ${now}, ended_as = 'withdrawn'
@@ -927,7 +931,8 @@ export async function revalidateTeacherLinks(
       now,
     );
     await tellTeacher(tx, teacherId, sentToTeacher, opts.baseUrl, now);
-  }
+  }  // D3A-24: a link or subject that ended because of the teacher's approved subjects ends its lessons.
+  await closeLessonsWithoutLink(tx, { teacherId }, now);
 }
 
 /** On rejection the waiting requests stay (no access) so the parent sees "Not approved" (board 57). */
