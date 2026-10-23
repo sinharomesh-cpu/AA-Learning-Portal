@@ -5,15 +5,17 @@ import { SUBJECTS } from '@/fixtures/subjects';
 import { getChild, listChildren } from './children';
 import { db } from './db/client';
 import { isDemoMode } from './demo';
+import { parentHomeLessons } from './lessonViews';
 
 /**
  * The signed-in parent's children for the family pages (P19, M-07): synthetic in demo mode,
- * otherwise from the database. Bookings arrive in Phase 3, so real children have no lessons yet.
+ * otherwise from the database, with each child's open lesson requests and upcoming lessons (CR-17 PR 2).
  */
 export async function familyChildren(viewer: Persona, now: Date): Promise<ChildSummary[]> {
   if (viewer.role !== 'parent') return [];
   if (isDemoMode()) return childrenOf(viewer.id, now);
   const rows = await listChildren(db(), viewer.id);
+  const lessons = await parentHomeLessons(viewer.id, viewer.timeZone, now);
   return rows.map((c) => ({
     id: c.id,
     name: c.name,
@@ -22,7 +24,7 @@ export async function familyChildren(viewer: Persona, now: Date): Promise<ChildS
     curriculum: c.curriculum ?? 'Not set',
     timeZone: c.timeZone,
     subjects: c.subjects.map((s) => SUBJECTS[s].name),
-    lessons: [],
+    lessons: lessons.filter((l) => l.studentId === c.id),
     paused: c.status === 'suspended',
   }));
 }

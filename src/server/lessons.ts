@@ -1,5 +1,6 @@
 import 'server-only';
 import { SUBJECT_IDS, SUBJECTS, type SubjectId } from '@/fixtures/subjects';
+import { formatLessonTime, localDate } from '@/lib/lessonDisplay';
 import { zoneOffsetMinutes } from '@/lib/localTime';
 import { wallTimeToUtc } from './assignments';
 import { writeAudit } from './auth/audit';
@@ -59,38 +60,10 @@ export function lessonPrice(rateMinor: number, minutes: number): number {
   return Math.floor((rateMinor * minutes * 2 + 60) / 120);
 }
 
-/** "Tue 4 Nov, 4:00 pm" in a time zone. */
-export function formatLessonTime(at: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).formatToParts(at);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
-  return `${get('weekday')} ${get('day')} ${get('month')}, ${get('hour')}:${get('minute')} ${get('dayPeriod').toLowerCase()}`;
-}
-
-/** The local calendar date (YYYY-MM-DD) of an instant in a time zone. */
-export function localDate(at: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(at);
-}
-
 /** Minutes after local midnight and the ISO weekday (1 = Monday) of an instant in a zone. */
 function localClock(at: Date, timeZone: string): { minute: number; weekday: number } {
   const local = new Date(at.getTime() + zoneOffsetMinutes(at, timeZone) * MIN);
   return { minute: local.getUTCHours() * 60 + local.getUTCMinutes(), weekday: ((local.getUTCDay() + 6) % 7) + 1 };
-}
-
-export function formatMoney(minor: number, currency: string): string {
-  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-GB', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: minor % 100 === 0 ? 0 : 2,
-  }).format(minor / 100);
 }
 
 // ======================================================================= who may book whom
@@ -195,8 +168,7 @@ export interface FreeDay {
 }
 
 export type FreeTimesResult =
-  | { ok: true; days: FreeDay[]; teacherZone: string }
-  | { ok: false; reason: 'not_linked' | 'invalid' | 'no_rate' };
+  { ok: true; days: FreeDay[]; teacherZone: string } | { ok: false; reason: 'not_linked' | 'invalid' | 'no_rate' };
 
 /**
  * Start times a parent may request (§2.2 (3)): on the teacher's 30-minute grid in the teacher's
@@ -271,7 +243,13 @@ export async function freeTimes(
       days.push(day);
     }
     const rate = Number(p.rate);
-    day.times.push({ startsAt: p.s, currency: p.cur, rateMinor: rate, priceMinor: lessonPrice(rate, q.minutes), basis: p.basis });
+    day.times.push({
+      startsAt: p.s,
+      currency: p.cur,
+      rateMinor: rate,
+      priceMinor: lessonPrice(rate, q.minutes),
+      basis: p.basis,
+    });
   }
   return { ok: true, days, teacherZone: zone };
 }
@@ -385,8 +363,7 @@ export async function requestLesson(
 // ======================================================================= answering and closing
 
 export type AnswerResult =
-  | { ok: true }
-  | { ok: false; reason: 'not_found' | 'closed' | 'expired' | 'time_taken' | 'not_linked' | 'invalid' };
+  { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'expired' | 'time_taken' | 'not_linked' | 'invalid' };
 
 interface LockedLesson {
   id: string;
@@ -605,13 +582,19 @@ export async function recordOutcome(
   if (!UUID.test(teacherId) || !UUID.test(lessonId)) return { ok: false, reason: 'not_found' };
   return sql.begin(async (tx): Promise<OutcomeResult> => {
     const l = await lockLesson(tx, lessonId);
-    if (!l || !(await teacherOwns(tx, teacherId, l)) || l.status !== 'confirmed') return { ok: false, reason: 'not_found' };
+    if (!l || !(await teacherOwns(tx, teacherId, l)) || l.status !== 'confirmed')
+      return { ok: false, reason: 'not_found' };
     if (!l.ended) return { ok: false, reason: 'not_yet' };
     if (l.outcome) return { ok: false, reason: 'done' };
     await tx`UPDATE lessons SET outcome = ${o} WHERE id = ${l.id}`;
     await writeAudit(
       tx,
-      { type: 'LESSON_OUTCOME_RECORDED', outcome: 'success', actorId: teacherId, details: { lesson: l.id, outcome: o } },
+      {
+        type: 'LESSON_OUTCOME_RECORDED',
+        outcome: 'success',
+        actorId: teacherId,
+        details: { lesson: l.id, outcome: o },
+      },
       now,
     );
     return { ok: true };
@@ -829,10 +812,16 @@ async function tellAbout(
       return;
     }
     case 'accepted':
-      await parentNotes('lesson_accepted', (z) => `${f.teacher_name} accepted ${f.child_name}'s ${subject} lesson, ${when(z)}`);
+      await parentNotes(
+        'lesson_accepted',
+        (z) => `${f.teacher_name} accepted ${f.child_name}'s ${subject} lesson, ${when(z)}`,
+      );
       return;
     case 'declined':
-      await parentNotes('lesson_declined', (z) => `${f.teacher_name} declined ${f.child_name}'s ${subject} lesson request for ${when(z)}`);
+      await parentNotes(
+        'lesson_declined',
+        (z) => `${f.teacher_name} declined ${f.child_name}'s ${subject} lesson request for ${when(z)}`,
+      );
       return;
     case 'time_taken':
       await parentNotes(
@@ -841,7 +830,11 @@ async function tellAbout(
         'Choose another time if you would like a lesson.',
       );
       // The teacher of a request closed because of another teacher's lesson for the same child.
-      await teacherNote('lesson_time_no_longer_free', 'update', `Lesson request closed, the time is no longer free: ${forTeacher}`);
+      await teacherNote(
+        'lesson_time_no_longer_free',
+        'update',
+        `Lesson request closed, the time is no longer free: ${forTeacher}`,
+      );
       return;
     case 'withdrawn': {
       const who = await actorFirst();
@@ -863,27 +856,45 @@ async function tellAbout(
       if (f.closed_by === 'aa_pro') {
         const why =
           f.close_reason === 'teacher_deactivated' ? 'the teacher is no longer available' : 'the teacher link ended';
-        await parentNotes('lesson_cancelled', (z) => `${f.child_name}'s ${subject} lesson on ${when(z)} is cancelled: ${why}`);
+        await parentNotes(
+          'lesson_cancelled',
+          (z) => `${f.child_name}'s ${subject} lesson on ${when(z)} is cancelled: ${why}`,
+        );
         await teacherNote('lesson_cancelled', 'update', `Lesson cancelled by AA Pro: ${forTeacher}`);
         return;
       }
       const who = await actorFirst();
       if (f.closed_by === 'parent') {
         await teacherNote('lesson_cancelled', 'update', `Lesson cancelled by the parent: ${forTeacher}`);
-        await parentNotes('lesson_cancelled', (z) => `${who || 'A parent'} cancelled ${f.child_name}'s ${subject} lesson on ${when(z)}`);
+        await parentNotes(
+          'lesson_cancelled',
+          (z) => `${who || 'A parent'} cancelled ${f.child_name}'s ${subject} lesson on ${when(z)}`,
+        );
       } else {
-        await parentNotes('lesson_cancelled', (z) => `${f.teacher_name} cancelled ${f.child_name}'s ${subject} lesson on ${when(z)}`);
+        await parentNotes(
+          'lesson_cancelled',
+          (z) => `${f.teacher_name} cancelled ${f.child_name}'s ${subject} lesson on ${when(z)}`,
+        );
       }
       return;
     }
     case 'closed_by_aa_pro': {
-      const why = f.close_reason === 'teacher_deactivated' ? 'the teacher is no longer available' : 'the teacher link ended';
-      await parentNotes('lesson_declined', (z) => `${f.child_name}'s ${subject} lesson request for ${when(z)} is closed: ${why}`);
+      const why =
+        f.close_reason === 'teacher_deactivated' ? 'the teacher is no longer available' : 'the teacher link ended';
+      await parentNotes(
+        'lesson_declined',
+        (z) => `${f.child_name}'s ${subject} lesson request for ${when(z)} is closed: ${why}`,
+      );
       await teacherNote('lesson_declined', 'update', `Lesson request closed by AA Pro: ${forTeacher}`);
       return;
     }
     case 'outcome_needed':
-      await teacherNote('lesson_outcome_needed', 'action', `Record how the lesson went: ${forTeacher}`, 'Taught, or did not take place.');
+      await teacherNote(
+        'lesson_outcome_needed',
+        'action',
+        `Record how the lesson went: ${forTeacher}`,
+        'Taught, or did not take place.',
+      );
       return;
   }
 }
@@ -917,6 +928,8 @@ export interface LessonItem {
   canCancel: boolean;
   canAnswer: boolean;
   needsOutcome: boolean;
+  /** The lesson's end has passed (database clock). */
+  ended: boolean;
 }
 
 interface ListRow {
@@ -985,6 +998,7 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student'): LessonIte
     canCancel: viewer !== 'student' && status === 'confirmed' && r.cancellable,
     canAnswer: viewer === 'teacher' && status === 'requested',
     needsOutcome: viewer === 'teacher' && status === 'confirmed' && r.ended && !r.outcome,
+    ended: r.ended,
   };
 }
 
@@ -1037,4 +1051,3 @@ export async function lessonStatus(sql: Db, lessonId: string): Promise<string | 
   const [r] = await sql<Array<{ status: string }>>`SELECT status FROM lessons WHERE id = ${lessonId}`;
   return r?.status ?? null;
 }
-

@@ -16,6 +16,14 @@ export function LessonKindChip({ kind, long = false }: { kind: 'ai' | 'human'; l
  * the parent must accept or reject it (OC-45); until then it is not booked and has no Zoom meeting.
  */
 export function LessonStatusChip({ status, viewer }: { status: LessonStatus; viewer: 'parent' | 'teacher' }) {
+  if (status === 'requested') {
+    // CR-17 PR 2: a parent's request, not booked until the teacher accepts.
+    return (
+      <StatusChip kind="warning">
+        {viewer === 'parent' ? 'Waiting for the teacher' : 'Waiting for your answer'}
+      </StatusChip>
+    );
+  }
   if (status === 'proposed') {
     return <StatusChip kind="warning">{viewer === 'parent' ? 'Proposed by teacher' : 'Waiting for parent'}</StatusChip>;
   }

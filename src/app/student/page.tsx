@@ -19,12 +19,13 @@ import { AI_RULE_TEXT, describeAllowance } from '@/lib/aiAllowance';
 import { clockNow } from '@/lib/clock';
 import { getAiAllowance } from '@/server/aiSessions';
 import { db } from '@/server/db/client';
+import { studentTodayLessons } from '@/server/lessonViews';
 import type { Persona } from '@/fixtures/personas';
 import type { StudentDashboard } from '@/fixtures/student';
 
 /**
- * A real child's dashboard (WP2-4). Lessons arrive with scheduling (Phase 3) and books with
- * uploads (Phase 4), so for now it shows the child's own subjects and empty lists.
+ * A real child's dashboard (WP2-4). Teacher lessons come from bookings (CR-17 PR 2, added below);
+ * books arrive with uploads, so the other lists start empty.
  */
 function realStudentDashboard(viewer: Persona): StudentDashboard {
   return {
@@ -46,6 +47,8 @@ export default async function StudentHomePage() {
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   // The student id comes from the session only (cross-child isolation, FR-002.2).
   const data = isDemoMode() ? getStudentDashboard(access.viewer.id) : realStudentDashboard(access.viewer);
+  // CR-17 PR 2: a real child's confirmed teacher lessons today (D3A-23).
+  if (data && !isDemoMode()) data.today = await studentTodayLessons(access.viewer.id, data.timeZone, clockNow());
   if (!data) return <AccessDenied viewerRole="student" />;
 
   const tz = data.timeZone;

@@ -7,6 +7,7 @@ import { buildWeek, nextSevenDays, type WeekDay } from '@/lib/teacherWeek';
 export type { WeekDay } from '@/lib/teacherWeek';
 import { formatMinute, sortUsualTimes } from '@/lib/usualTimes';
 import type { Persona } from '@/fixtures/personas';
+import { teacherHomeLessons } from './lessonViews';
 import { db } from './db/client';
 import { isDemoMode } from './demo';
 import { listTeacherEnquiries } from './teacherEnquiries';
@@ -60,6 +61,8 @@ export interface TeacherHome {
   curricula: string[];
   experienceYears: number | null;
   lessons: TeacherLesson[];
+  /** CR-17 PR 2 (real accounts): lesson requests waiting for this teacher's answer. */
+  lessonRequests?: number;
   week: WeekDay[];
   weekRows: WeekRow[];
   /** A sentence under the availability list. */
@@ -173,6 +176,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
       getOwnVerification(sql, viewer.id, now),
     ]);
   const tz = profile.timeZone;
+  const booked = await teacherHomeLessons(viewer.id, tz, now);
   const days = nextSevenDays(tz, now);
   const counts = new Map<number, { open: number; taken: number }>();
   const weekRows: WeekRow[] = [];
@@ -207,11 +211,12 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
     grades: [...profile.grades].sort((a, b) => a - b),
     curricula: profile.curricula,
     experienceYears: profile.experienceYears,
-    lessons: [],
+    lessons: booked.lessons,
+    lessonRequests: booked.requests,
     week: buildWeek(days, counts),
     weekRows,
     weekNote:
-      'These are your usual weekly times, shown to families as a guide. Nothing is booked from them until scheduling opens.',
+      'These are your usual weekly times. Linked families can request lessons inside them; you accept or decline each request in My schedule.',
     students: [],
     linkRequests: requests.length,
     packageNeedsDetails: pkg,

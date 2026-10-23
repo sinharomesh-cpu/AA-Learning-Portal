@@ -96,7 +96,12 @@ async function asked(f: { parent: string; child: string; t: string }, start: Dat
 }
 
 /** A fixture row that must lie in the past or near now: triggers skipped for that transaction only. */
-async function raw(f: { t: string; child: string; parent: string }, start: Date, requestedAt: Date, status = 'requested') {
+async function raw(
+  f: { t: string; child: string; parent: string },
+  start: Date,
+  requestedAt: Date,
+  status = 'requested',
+) {
   return sql.begin(async (tx) => {
     await tx`SET LOCAL session_replication_role = replica`;
     const [r] = await tx<{ id: string }[]>`
@@ -147,8 +152,14 @@ describe('PR 2: who can be booked, and the request', () => {
     expect(await ask(f, at(15))).toEqual({ ok: false, reason: 'usual_times' }); // off the grid
     const g = await family();
     const now = await dbNow();
-    expect(await ask(g, new Date(Math.floor((now + DAY) / (30 * MIN)) * 30 * MIN))).toEqual({ ok: false, reason: 'notice' });
-    expect(await ask(g, new Date(Math.ceil((now + 28 * DAY + MIN) / (30 * MIN)) * 30 * MIN))).toEqual({ ok: false, reason: 'window' });
+    expect(await ask(g, new Date(Math.floor((now + DAY) / (30 * MIN)) * 30 * MIN))).toEqual({
+      ok: false,
+      reason: 'notice',
+    });
+    expect(await ask(g, new Date(Math.ceil((now + 28 * DAY + MIN) / (30 * MIN)) * 30 * MIN))).toEqual({
+      ok: false,
+      reason: 'window',
+    });
   });
 
   it('a time overlapping a confirmed lesson of the teacher or the child is refused (1-minute overlap); touching is fine', async () => {
@@ -176,7 +187,13 @@ describe('PR 2: who can be booked, and the request', () => {
     expect(await ask(f, at(0), 30, { priceMinor: '1' })).toEqual({ ok: false, reason: 'price_changed' });
     await sql`UPDATE teacher_listings SET hourly_rate_minor = 90000 WHERE teacher_id = ${f.t}`;
     expect(await ask(f, at(0))).toEqual({ ok: false, reason: 'price_changed' });
-    const free = await freeTimes(sql, f.parent, { childId: f.child, teacherId: f.t, subject: 'maths', minutes: 30, parentZone: 'UTC' });
+    const free = await freeTimes(sql, f.parent, {
+      childId: f.child,
+      teacherId: f.t,
+      subject: 'maths',
+      minutes: 30,
+      parentZone: 'UTC',
+    });
     if (!free.ok) throw new Error(free.reason);
     const t: FreeTime = free.days.at(-1)!.times[0]!;
     expect(t.priceMinor).toBe(45000);
@@ -206,7 +223,13 @@ describe('PR 2: paused and withdrawn public listings (owner decision, 24 Oct 202
       const f = await family();
       const publicId = await listing(f.t, status);
       expect(await getPublicListing(sql, publicId)).toBeNull(); // not discoverable through the listing
-      const free = await freeTimes(sql, f.parent, { childId: f.child, teacherId: f.t, subject: 'maths', minutes: 30, parentZone: 'UTC' });
+      const free = await freeTimes(sql, f.parent, {
+        childId: f.child,
+        teacherId: f.t,
+        subject: 'maths',
+        minutes: 30,
+        parentZone: 'UTC',
+      });
       expect(free.ok && free.days.length > 0).toBe(true);
       const id = await asked(f, at(0));
       expect(await answerLesson(sql, f.t, id, 'accept')).toEqual({ ok: true });
@@ -224,7 +247,13 @@ describe('PR 2: paused and withdrawn public listings (owner decision, 24 Oct 202
       const child = await createChild(sql, stranger);
       expect((await bookingOptions(sql, stranger))[0]!.teachers).toEqual([]);
       expect(await ask({ parent: stranger, child, t: f.t }, at(0))).toEqual({ ok: false, reason: 'not_linked' });
-      const free = await freeTimes(sql, stranger, { childId: child, teacherId: f.t, subject: 'maths', minutes: 30, parentZone: 'UTC' });
+      const free = await freeTimes(sql, stranger, {
+        childId: child,
+        teacherId: f.t,
+        subject: 'maths',
+        minutes: 30,
+        parentZone: 'UTC',
+      });
       expect(free).toEqual({ ok: false, reason: 'not_linked' });
     });
   }
@@ -250,13 +279,20 @@ describe('PR 2: free start times and time zones', () => {
     const day = async () => {
       const r = await freeTimes(sql, f.parent, q);
       if (!r.ok) throw new Error(r.reason);
-      return r.days.find((d) => d.date === BASE.toISOString().slice(0, 10))?.times.map((t) => t.startsAt.toISOString().slice(11, 16));
+      return r.days
+        .find((d) => d.date === BASE.toISOString().slice(0, 10))
+        ?.times.map((t) => t.startsAt.toISOString().slice(11, 16));
     };
     expect(await day()).toEqual(['10:00', '10:30', '11:00']); // 11:30 + 40 min would end after 12:00
     await answerLesson(sql, f.t, await asked(f, at(0), 25), 'accept'); // 10:00-10:25 confirmed
     const g = await family(f.t, 'Meera');
     const r = await freeTimes(sql, g.parent, { ...q, childId: g.child });
-    expect(r.ok && r.days.find((d) => d.date === BASE.toISOString().slice(0, 10))?.times.map((t) => t.startsAt.toISOString().slice(11, 16))).toEqual(['10:30', '11:00']);
+    expect(
+      r.ok &&
+        r.days
+          .find((d) => d.date === BASE.toISOString().slice(0, 10))
+          ?.times.map((t) => t.startsAt.toISOString().slice(11, 16)),
+    ).toEqual(['10:30', '11:00']);
     await asked(f, at(60), 40);
     expect(await day()).toEqual(['10:30']); // 11:00 now requested by this family; 10:00 overlaps their own confirmed lesson
   });
@@ -295,7 +331,13 @@ describe('PR 2: free start times and time zones', () => {
                  'hourly', ${sql.json({ weekday: wd, start: 600, end: 660, timeZone: 'UTC' })}, 'INR', 60000, 30,
                  'accepted', NULL, now() + interval '7 days', now(), 'parent', 48000, 30)`;
     });
-    const r = await freeTimes(sql, f.parent, { childId: f.child, teacherId: f.t, subject: 'maths', minutes: 30, parentZone: 'UTC' });
+    const r = await freeTimes(sql, f.parent, {
+      childId: f.child,
+      teacherId: f.t,
+      subject: 'maths',
+      minutes: 30,
+      parentZone: 'UTC',
+    });
     if (!r.ok) throw new Error(r.reason);
     const day = r.days.find((d) => d.date === BASE.toISOString().slice(0, 10))!;
     const pick = (hhmm: string) => day.times.find((t) => t.startsAt.toISOString().slice(11, 16) === hhmm)!;
@@ -323,13 +365,20 @@ describe('PR 2: accept, decline, withdraw, and racing accepts', () => {
     const later = await asked(g, at(60), 30); // touches the end: stays open
     expect(await answerLesson(sql, f.t, mine, 'accept')).toEqual({ ok: true });
     for (const id of [sameTeacher, sameChild]) {
-      expect(await row(id)).toMatchObject({ status: 'declined', closed_by: 'aa_pro', close_reason: 'time_no_longer_free' });
+      expect(await row(id)).toMatchObject({
+        status: 'declined',
+        closed_by: 'aa_pro',
+        close_reason: 'time_no_longer_free',
+      });
     }
     expect((await row(later)).status).toBe('requested');
     expect(await answerLesson(sql, f.t, sameTeacher, 'accept')).toEqual({ ok: false, reason: 'time_taken' });
     // Meera's parents and the other teacher are told; the accepting teacher is not told about their own act.
     expect((await notes(g.parent, sameTeacher)).map((n) => n.type)).toEqual(['lesson_time_no_longer_free']);
-    expect((await notes(other, sameChild)).map((n) => n.type)).toEqual(['lesson_requested', 'lesson_time_no_longer_free']);
+    expect((await notes(other, sameChild)).map((n) => n.type)).toEqual([
+      'lesson_requested',
+      'lesson_time_no_longer_free',
+    ]);
     expect((await notes(f.t, sameTeacher)).map((n) => n.type)).toEqual(['lesson_requested']);
   });
 
@@ -380,7 +429,11 @@ describe('PR 2: accept, decline, withdraw, and racing accepts', () => {
     const a = await asked(f, at(0));
     await sql`DELETE FROM teacher_usual_times WHERE teacher_id = ${f.t}`;
     expect(await answerLesson(sql, f.t, a, 'accept')).toEqual({ ok: false, reason: 'time_taken' });
-    expect(await row(a)).toMatchObject({ status: 'declined', closed_by: 'aa_pro', close_reason: 'time_no_longer_free' });
+    expect(await row(a)).toMatchObject({
+      status: 'declined',
+      closed_by: 'aa_pro',
+      close_reason: 'time_no_longer_free',
+    });
   });
 });
 
@@ -389,8 +442,14 @@ describe('PR 2: expiry without a scheduler (D3A-5)', () => {
   it('an overdue request shows as expired at once, cannot be accepted, and the sweep tells both sides once', async () => {
     const f = await family();
     const id = await raw(f, at(0), new Date(Date.now() - 3 * DAY));
-    expect((await lessonsForParent(sql, f.parent)).find((l) => l.id === id)).toMatchObject({ status: 'expired', canWithdraw: false });
-    expect((await lessonsForTeacher(sql, f.t)).find((l) => l.id === id)).toMatchObject({ status: 'expired', canAnswer: false });
+    expect((await lessonsForParent(sql, f.parent)).find((l) => l.id === id)).toMatchObject({
+      status: 'expired',
+      canWithdraw: false,
+    });
+    expect((await lessonsForTeacher(sql, f.t)).find((l) => l.id === id)).toMatchObject({
+      status: 'expired',
+      canAnswer: false,
+    });
     expect(await answerLesson(sql, f.t, id, 'accept')).toEqual({ ok: false, reason: 'expired' });
     expect(await withdrawLesson(sql, f.parent, id)).toEqual({ ok: false, reason: 'expired' });
     await lessonMaintenance(sql);
@@ -439,7 +498,9 @@ describe('PR 2: cancellation and outcome (OC-46, D3A-6, D3A-7)', () => {
     await lessonMaintenance(sql);
     expect((await notes(f.t, done)).map((n) => [n.type, n.kind])).toEqual([['lesson_outcome_needed', 'action']]);
     const v = (await loadViewer(sql, f.t))!;
-    const [n] = await sql<StoredNotification[]>`SELECT * FROM notifications WHERE recipient_id = ${f.t} AND entity_id = ${done}`;
+    const [n] = await sql<
+      StoredNotification[]
+    >`SELECT * FROM notifications WHERE recipient_id = ${f.t} AND entity_id = ${done}`;
     expect(await actionLabel(sql, v, n!, new Date())).toBe('Needs your reply');
     expect(await recordOutcome(sql, f.t, done, 'maybe')).toEqual({ ok: false, reason: 'invalid' });
     expect(await recordOutcome(sql, f.t, done, 'not_taken_place')).toEqual({ ok: true });
@@ -464,7 +525,9 @@ describe('PR 2: who sees and does what', () => {
     expect(await lessonsForTeacher(sql, otherTeacher)).toEqual([]);
     expect(await lessonsForParent(sql, superadmin)).toEqual([]);
     // Notifications: only the lesson's teacher and the child's active parents may still see them.
-    const [n] = await sql<StoredNotification[]>`SELECT * FROM notifications WHERE recipient_id = ${f.t} AND entity_id = ${id}`;
+    const [n] = await sql<
+      StoredNotification[]
+    >`SELECT * FROM notifications WHERE recipient_id = ${f.t} AND entity_id = ${id}`;
     expect(await mayStillSee(sql, (await loadViewer(sql, f.t))!, n!)).toBe(true);
     expect(await mayStillSee(sql, { id: otherTeacher, role: 'teacher', standing: 'full' }, n!)).toBe(false);
     expect(await mayStillSee(sql, { id: stranger.parent, role: 'parent', standing: 'full' }, n!)).toBe(false);
@@ -476,7 +539,9 @@ describe('PR 2: who sees and does what', () => {
     const [t] = await notes(f.t, id);
     expect(t).toMatchObject({ type: 'lesson_requested', kind: 'action', href: '/teacher/schedule' });
     expect(`${t!.title} ${t!.body}`).not.toContain('Kiranjeet');
-    expect(t!.title).toMatch(/^New lesson request: Maths, Grade 5, \w{3} \d{1,2} \w{3}, \d{1,2}:\d{2} [ap]m \(30 min\)$/);
+    expect(t!.title).toMatch(
+      /^New lesson request: Maths, Grade 5, \w{3} \d{1,2} \w{3}, \d{1,2}:\d{2} [ap]m \(30 min\)$/,
+    );
     expect(t!.body).toContain('Anita');
     const [p] = await notes(f.parent2, id);
     expect(p!.title).toContain('Kiranjeet');
@@ -513,9 +578,19 @@ describe('PR 2: AA Pro closes (D3A-13, D3A-24)', () => {
     const b = await asked(f, at(120));
     await answerLesson(sql, f.t, b, 'accept');
     const owner = await createAdult(sql, 'superadmin');
-    expect(await setAccountActive(sql, owner, f.t, { active: false, reason: 'Test deactivation' })).toEqual({ ok: true });
-    expect(await row(a)).toMatchObject({ status: 'declined', closed_by: 'aa_pro', close_reason: 'teacher_deactivated' });
-    expect(await row(b)).toMatchObject({ status: 'cancelled', closed_by: 'aa_pro', close_reason: 'teacher_deactivated' });
+    expect(await setAccountActive(sql, owner, f.t, { active: false, reason: 'Test deactivation' })).toEqual({
+      ok: true,
+    });
+    expect(await row(a)).toMatchObject({
+      status: 'declined',
+      closed_by: 'aa_pro',
+      close_reason: 'teacher_deactivated',
+    });
+    expect(await row(b)).toMatchObject({
+      status: 'cancelled',
+      closed_by: 'aa_pro',
+      close_reason: 'teacher_deactivated',
+    });
     const told = (await notes(f.parent)).map((n) => n.title);
     expect(told.some((t) => t.includes('cancelled: the teacher is no longer available'))).toBe(true);
   });
@@ -542,4 +617,3 @@ describe('PR 2: AA Pro closes (D3A-13, D3A-24)', () => {
     expect(await row(a)).toMatchObject({ status: 'declined', closed_by: 'aa_pro', close_reason: 'link_ended' });
   });
 });
-

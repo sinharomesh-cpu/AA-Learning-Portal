@@ -15,6 +15,7 @@ import { cx } from '@/lib/cx';
 import { greeting } from '@/lib/localTime';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
+import { isDemoMode } from '@/server/demo';
 import { familyChildren } from '@/server/family';
 
 export const metadata: Metadata = { title: 'Family home' };
@@ -32,6 +33,8 @@ function longWeekday(iso: string, timeZone: string) {
 }
 
 function reminderText(l: ParentLesson) {
+  // CR-17 PR 2 (real accounts): no reminder is sent yet; the in-app reminder comes with PR 7.
+  if (!isDemoMode()) return '—';
   // OC-49 (D-22): AI reminders go to the parent by email and to the child on screen.
   if (l.kind === 'ai') return 'Email to you · on screen for your child, 15 min before';
   // OC-45: a teacher's proposal is not booked yet, so it has no reminder.
@@ -47,7 +50,13 @@ export default async function ParentHomePage() {
   const tz = access.viewer.timeZone;
   const now = clockNow();
   const kids = await familyChildren(access.viewer, now);
-  const week = parentLessons(parentId, now);
+  // Real accounts: the children's open lesson requests and upcoming lessons (CR-17 PR 2).
+  const week = isDemoMode()
+    ? parentLessons(parentId, now)
+    : kids
+        .flatMap((k) => k.lessons.map((l) => ({ ...l, childName: k.name })))
+        .filter((l) => Date.parse(l.startIso) < now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        .sort((a, b) => a.startIso.localeCompare(b.startIso));
   const resources = familyResources(parentId);
   const notify = notificationSummary(parentId);
 
@@ -118,7 +127,9 @@ export default async function ParentHomePage() {
                               {l.dayLabel} {l.timeLabel}
                             </strong>
                             <span>· {lessonDetail(l)}</span>
-                            {l.status === 'proposed' ? <LessonStatusChip status={l.status} viewer="parent" /> : null}
+                            {l.status === 'proposed' || l.status === 'requested' ? (
+                              <LessonStatusChip status={l.status} viewer="parent" />
+                            ) : null}
                           </li>
                         ))}
                       </ul>
@@ -216,7 +227,7 @@ export default async function ParentHomePage() {
                 <td className="px-2.5 py-3">{reminderText(l)}</td>
                 <td className="px-2.5 py-3">
                   <LinkButton
-                    href={`/parent/bookings/${l.id}`}
+                    href={isDemoMode() ? `/parent/bookings/${l.id}` : '/parent/calendar'}
                     variant="secondary"
                     aria-label={`${l.status === 'proposed' ? 'Review' : 'View'} ${l.subject} for ${l.childName}, ${l.dayLabel} ${l.timeLabel}`}
                   >

@@ -69,7 +69,8 @@ export function lessonChange(
   };
 }
 
-export type LessonStatusName = 'proposed' | 'confirmed' | 'booked' | 'declined' | 'cancelled';
+/** `requested`: a parent's request waiting for the teacher (CR-17 PR 2); it holds no time (D3A-4). */
+export type LessonStatusName = 'proposed' | 'confirmed' | 'booked' | 'declined' | 'cancelled' | 'requested';
 
 /**
  * OC-45: only a lesson the parent has accepted (or an AI lesson that is booked) holds the

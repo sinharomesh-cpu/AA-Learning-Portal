@@ -159,7 +159,12 @@ function Masthead({ home, now }: { home: TeacherHome; now: Date }) {
   );
 }
 
-const BAR = { confirmed: 'bg-primary', booked: 'bg-primary', proposed: 'bg-secondary-container' } as const;
+const BAR = {
+  confirmed: 'bg-primary',
+  booked: 'bg-primary',
+  proposed: 'bg-secondary-container',
+  requested: 'bg-secondary-container',
+} as const;
 
 function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
   const nowIso = now.toISOString();
@@ -180,6 +185,21 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           </LinkButton>
         </div>
       </div>
+      {home.mode === 'real' && home.lessonRequests ? (
+        <div
+          className={cx(PANEL, 'flex flex-wrap items-center justify-between gap-3 p-5')}
+          data-testid="lesson-requests-waiting"
+        >
+          <p className="m-0 text-body-md">
+            <strong>
+              {home.lessonRequests} lesson {home.lessonRequests === 1 ? 'request is' : 'requests are'} waiting for your
+              answer.
+            </strong>{' '}
+            Each one expires if it isn’t answered in time.
+          </p>
+          <LinkButton href="/teacher/schedule">Review requests</LinkButton>
+        </div>
+      ) : null}
       {home.lessons.length ? (
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {home.lessons.map((l) => (
@@ -209,8 +229,10 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                       </span>
                     </div>
                     <p className="text-body-md text-on-surface-variant">
-                      1-on-1 teacher lesson · {l.durationMinutes} min ·{' '}
-                      {l.status === 'confirmed' ? 'on Zoom' : 'no Zoom meeting until the parent accepts'}
+                      1-on-1 teacher lesson · {l.durationMinutes} min
+                      {home.mode === 'real'
+                        ? ''
+                        : ` · ${l.status === 'confirmed' ? 'on Zoom' : 'no Zoom meeting until the parent accepts'}`}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 text-label-sm text-on-surface-variant">
                       <span className="inline-flex items-center gap-1">
@@ -218,7 +240,7 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                         {l.dayLabel} {l.timeLabel}–{l.endLabel}
                       </span>
                       <LessonStatusChip status={l.status} viewer="teacher" />
-                      {l.status === 'confirmed' ? (
+                      {l.status === 'confirmed' && home.mode === 'demo' ? (
                         <span className="inline-flex items-center gap-1">
                           <Icon name="notifications" size={16} />
                           Email reminder to you and the parent, 15 min before
@@ -252,7 +274,7 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           <h3 className="font-headline text-headline-sm">No lessons coming up</h3>
           <p className="text-body-md text-on-surface-variant">
             {home.mode === 'real'
-              ? 'Booking lessons opens with scheduling in a later phase. Until then, families can send you enquiries from your listing.'
+              ? 'No confirmed lessons yet. When a linked family requests a lesson, it appears in My schedule for you to accept or decline.'
               : 'When families book you, the lessons appear here.'}
           </p>
         </div>

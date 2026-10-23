@@ -326,7 +326,11 @@ describe("M1 point 3: the teacher's usual times", () => {
     await sql`DELETE FROM teacher_usual_times WHERE teacher_id = ${f.t} AND weekday = ${isoWeekday(BASE)}`;
     expect(await message(confirm(id))).toMatch(/no longer inside the teacher's usual times/);
     await sql`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free' WHERE id = ${id}`;
-    expect(await row(id)).toMatchObject({ status: 'declined', closed_by: 'aa_pro', close_reason: 'time_no_longer_free' });
+    expect(await row(id)).toMatchObject({
+      status: 'declined',
+      closed_by: 'aa_pro',
+      close_reason: 'time_no_longer_free',
+    });
   });
 
   it('availability changed after the teacher accepted: the confirmed lesson stays (scope)', async () => {
@@ -342,7 +346,10 @@ describe("M1 point 3: the teacher's usual times", () => {
 // ---------------------------------------------------------------------------------------------
 describe('M1 point 4: price integrity (D3A-21)', () => {
   /** An accepted hourly agreement, inserted directly (its own rules are tested in CR-13/15). */
-  async function agreement(f: { t: string; parent: string; child: string | null }, a: { rate: number; slot: object; subject?: string }) {
+  async function agreement(
+    f: { t: string; parent: string; child: string | null },
+    a: { rate: number; slot: object; subject?: string },
+  ) {
     return sql.begin(async (tx) => {
       await tx`SET LOCAL session_replication_role = replica`;
       const [r] = await tx<{ id: string }[]>`
@@ -358,7 +365,13 @@ describe('M1 point 4: price integrity (D3A-21)', () => {
   }
   const snap = async (id: string) => {
     const r = await row(id);
-    return { basis: r.price_basis, rate: Number(r.rate_minor), currency: r.currency, price: Number(r.price_minor), agreement: r.agreement_id };
+    return {
+      basis: r.price_basis,
+      rate: Number(r.rate_minor),
+      currency: r.currency,
+      price: Number(r.price_minor),
+      agreement: r.agreement_id,
+    };
   };
 
   it('listed: rate and currency come from the teacher listing; the caller sends none', async () => {
@@ -470,7 +483,11 @@ describe('M1 who may request and change', () => {
     await sql`UPDATE lessons SET status = 'withdrawn', closed_by = 'parent', closed_by_account = ${f.parent2} WHERE id = ${w}`;
     expect(await code(confirm(w))).toBe('23514');
     const d = await request(sql, { ...f, start: at(240) });
-    expect(await code(sql`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${d}`)).toBe('23514');
+    expect(
+      await code(
+        sql`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${d}`,
+      ),
+    ).toBe('23514');
     // A request that is not yet overdue cannot be expired.
     expect(await code(sql`UPDATE lessons SET status = 'expired', closed_by = 'aa_pro' WHERE id = ${d}`)).toBe('23514');
   });
@@ -479,7 +496,11 @@ describe('M1 who may request and change', () => {
     const f = await setup();
     const a = await request(sql, { ...f, start: at(0) });
     const other = await teacher();
-    expect(await code(sql`UPDATE lessons SET status = 'declined', closed_by = 'teacher', closed_by_account = ${other} WHERE id = ${a}`)).toBe('42501');
+    expect(
+      await code(
+        sql`UPDATE lessons SET status = 'declined', closed_by = 'teacher', closed_by_account = ${other} WHERE id = ${a}`,
+      ),
+    ).toBe('42501');
     await sql`UPDATE lessons SET status = 'declined', closed_by = 'teacher', closed_by_account = ${f.t}, close_note = 'Away that week' WHERE id = ${a}`;
     const b = await request(sql, { ...f, start: at(60) });
     expect(await code(sql`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro' WHERE id = ${b}`)).toBe('23514');
@@ -490,7 +511,11 @@ describe('M1 who may request and change', () => {
     const f = await setup();
     const a = await request(sql, { ...f, start: at(0) });
     await sql`UPDATE guardian_links SET status = 'revoked', revoked_at = now() WHERE parent_id = ${f.parent} AND student_id = ${f.child}`;
-    expect(await code(sql`UPDATE lessons SET status = 'withdrawn', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${a}`)).toBe('42501');
+    expect(
+      await code(
+        sql`UPDATE lessons SET status = 'withdrawn', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${a}`,
+      ),
+    ).toBe('42501');
     await sql`UPDATE lessons SET status = 'withdrawn', closed_by = 'parent', closed_by_account = ${f.parent2} WHERE id = ${a}`;
   });
 
@@ -562,7 +587,9 @@ describe('M1 no overlaps between confirmed lessons', () => {
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     const codes = results.flatMap((r) => (r.status === 'rejected' ? [(r.reason as { code?: string }).code] : []));
     expect(codes).toEqual(Array(7).fill('23P01'));
-    const [n] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM lessons WHERE teacher_id = ${f.t} AND status = 'confirmed'`;
+    const [n] = await sql<
+      { n: number }[]
+    >`SELECT count(*)::int AS n FROM lessons WHERE teacher_id = ${f.t} AND status = 'confirmed'`;
     expect(n!.n).toBe(1);
   });
 
@@ -580,7 +607,9 @@ describe('M1 no overlaps between confirmed lessons', () => {
     );
     await Promise.all([a.end(), b.end()]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(results.flatMap((r) => (r.status === 'rejected' ? [(r.reason as { code?: string }).code] : []))).toEqual(['23505']);
+    expect(results.flatMap((r) => (r.status === 'rejected' ? [(r.reason as { code?: string }).code] : []))).toEqual([
+      '23505',
+    ]);
   });
 
   it('concurrent: 12 requests by one parent at once -> exactly 10 accepted', async () => {
@@ -597,7 +626,9 @@ describe('M1 no overlaps between confirmed lessons', () => {
     );
     await Promise.all(pools.map((p) => p.end()));
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(10);
-    const [n] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM lessons WHERE requested_by = ${f.parent} AND status = 'requested'`;
+    const [n] = await sql<
+      { n: number }[]
+    >`SELECT count(*)::int AS n FROM lessons WHERE requested_by = ${f.parent} AND status = 'requested'`;
     expect(n!.n).toBe(10);
   });
 });
@@ -612,7 +643,11 @@ describe('M1 the 30-minute cancellation cut-off', () => {
     const a = await raw({ ...f, start: new Date(m + 32 * MIN), requestedAt: q, status: 'confirmed' });
     const b = await raw({ ...g, start: new Date(m + 29 * MIN), requestedAt: q, status: 'confirmed' });
     await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${a}`;
-    expect(await code(sql`UPDATE lessons SET status = 'cancelled', closed_by = 'teacher', closed_by_account = ${g.t} WHERE id = ${b}`)).toBe('23514');
+    expect(
+      await code(
+        sql`UPDATE lessons SET status = 'cancelled', closed_by = 'teacher', closed_by_account = ${g.t} WHERE id = ${b}`,
+      ),
+    ).toBe('23514');
     await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = 'teacher_deactivated' WHERE id = ${b}`;
     expect(await status(b)).toBe('cancelled');
   });
@@ -667,7 +702,9 @@ describe('M1 outcome, notifications and deletion', () => {
     const start = new Date(Math.floor((await dbNow()) / MIN) * MIN - 2 * HOUR);
     const id = await raw({ ...f, start, requestedAt: new Date(start.getTime() - 3 * DAY), status: 'confirmed' });
     await sql`UPDATE lessons SET outcome = 'taught', outcome_at = '2001-01-01' WHERE id = ${id}`;
-    const [r] = await sql<{ o: string; fresh: boolean }[]>`SELECT outcome AS o, outcome_at > now() - interval '1 minute' AS fresh FROM lessons WHERE id = ${id}`;
+    const [r] = await sql<
+      { o: string; fresh: boolean }[]
+    >`SELECT outcome AS o, outcome_at > now() - interval '1 minute' AS fresh FROM lessons WHERE id = ${id}`;
     expect(r).toEqual({ o: 'taught', fresh: true });
     expect(await code(sql`UPDATE lessons SET outcome = 'not_taken_place' WHERE id = ${id}`)).toBe('23514');
   });
@@ -679,7 +716,11 @@ describe('M1 outcome, notifications and deletion', () => {
     const out = await sql
       .begin(async (tx) => {
         const results: string[] = [];
-        for (const [type, entity] of [['lesson_requested', 'lesson'], ['assignment_set', 'assignment'], ['x_y_z', 'lessons']]) {
+        for (const [type, entity] of [
+          ['lesson_requested', 'lesson'],
+          ['assignment_set', 'assignment'],
+          ['x_y_z', 'lessons'],
+        ]) {
           await tx`SAVEPOINT s`;
           results.push(
             await code(tx`INSERT INTO notifications (recipient_id, kind, type, title, href, entity_type, entity_id, dedupe_key)

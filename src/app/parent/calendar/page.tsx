@@ -1,10 +1,146 @@
 import type { Metadata } from 'next';
+import { LinkButton } from '@/components/Button';
+import { FormMessage } from '@/components/forms/FormMessage';
+import { LessonCard } from '@/components/lessons/LessonCard';
+import { AccessDenied } from '@/components/states/AccessDenied';
+import { EmptyState } from '@/components/states/States';
+import { clockNow } from '@/lib/clock';
+import { formatLessonTime } from '@/lib/lessonDisplay';
+import { formatZoneName } from '@/lib/time';
+import { requireRole } from '@/server/authz';
+import { db } from '@/server/db/client';
+import { isDemoMode } from '@/server/demo';
+import { type LessonItem, lessonsForParent } from '@/server/lessons';
 import { rolePlaceholder } from '@/server/placeholder';
+import { ParentLessonButton } from './LessonForms';
 
 export const metadata: Metadata = { title: 'Family calendar' };
+export const dynamic = 'force-dynamic';
 
-export default rolePlaceholder(
+const DONE: Record<string, { tone: 'success' | 'info'; text: string }> = {
+  withdrawn: { tone: 'success', text: 'Request withdrawn. The teacher has been told.' },
+  cancelled: { tone: 'success', text: 'Lesson cancelled. The teacher has been told.' },
+  expired: { tone: 'info', text: 'That request had already expired.' },
+  closed: { tone: 'info', text: 'That lesson or request is no longer open.' },
+};
+
+const DemoPlaceholder = rolePlaceholder(
   'parent',
   'Family calendar',
   'The full family calendar comes with scheduling (Phase 3). This week’s lessons are on Family home.',
 );
+
+/**
+ * The family's Human Teacher lessons (CR-17 PR 2): requests waiting for the teacher, upcoming
+ * lessons, and the last 30 days. Either parent of a child sees and manages the same lessons
+ * (D3A-25). Times are in this parent's time zone. Demo mode keeps its placeholder.
+ */
+export default async function FamilyCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  if (isDemoMode()) return DemoPlaceholder();
+  const access = await requireRole('parent');
+  if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
+  const raw = await searchParams;
+  const done = typeof raw.done === 'string' ? raw.done : '';
+  const tz = access.viewer.timeZone;
+  const now = clockNow();
+  const all = await lessonsForParent(db(), access.viewer.id, now);
+  const waiting = all.filter((l) => l.status === 'requested');
+  const upcoming = all.filter((l) => l.status === 'confirmed' && l.endsAt > now);
+  const past = all.filter((l) => !waiting.includes(l) && !upcoming.includes(l)).reverse();
+  const describe = (l: LessonItem) =>
+    `${l.childName}’s lesson with ${l.teacherName}, ${formatLessonTime(l.startsAt, tz)}`;
+  const latest =
+    done === 'requested'
+      ? [...waiting].sort((a, b) => b.replyDeadline.getTime() - a.replyDeadline.getTime())[0]
+      : undefined;
+
+  const list = (items: LessonItem[]) => (
+    <ul className="m-0 flex list-none flex-col gap-4 p-0">
+      {items.map((l) => (
+        <li key={l.id}>
+          <LessonCard
+            lesson={l}
+            viewer="parent"
+            timeZone={tz}
+            actions={
+              l.canWithdraw ? (
+                <ParentLessonButton lessonId={l.id} kind="withdraw" label={describe(l)} />
+              ) : l.canCancel ? (
+                <ParentLessonButton lessonId={l.id} kind="cancel" label={describe(l)} />
+              ) : null
+            }
+          />
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <div className="mx-auto flex max-w-[980px] flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-headline-lg-mobile lg:text-headline-lg">Family calendar</h1>
+          <p className="m-0 text-body-md text-on-surface-variant">
+            Your children’s lessons with human teachers. Times are in your time zone (
+            {formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
+          </p>
+        </div>
+        <LinkButton href="/parent/book-teacher">Book a teacher</LinkButton>
+      </div>
+      {done === 'requested' ? (
+        <FormMessage tone="success">
+          Request sent.{' '}
+          {latest
+            ? `${latest.teacherName} has until ${formatLessonTime(latest.replyDeadline, tz)} to answer. You’ll see the answer here and in your notifications.`
+            : 'You’ll see the answer here and in your notifications.'}
+        </FormMessage>
+      ) : DONE[done] ? (
+        <FormMessage tone={DONE[done]!.tone}>{DONE[done]!.text}</FormMessage>
+      ) : null}
+
+      <section aria-labelledby="waiting" className="flex flex-col gap-3">
+        <h2 id="waiting" className="m-0 text-[22px] font-bold leading-7">
+          Waiting for the teacher
+        </h2>
+        {waiting.length ? (
+          list(waiting)
+        ) : (
+          <p className="m-0 text-body-md text-on-surface-variant">No requests are waiting for an answer.</p>
+        )}
+      </section>
+
+      <section aria-labelledby="upcoming" className="flex flex-col gap-3">
+        <h2 id="upcoming" className="m-0 text-[22px] font-bold leading-7">
+          Upcoming lessons
+        </h2>
+        {upcoming.length ? (
+          list(upcoming)
+        ) : (
+          <EmptyState
+            title="No lessons booked"
+            action={<LinkButton href="/parent/book-teacher">Book a teacher</LinkButton>}
+          >
+            When a teacher accepts a request, the lesson appears here.
+          </EmptyState>
+        )}
+        <p className="m-0 text-sm leading-5 text-on-surface-variant">
+          Lessons can be cancelled up to 30 minutes before the start. To move one, cancel it and request a new time.
+          Prices are for information: AA Pro takes no payment.
+        </p>
+      </section>
+
+      {past.length ? (
+        <section aria-labelledby="past" className="flex flex-col gap-3">
+          <h2 id="past" className="m-0 text-[22px] font-bold leading-7">
+            Past and closed
+          </h2>
+          {list(past)}
+        </section>
+      ) : null}
+    </div>
+  );
+}

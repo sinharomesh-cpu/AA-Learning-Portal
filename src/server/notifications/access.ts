@@ -226,7 +226,9 @@ export async function actionLabel(
     }
     case 'lesson': {
       // CR-17 PR 2: the teacher's lesson request (reply before the deadline) and the outcome request.
-      const [l] = await sql<Array<{ status: string; overdue: boolean; closed_by: string | null; outcome: string | null }>>`
+      const [l] = await sql<
+        Array<{ status: string; overdue: boolean; closed_by: string | null; outcome: string | null }>
+      >`
         SELECT status, reply_deadline <= ${now} AS overdue, closed_by, outcome FROM lessons WHERE id = ${id}`;
       if (!l || v.role !== 'teacher') return 'No longer needed';
       if (l.status === 'requested') return l.overdue ? 'No longer needed' : 'Needs your reply';
