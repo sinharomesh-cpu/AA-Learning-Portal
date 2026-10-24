@@ -8,14 +8,23 @@ import { requireRole } from '@/server/authz';
 import { listChildren } from '@/server/children';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
+import { meetingPermissionsForParent } from '@/server/meetingLinks';
 import { isLive, listMyTeachers } from '@/server/teacherLinks';
-import { ChangeLinksForm, RemoveTeacherButton } from '../TeacherForms';
+import { FormMessage } from '@/components/forms/FormMessage';
+import { formatLessonTime } from '@/lib/lessonDisplay';
+import { ChangeLinksForm, MeetingPermissionForm, RemoveTeacherButton } from '../TeacherForms';
 
 export const metadata: Metadata = { title: 'Change children and subjects' };
 export const dynamic = 'force-dynamic';
 
 /** Board 57 "Change children and subjects": only teachers linked to this parent's own children. */
-export default async function ChangeTeacherPage({ params }: { params: Promise<{ teacherId: string }> }) {
+export default async function ChangeTeacherPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ teacherId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const access = await requireRole('parent');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   if (isDemoMode()) notFound();
@@ -26,6 +35,12 @@ export default async function ChangeTeacherPage({ params }: { params: Promise<{ 
   if (!teacher || teacher.state === 'not_approved' || live.length === 0) notFound();
   const kids = (await listChildren(db(), access.viewer.id)).filter((k) => k.status === 'active');
   const initial = Object.fromEntries(live.map((c) => [c.childId, c.subjects]));
+  // CR-17 PR 3 (D3A-1): meeting links, per child the teacher is actively linked to.
+  const linked = teacher.state === 'active' ? live.filter((c) => c.status === 'active') : [];
+  const permissions = await meetingPermissionsForParent(db(), access.viewer.id);
+  const allowedAt = (childId: string) =>
+    permissions.find((p) => p.teacherId === teacher.id && p.childId === childId)?.allowedAt ?? null;
+  const meeting = (await searchParams).meeting;
   return (
     <div className="flex max-w-[760px] flex-col gap-6">
       <Link href="/parent/teachers" className="inline-flex min-h-11 items-center font-bold">
@@ -57,6 +72,51 @@ export default async function ChangeTeacherPage({ params }: { params: Promise<{ 
           initial={initial}
         />
       </Card>
+      {linked.length ? (
+        <Card className="flex flex-col gap-4 p-4 sm:p-6">
+          <section aria-labelledby="meetings" className="flex flex-col gap-4">
+            <h2 id="meetings" className="m-0 text-[22px] font-bold leading-7">
+              Zoom meetings for lessons
+            </h2>
+            <p className="m-0 text-sm leading-5 text-on-surface-variant">
+              Lessons happen in the teacher’s own Zoom meetings, not AA Pro’s, and AA Pro doesn’t record them. While you
+              allow it, the teacher can add a meeting link to each lesson and Join Class opens it, from 10 minutes
+              before the start. Either parent can allow or stop this at any time; the other parent is told.
+            </p>
+            {meeting === 'allowed' ? (
+              <FormMessage tone="success">Allowed. The other parent has been told.</FormMessage>
+            ) : null}
+            {meeting === 'stopped' ? (
+              <FormMessage tone="success">Stopped. Join Class won’t open this teacher’s meetings for now.</FormMessage>
+            ) : null}
+            <ul className="m-0 flex list-none flex-col gap-4 p-0">
+              {linked.map((c) => {
+                const at = allowedAt(c.childId);
+                return (
+                  <li
+                    key={c.childId}
+                    className="flex flex-col gap-2 border-t border-outline-variant pt-4 first:border-t-0 first:pt-0"
+                  >
+                    <p className="m-0 font-bold">{c.name}</p>
+                    <p className="m-0 text-sm leading-5" data-testid={`meeting-permission-${c.childId}`}>
+                      {at
+                        ? `Allowed since ${formatLessonTime(at, access.viewer.timeZone)}.`
+                        : 'Not allowed: Join Class can’t open this teacher’s meetings for this child.'}
+                    </p>
+                    <MeetingPermissionForm
+                      teacherId={teacher.id}
+                      teacherName={teacher.name}
+                      childId={c.childId}
+                      childName={c.name}
+                      allowed={Boolean(at)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </Card>
+      ) : null}
       <RemoveTeacherButton
         teacherId={teacher.id}
         label={live.some((c) => c.status === 'active') ? 'Remove teacher' : 'Cancel requests'}

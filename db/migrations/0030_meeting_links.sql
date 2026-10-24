@@ -1,8 +1,10 @@
--- AA Pro · 0030 teacher meeting links (M2), DRAFT for the owner's review. NOT APPROVED.
--- CR-17 PR 3. Assumes the recommended options for D3A-1 (the parent allows a teacher's own Zoom
--- links once per teacher and child, and can withdraw it) and D3A-8 (links deleted 7 days after
--- the lesson's scheduled end, and at once when the lesson is cancelled). If the owner chooses
--- differently, this file changes before it is approved; nothing here is applied before then.
+-- AA Pro · 0030 teacher meeting links (M2), CR-17 PR 3.
+-- Owner decisions of 24 Oct 2026, 12:44 IST: D3A-1 Option A (a parent allows a teacher's own Zoom
+-- links once per teacher and child; either parent may allow or withdraw; withdrawal is immediate;
+-- removing the teacher-child link withdraws it and re-linking needs a fresh approval) and D3A-8
+-- Option A (links deleted 7 days after the lesson's scheduled end, and at once on cancellation).
+-- M2 is approved for push and CI only: applying it to the shared test database needs the owner's
+-- separate written approval of the PR 3 merge.
 --
 -- Additive only: two new tables, their functions and triggers, one trigger on lessons and one on
 -- teacher_student_links. No existing row changes; no existing column, check or list is altered.

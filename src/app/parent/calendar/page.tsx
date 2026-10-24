@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { LinkButton } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
+import { joinRefusalText } from '@/components/lessons/joinMessages';
 import { LessonCard } from '@/components/lessons/LessonCard';
+import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
 import { clockNow } from '@/lib/clock';
@@ -45,6 +47,7 @@ export default async function FamilyCalendarPage({
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   const raw = await searchParams;
   const done = typeof raw.done === 'string' ? raw.done : '';
+  const refused = joinRefusalText(raw.join);
   const tz = access.viewer.timeZone;
   const now = clockNow();
   const all = await lessonsForParent(db(), access.viewer.id, now);
@@ -69,8 +72,32 @@ export default async function FamilyCalendarPage({
             actions={
               l.canWithdraw ? (
                 <ParentLessonButton lessonId={l.id} kind="withdraw" label={describe(l)} />
-              ) : l.canCancel ? (
-                <ParentLessonButton lessonId={l.id} kind="cancel" label={describe(l)} />
+              ) : l.status === 'confirmed' && !l.ended ? (
+                <>
+                  <LessonJoinStatus
+                    startIso={l.startsAt.toISOString()}
+                    endIso={l.endsAt.toISOString()}
+                    nowIso={now.toISOString()}
+                    timeZone={tz}
+                    lessonId={l.id}
+                    ready={l.meeting.allowed && l.meeting.added}
+                    waiting={
+                      l.meeting.allowed ? 'The teacher hasn’t added the link yet' : 'Allow the teacher’s links to join'
+                    }
+                    size="md"
+                    label={describe(l)}
+                  />
+                  {!l.meeting.allowed ? (
+                    <LinkButton
+                      href={`/parent/teachers/${l.teacherId}`}
+                      variant="secondary"
+                      aria-label={`Allow meeting links: ${describe(l)}`}
+                    >
+                      Allow meeting links
+                    </LinkButton>
+                  ) : null}
+                  {l.canCancel ? <ParentLessonButton lessonId={l.id} kind="cancel" label={describe(l)} /> : null}
+                </>
               ) : null
             }
           />
@@ -101,6 +128,7 @@ export default async function FamilyCalendarPage({
       ) : DONE[done] ? (
         <FormMessage tone={DONE[done]!.tone}>{DONE[done]!.text}</FormMessage>
       ) : null}
+      {refused ? <FormMessage tone="info">{refused}</FormMessage> : null}
 
       <section aria-labelledby="waiting" className="flex flex-col gap-3">
         <h2 id="waiting" className="m-0 text-[22px] font-bold leading-7">

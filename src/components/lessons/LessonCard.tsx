@@ -7,6 +7,18 @@ import { cx } from '@/lib/cx';
 import { closeReasonText, formatClock, formatLessonTime, formatMoney, lessonStatusText } from '@/lib/lessonDisplay';
 import type { LessonItem } from '@/server/lessons';
 
+/** CR-17 PR 3: where the teacher's own meeting link stands, in words (never the link itself). */
+function meetingLine(l: LessonItem, viewer: 'parent' | 'teacher', timeZone: string): string {
+  if (viewer === 'parent') {
+    if (!l.meeting.allowed) return 'Waiting for you to allow this teacher’s meeting links.';
+    return l.meeting.added ? 'Meeting link added by the teacher.' : 'The teacher hasn’t added the meeting link yet.';
+  }
+  if (!l.meeting.allowed) return 'The parent hasn’t allowed your meeting links for this child yet.';
+  return l.meeting.added && l.meeting.setAt
+    ? `Your meeting link was saved ${formatLessonTime(l.meeting.setAt, timeZone)}.`
+    : 'Add your Zoom meeting link so Join Class can open.';
+}
+
 /**
  * One Human Teacher lesson or request (CR-17 PR 2), for the parent's lessons page and the
  * teacher's schedule. Built from the approved design system (D3A-22): the subject tile, status in
@@ -83,6 +95,12 @@ export function LessonCard({
           {l.outcome ? (
             <p className="m-0 text-sm leading-5">
               {l.outcome === 'taught' ? 'Recorded as taught.' : 'Recorded as did not take place.'}
+            </p>
+          ) : null}
+          {l.status === 'confirmed' && !l.ended ? (
+            <p className="m-0 flex items-start gap-1 text-sm leading-5" data-testid="meeting-state">
+              <Icon name="videocam" size={18} className="mt-0.5 shrink-0 text-primary" />
+              <span>{meetingLine(l, viewer, timeZone)}</span>
             </p>
           ) : null}
           {l.status === 'confirmed' && !l.canCancel && !l.ended ? (

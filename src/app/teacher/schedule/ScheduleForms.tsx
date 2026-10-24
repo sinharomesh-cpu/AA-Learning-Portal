@@ -6,7 +6,13 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { INPUT } from '@/components/ui/styles';
 import { cx } from '@/lib/cx';
-import { answerLessonAction, cancelTeacherLessonAction, outcomeAction, type ScheduleState } from './actions';
+import {
+  answerLessonAction,
+  cancelTeacherLessonAction,
+  meetingLinkAction,
+  outcomeAction,
+  type ScheduleState,
+} from './actions';
 
 function Result({ state }: { state: ScheduleState }) {
   if (state.error) return <FormMessage tone="error">{state.error}</FormMessage>;
@@ -133,6 +139,44 @@ export function OutcomeButtons({ lessonId, label }: { lessonId: string; label: s
           Did not take place
         </Button>
       </div>
+    </form>
+  );
+}
+
+/**
+ * CR-17 PR 3 (D3A-1): the teacher pastes their own Zoom meeting's participant link. The saved
+ * link is never shown again in the page (it usually carries the passcode); a new one replaces it.
+ */
+export function MeetingLinkForm({ lessonId, label, added }: { lessonId: string; label: string; added: boolean }) {
+  const [state, action, pending] = useActionState<ScheduleState, FormData>(meetingLinkAction, {});
+  const inputId = useId();
+  const helpId = useId();
+  return (
+    <form action={action} className="flex w-full max-w-[360px] flex-col gap-2">
+      <input type="hidden" name="lessonId" value={lessonId} />
+      <label htmlFor={inputId} className="text-sm font-bold">
+        {added ? 'Change the Zoom meeting link' : 'Zoom meeting link'}
+      </label>
+      <input
+        id={inputId}
+        name="link"
+        type="url"
+        inputMode="url"
+        autoComplete="off"
+        required
+        maxLength={500}
+        placeholder="https://us02web.zoom.us/j/…"
+        aria-describedby={helpId}
+        className={INPUT}
+      />
+      <p id={helpId} className="m-0 text-sm leading-5 text-on-surface-variant">
+        From your own Zoom meeting. AA Pro keeps it private: Join Class opens it for this lesson only, from 10 minutes
+        before the start. Deleted 7 days after the lesson.
+      </p>
+      <Result state={state} />
+      <Button type="submit" variant="secondary" inactive={pending} aria-label={`Save meeting link: ${label}`}>
+        {added ? 'Change link' : 'Save link'}
+      </Button>
     </form>
   );
 }
