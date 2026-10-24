@@ -1,5 +1,6 @@
 import 'server-only';
 import { noteVisibleHomework } from '../assignments';
+import { noteLessonReminders } from '../lessonReminders';
 import type { Db, Sql } from '../db/client';
 import { type ActionLabel, actionLabel, loadViewer, mayStillSee, type StoredNotification } from './access';
 import { type MenuBadges, menuBadges } from './badges';
@@ -165,6 +166,12 @@ export async function refreshBell(sql: Sql, accountId: string, baseUrl: string, 
     await noteVisibleHomework(sql, v, now);
   } catch (error) {
     console.error('Homework notifications could not be checked.', (error as Error).message);
+  }
+  // CR-17 PR 7 (D3A-10): the viewer's own 15-minute lesson reminders, best-effort, in-app only.
+  try {
+    await noteLessonReminders(sql, v, now);
+  } catch (error) {
+    console.error('Lesson reminders could not be checked.', (error as Error).message);
   }
   try {
     await cleanupNotifications(sql, now);

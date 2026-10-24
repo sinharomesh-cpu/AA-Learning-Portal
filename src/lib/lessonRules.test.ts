@@ -104,10 +104,11 @@ describe('Lesson-rules wording (CR-17 PR 2: B1, B2)', () => {
     expect(REAL_LESSON_RULES_TEXT.parentTeacherChanges).toContain('cancel and request a new one');
     // AI lessons keep their own approved rule (OC-46 (3)), named as AI Tutor lessons.
     expect(REAL_LESSON_RULES_TEXT.parentAiChanges).toMatch(/^AI Tutor lessons: .*any time before the start\.$/);
-    // B2: says plainly that no reminder is sent.
-    expect(REAL_LESSON_RULES_TEXT.noReminders).toBe(
-      'Lesson reminders aren’t sent yet. Please note lesson times yourself.',
+    // PR 7 (D3A-10 Option A): best-effort in-app reminders, with the agreed guidance; never email.
+    expect(REAL_LESSON_RULES_TEXT.reminders).toBe(
+      'Lesson reminders appear in AA Pro 15 minutes before the start, only while AA Pro is open or when you come back before the lesson starts. Please note lesson times yourself.',
     );
+    expect(REAL_LESSON_RULES_TEXT.reminders).not.toMatch(/email|whatsapp|sms|text message|guarantee/i);
   });
 
   it('the demo wording is unchanged', () => {

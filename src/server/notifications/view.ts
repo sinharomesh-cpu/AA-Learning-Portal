@@ -1,5 +1,6 @@
 import 'server-only';
 import { noteVisibleHomework } from '../assignments';
+import { noteLessonReminders } from '../lessonReminders';
 import { db } from '../db/client';
 import { getRealSession } from '../session';
 import { loadViewer, type NotificationViewer } from './access';
@@ -118,6 +119,12 @@ export async function shellNotifications(): Promise<ShellNotifications | null> {
     await noteVisibleHomework(db(), v);
   } catch (error) {
     console.error('Homework notifications could not be checked.', (error as Error).message);
+  }
+  // CR-17 PR 7 (D3A-10): a page render shows a due lesson reminder at once (reopened before the start).
+  try {
+    await noteLessonReminders(db(), v);
+  } catch (error) {
+    console.error('Lesson reminders could not be checked.', (error as Error).message);
   }
   let unread: number | null = null;
   let badges: MenuBadges = {};

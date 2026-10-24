@@ -437,10 +437,12 @@ describe('channels (AC-52, AC-51)', () => {
   });
 
   it('AC-51: no reminder, rescheduling, placeholder or booking notification type exists; lesson types are only the approved ones', async () => {
-    // CR-17 PR 2 (D3A-10, approved 23 Oct 2026) adds the in-app lesson types; the 15-minute
-    // reminder waits for PR 7, and rescheduling is cancel and request again (D3A-6).
+    // CR-17 PR 2 (D3A-10, approved 23 Oct 2026) adds the in-app lesson types; rescheduling is cancel
+    // and request again (D3A-6). PR 7 (D3A-10 Option A, 24 Oct 2026) allows exactly one reminder
+    // type, 'lesson_reminder' (in-app, best-effort); any other reminder-like type still fails here.
     const [r] = await sql<{ n: number }[]>`
-      SELECT count(*)::int AS n FROM notifications WHERE type ~ '(lesson_remind|booking|reschedul|placeholder)'`;
+      SELECT count(*)::int AS n FROM notifications
+      WHERE type ~ '(remind|booking|reschedul|placeholder)' AND type NOT IN ('lesson_reminder', 'listing_reminder')`;
     expect(r!.n).toBe(0);
     const lessonTypes = await sql<{ type: string }[]>`
       SELECT DISTINCT type FROM notifications WHERE type ~ '(lesson|cancel)' ORDER BY type`;

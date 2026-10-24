@@ -5,6 +5,7 @@ import { zoneOffsetMinutes } from '@/lib/localTime';
 import { wallTimeToUtc } from './assignments';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql } from './db/client';
+import { dropLessonReminders } from './lessonReminders';
 import { notify } from './notifications/notify';
 
 /**
@@ -571,6 +572,7 @@ export async function cancelLesson(
       if (!l.cancellable) return { ok: false, reason: 'too_late' };
       await tx`UPDATE lessons SET status = 'cancelled', closed_by = ${actor.role}, closed_by_account = ${actor.id}
                WHERE id = ${l.id}`;
+      await dropLessonReminders(tx, l.id);
       await writeAudit(
         tx,
         { type: 'LESSON_CANCELLED', outcome: 'success', actorId: actor.id, details: { lesson: l.id, by: actor.role } },
@@ -656,6 +658,8 @@ export async function closeLessonsWithoutLink(
       await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
     } else {
       await tx`UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
+      // CR-17 PR 7: a reminder for a lesson that won't happen is no longer true.
+      await dropLessonReminders(tx, l.id);
     }
     await writeAudit(
       tx,
@@ -744,6 +748,8 @@ export const LESSON_NOTIFICATION_TYPES = [
   'lesson_expired',
   'lesson_cancelled',
   'lesson_outcome_needed',
+  // CR-17 PR 7 (D3A-10 Option A): the best-effort, in-app 15-minute reminder.
+  'lesson_reminder',
 ] as const;
 
 const TEACHER_HREF = '/teacher/schedule';

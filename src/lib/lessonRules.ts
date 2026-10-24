@@ -113,7 +113,9 @@ export const REAL_LESSON_RULES_TEXT = {
     'Teacher lessons: you or the teacher can cancel up to 30 minutes before the start. To change the time, cancel and request a new one.',
   parentAiChanges: 'AI Tutor lessons: you or your child can cancel or move them any time before the start.',
   join: LESSON_RULES_TEXT.join,
-  noReminders: 'Lesson reminders aren’t sent yet. Please note lesson times yourself.',
+  // CR-17 PR 7 (D3A-10 Option A): best-effort, in-app only; the agreed tester guidance.
+  reminders:
+    'Lesson reminders appear in AA Pro 15 minutes before the start, only while AA Pro is open or when you come back before the lesson starts. Please note lesson times yourself.',
   teacherChanges:
     'You or the parent can cancel up to 30 minutes before the start; the family is told. To change the time, the parent cancels and requests a new one.',
   teacherJoin: LESSON_RULES_TEXT.join.replace('Join', 'Start'),
