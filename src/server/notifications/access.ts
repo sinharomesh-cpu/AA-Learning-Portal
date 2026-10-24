@@ -152,7 +152,7 @@ export async function mayStillSee(sql: Db, v: NotificationViewer, n: StoredNotif
     case 'lesson':
       // CR-17 PR 2: a parent while an active parent of the child (D3A-25); the lesson's own teacher
       // (their notifications never name the child; the schedule shows linked children only).
-      // Children get no lesson notifications.
+      // Children get only their own lesson reminders (CR-17 PR 7).
       if (v.role === 'parent') {
         return one(sql`
           SELECT 1 FROM lessons l
@@ -160,6 +160,8 @@ export async function mayStillSee(sql: Db, v: NotificationViewer, n: StoredNotif
           WHERE l.id = ${id}`);
       }
       if (v.role === 'teacher') return one(sql`SELECT 1 FROM lessons WHERE id = ${id} AND teacher_id = ${v.id}`);
+      // CR-17 PR 7: a child sees only the reminder for their own lesson.
+      if (v.role === 'student') return one(sql`SELECT 1 FROM lessons WHERE id = ${id} AND student_id = ${v.id}`);
       return false;
     case 'listing':
       return v.role === 'teacher' && one(sql`SELECT 1 FROM teacher_listings WHERE id = ${id} AND teacher_id = ${v.id}`);

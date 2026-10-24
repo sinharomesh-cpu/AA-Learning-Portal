@@ -297,6 +297,7 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                   REAL_LESSON_RULES_TEXT.teacherJoin,
                   REAL_LESSON_RULES_TEXT.teacherChanges,
                   REAL_LESSON_RULES_TEXT.oneToOne,
+                  REAL_LESSON_RULES_TEXT.reminders,
                 ]
           }
         />

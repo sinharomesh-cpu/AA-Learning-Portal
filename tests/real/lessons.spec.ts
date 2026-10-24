@@ -130,7 +130,7 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await shot(p, `PR2-parent-calendar-${device}`);
   await p.goto('/parent');
   await expect(p.getByText(/Maths with/).first()).toBeVisible();
-  // F1, B2: the rules say what is available now, and that no reminder is sent yet.
+  // F1; PR 7: the rules say what is available now, including the best-effort in-app reminder.
   const rules = p.getByRole('region', { name: 'Lesson rules' });
   await expect(rules).toContainText(
     'Teacher lessons: you or the teacher can cancel up to 30 minutes before the start.',
@@ -138,7 +138,9 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await expect(rules).toContainText(
     'AI Tutor lessons: you or your child can cancel or move them any time before the start.',
   );
-  await expect(rules).toContainText('Lesson reminders aren’t sent yet.');
+  await expect(rules).toContainText(
+    'Lesson reminders appear in AA Pro 15 minutes before the start, only while AA Pro is open or when you come back before the lesson starts.',
+  );
   await expect(rules).not.toContainText(/email|propose|teacher’s move/i);
   await check(p, phone);
   await shot(p, `PR2-parent-home-${device}`);

@@ -255,7 +255,7 @@ export default async function ParentHomePage() {
                 REAL_LESSON_RULES_TEXT.parentTeacherChanges,
                 REAL_LESSON_RULES_TEXT.parentAiChanges,
                 REAL_LESSON_RULES_TEXT.join,
-                REAL_LESSON_RULES_TEXT.noReminders,
+                REAL_LESSON_RULES_TEXT.reminders,
               ]
         }
       />

@@ -51,6 +51,10 @@ export default async function StudentSchedulePage({
       <div className="flex flex-col gap-2">
         <h1 className="text-headline-lg-mobile lg:text-headline-lg">My schedule</h1>
         <p className="m-0 text-[17px] leading-6 text-on-surface-variant">Your lessons with your teachers.</p>
+        <p className="m-0 text-[15px] leading-[22px] text-on-surface-variant">
+          AA Pro shows a reminder 15 minutes before a lesson, but only while AA Pro is open. Keep a note of your lesson
+          times too.
+        </p>
       </div>
       {refused ? <FormMessage tone="info">{refused}</FormMessage> : null}
       {lessons.length ? (
