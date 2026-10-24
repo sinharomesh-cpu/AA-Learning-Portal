@@ -620,8 +620,9 @@ export async function updateTeacherLinks(
         await tx`UPDATE teacher_student_links SET subjects = ${unique(c.subjects)} WHERE id = ${l.id}`;
       }
     }
-    // D3A-24: lessons in a subject that was unticked, or with a child removed, are closed by AA Pro.
-    await closeLessonsWithoutLink(tx, { teacherId }, now);
+    // D3A-24 with OC-53 Option A: lessons in a subject that was unticked, or with a child removed,
+    // are closed by AA Pro, except this parent's children's lessons starting within 30 minutes.
+    await closeLessonsWithoutLink(tx, { teacherId }, now, { keepSoonFor: { parentId, childIds: [...mine.keys()] } });
     if (teacher?.ok) await tellTeacher(tx, teacherId, sent.created.length, baseUrl, now);
     await writeAudit(
       tx,
@@ -777,8 +778,13 @@ async function removeLinks(
         details: { children: active.length },
       },
       now,
-    ); // D3A-24: AA Pro cancels that child's upcoming lessons with this teacher and closes requests.
-    await closeLessonsWithoutLink(tx, { teacherId }, now);
+    ); // D3A-24 with OC-53 Option A: AA Pro closes requests and cancels that child's upcoming lessons
+    // with this teacher, except lessons starting within the next 30 minutes, which stay scheduled.
+    const children = await tx<Array<{ student_id: string }>>`
+      SELECT student_id FROM teacher_student_links WHERE id = ANY(${active})`;
+    await closeLessonsWithoutLink(tx, { teacherId }, now, {
+      keepSoonFor: { parentId, childIds: children.map((c) => c.student_id) },
+    });
   }
   if (waiting.length) {
     await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = ${now}, ended_as = 'withdrawn'

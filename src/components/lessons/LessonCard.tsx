@@ -9,6 +9,12 @@ import type { LessonItem } from '@/server/lessons';
 
 /** CR-17 PR 3: where the teacher's own meeting link stands, in words (never the link itself). */
 function meetingLine(l: LessonItem, viewer: 'parent' | 'teacher', timeZone: string): string {
+  // OC-53: a kept lesson's links were carried only if allowed at the moment of the change.
+  if (l.kept && !l.meeting.allowed) {
+    return viewer === 'parent'
+      ? 'Join Class can’t open for this lesson: meeting links weren’t allowed when the teacher was removed.'
+      : 'Join Class can’t open for this lesson: the parent hadn’t allowed your meeting links.';
+  }
   if (viewer === 'parent') {
     if (!l.meeting.allowed) return 'Waiting for you to allow this teacher’s meeting links.';
     return l.meeting.added ? 'Meeting link added by the teacher.' : 'The teacher hasn’t added the meeting link yet.';
@@ -86,6 +92,13 @@ export function LessonCard({
             </p>
           ) : null}
           {reason && l.closedBy === 'aa_pro' ? <p className="m-0 text-sm leading-5">{reason}</p> : null}
+          {l.kept && l.status === 'confirmed' ? (
+            <p className="m-0 text-sm leading-5" data-testid="kept-note">
+              {viewer === 'parent'
+                ? 'Stays booked: it starts within 30 minutes of the change to this teacher.'
+                : 'Stays booked after the parent’s change, because it starts within 30 minutes.'}
+            </p>
+          ) : null}
           {l.closeNote ? (
             <p className="m-0 text-sm leading-5">
               {viewer === 'parent' ? 'The teacher’s reason: ' : 'Your reason: '}

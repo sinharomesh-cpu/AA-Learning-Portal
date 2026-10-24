@@ -247,7 +247,7 @@ export default async function MyTeachersPage({
                   confirmLabel={anyActive ? 'Remove' : 'Cancel requests'}
                   body={
                     anyActive
-                      ? `They will stop seeing ${kids} and their books straight away. Waiting requests are withdrawn.`
+                      ? `They will stop seeing ${kids} and their books straight away. Waiting requests are withdrawn. Booked lessons with them are cancelled, except lessons starting within the next 30 minutes, which stay booked.`
                       : `${t.name} will no longer be able to accept the requests for ${kids}.`
                   }
                 />

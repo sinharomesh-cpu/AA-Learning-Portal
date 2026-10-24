@@ -122,7 +122,7 @@ export default async function ChangeTeacherPage({
         label={live.some((c) => c.status === 'active') ? 'Remove teacher' : 'Cancel requests'}
         title={`Remove ${teacher.name}?`}
         confirmLabel="Remove"
-        body="They will stop seeing your children and their books straight away, and waiting requests are withdrawn."
+        body="They will stop seeing your children and their books straight away, and waiting requests are withdrawn. Booked lessons with them are cancelled, except lessons starting within the next 30 minutes, which stay booked."
       />
     </div>
   );

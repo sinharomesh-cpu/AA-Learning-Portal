@@ -26,7 +26,10 @@ import { notify } from './notifications/notify';
  * - Expiry needs no scheduler: overdue requests are shown as expired at once, and the CR-16 shared
  *   sweep (signed-in page loads, at most once a minute) records them and tells both sides.
  * - When a teacher is deactivated, or a link or subject ends, AA Pro closes open requests and
- *   cancels upcoming lessons, telling the parents (D3A-13, D3A-24).
+ *   cancels upcoming lessons, telling the parents (D3A-13, D3A-24). When a PARENT ends the link
+ *   (removes the teacher, or unticks a child or subject), lessons starting within the next 30
+ *   minutes stay scheduled and only the others are cancelled (OC-53 Option A, owner 25 Oct 2026;
+ *   migration 0031). A kept lesson stays usable by its own teacher, parents and child.
  * - Who sees what: a parent sees the lessons of children they are an active parent of (D3A-25);
  *   a teacher sees their own lessons with students linked to them now in that subject; a child
  *   sees their own confirmed lessons, without prices (D3A-23). Anything else is "not found".
@@ -414,15 +417,20 @@ async function lockLesson(tx: Db, id: string): Promise<LockedLesson | null> {
   return l ?? null;
 }
 
-/** A teacher may act on a lesson while approved, active and linked to the child in its subject. */
+/**
+ * A teacher may act on a lesson while approved and active, and either linked to the child in its
+ * subject or teaching a lesson kept after the parent removed them (OC-53, 0031).
+ */
 async function teacherOwns(tx: Db, teacherId: string, l: LockedLesson | null): Promise<boolean> {
   if (!l || l.teacher_id !== teacherId) return false;
   const [ok] = await tx`
-    SELECT 1 FROM teacher_student_links tl
-    JOIN accounts a ON a.id = tl.teacher_id AND a.status = 'active'
+    SELECT 1 FROM accounts a
     JOIN teacher_profiles tp ON tp.account_id = a.id AND tp.approval_status = 'approved'
-    WHERE tl.teacher_id = ${teacherId} AND tl.student_id = ${l.student_id} AND tl.status = 'active'
-      AND ${l.subject} = ANY (tl.subjects)`;
+    WHERE a.id = ${teacherId} AND a.status = 'active' AND (
+      EXISTS (SELECT 1 FROM teacher_student_links tl
+              WHERE tl.teacher_id = ${teacherId} AND tl.student_id = ${l.student_id} AND tl.status = 'active'
+                AND ${l.subject} = ANY (tl.subjects))
+      OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = ${l.id}))`;
   return !!ok;
 }
 
@@ -635,17 +643,35 @@ export async function recordOutcome(
  * transaction as the change that ended the link (parent, admin or teacher-profile paths), and by
  * the shared sweep as a backstop for any other path. A suspended teacher's lessons are left as
  * they are: they can't accept new ones, and suspension may be lifted.
+ *
+ * OC-53 Option A (owner, 25 Oct 2026, 00:05 IST): when the change was a PARENT's (`keepSoonFor`),
+ * that parent's children's confirmed lessons starting within the next 30 minutes (database clock,
+ * `lessons_kept_window_ok`: start <= now + 30 min and not yet ended) are KEPT, recorded in
+ * `lessons_kept`, and both sides are told; every other upcoming lesson is cancelled as before.
+ * A kept lesson is never cancelled by a later sweep; only its teacher's deactivation cancels it.
  */
 export async function closeLessonsWithoutLink(
   tx: Db,
   scope: { teacherId?: string; studentId?: string },
   now: Date = new Date(),
+  opts: { keepSoonFor?: { parentId: string; childIds: string[] } } = {},
 ): Promise<number> {
   const teacherId = scope.teacherId && UUID.test(scope.teacherId) ? scope.teacherId : null;
   const studentId = scope.studentId && UUID.test(scope.studentId) ? scope.studentId : null;
-  const due = await tx<Array<{ id: string; status: string; reason: 'teacher_deactivated' | 'link_ended' }>>`
-    SELECT l.id, l.status,
-           CASE WHEN t.status = 'deactivated' THEN 'teacher_deactivated' ELSE 'link_ended' END AS reason
+  const keep = opts.keepSoonFor && UUID.test(opts.keepSoonFor.parentId) ? opts.keepSoonFor : null;
+  const keepFor = new Set((keep?.childIds ?? []).filter((id) => UUID.test(id)));
+  const due = await tx<
+    Array<{
+      id: string;
+      student_id: string;
+      status: string;
+      reason: 'teacher_deactivated' | 'link_ended';
+      soon: boolean;
+    }>
+  >`
+    SELECT l.id, l.student_id, l.status,
+           CASE WHEN t.status = 'deactivated' THEN 'teacher_deactivated' ELSE 'link_ended' END AS reason,
+           lessons_kept_window_ok(l.starts_at, l.ends_at, now()) AS soon
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id
     WHERE (${teacherId}::uuid IS NULL OR l.teacher_id = ${teacherId})
       AND (${studentId}::uuid IS NULL OR l.student_id = ${studentId})
@@ -654,9 +680,27 @@ export async function closeLessonsWithoutLink(
             SELECT 1 FROM teacher_student_links k
             WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
               AND l.subject = ANY (k.subjects)))
+      -- OC-53: a kept lesson stays, unless its teacher is deactivated (D3A-13).
+      AND (t.status = 'deactivated' OR NOT EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id))
     ORDER BY l.id
     FOR UPDATE OF l`;
+  let closed = 0;
   for (const l of due) {
+    if (keep && l.status === 'confirmed' && l.reason === 'link_ended' && l.soon && keepFor.has(l.student_id)) {
+      await tx`INSERT INTO lessons_kept (lesson_id, kept_by) VALUES (${l.id}, ${keep.parentId})`;
+      await writeAudit(
+        tx,
+        {
+          type: 'LESSON_KEPT_AFTER_LINK_END',
+          outcome: 'success',
+          actorId: keep.parentId,
+          details: { lesson: l.id, rule: 'OC-53' },
+        },
+        now,
+      );
+      await tellAbout(tx, l.id, 'kept', {}, now);
+      continue;
+    }
     if (l.status === 'requested') {
       await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
     } else {
@@ -670,8 +714,9 @@ export async function closeLessonsWithoutLink(
       now,
     );
     await tellAbout(tx, l.id, l.status === 'requested' ? 'closed_by_aa_pro' : 'cancelled', {}, now);
+    closed += 1;
   }
-  return due.length;
+  return closed;
 }
 
 /**
@@ -721,7 +766,8 @@ type LessonEvent =
   | 'expired'
   | 'cancelled'
   | 'closed_by_aa_pro'
-  | 'outcome_needed';
+  | 'outcome_needed'
+  | 'kept';
 
 interface LessonFacts {
   id: string;
@@ -759,6 +805,8 @@ export const LESSON_NOTIFICATION_TYPES = [
   'lesson_link_permission_needed',
   // CR-17 PR 7 (D3A-10 Option A): the best-effort, in-app 15-minute reminder.
   'lesson_reminder',
+  // OC-53 Option A (0031): a lesson kept when a parent removed the teacher.
+  'lesson_kept',
 ] as const;
 
 const TEACHER_HREF = '/teacher/schedule';
@@ -924,6 +972,20 @@ async function tellAbout(
       await teacherNote('lesson_declined', 'update', `Lesson request closed by AA Pro: ${forTeacher}`);
       return;
     }
+    case 'kept':
+      // OC-53 Option A: the parent removed the teacher, but this lesson starts within 30 minutes.
+      await parentNotes(
+        'lesson_kept',
+        (z) => `${f.child_name}'s ${subject} lesson with ${f.teacher_name} on ${when(z)} stays booked`,
+        'It starts within 30 minutes of the change, so it was kept. Other upcoming lessons with this teacher were cancelled.',
+      );
+      await teacherNote(
+        'lesson_kept',
+        'update',
+        `Lesson stays booked: ${forTeacher}`,
+        'The parent ended the link, but this lesson starts within 30 minutes, so it stays booked for you to teach.',
+      );
+      return;
     case 'outcome_needed':
       await teacherNote(
         'lesson_outcome_needed',
@@ -974,8 +1036,13 @@ export interface LessonItem {
    * CR-17 PR 3: the teacher's own meeting link, as state only. The link itself is never in a
    * lesson item; Join Class reads it on the server at click time.
    */
+  /** OC-53: kept when a parent ended the teacher's link, because it started within 30 minutes. */
+  kept: boolean;
   meeting: {
-    /** A parent allows this teacher's meeting links for this child now (D3A-1). */
+    /**
+     * A parent allows this teacher's meeting links for this child now (D3A-1), or allowed them at
+     * the moment a kept lesson's teacher was removed (OC-53; that lesson only).
+     */
     allowed: boolean;
     /** The teacher has added a link for this lesson. */
     added: boolean;
@@ -1013,6 +1080,7 @@ interface ListRow {
   cancellable: boolean;
   ended: boolean;
   link_allowed: boolean;
+  kept: boolean;
   link_set_at: Date | null;
   join_open: boolean;
 }
@@ -1024,8 +1092,10 @@ const LIST_COLUMNS = (sql: Db) => sql`
   l.reply_deadline <= now() AS overdue,
   l.starts_at - make_interval(mins => ${CANCEL_CUTOFF_MINUTES}) >= now() AS cancellable,
   l.ends_at <= now() AS ended,
-  EXISTS (SELECT 1 FROM meeting_link_permissions mp WHERE mp.teacher_id = l.teacher_id
-          AND mp.student_id = l.student_id AND mp.withdrawn_at IS NULL) AS link_allowed,
+  (EXISTS (SELECT 1 FROM meeting_link_permissions mp WHERE mp.teacher_id = l.teacher_id
+           AND mp.student_id = l.student_id AND mp.withdrawn_at IS NULL)
+   OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id AND kp.links_carried)) AS link_allowed,
+  EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id) AS kept,
   ml.set_at AS link_set_at,
   (now() >= l.starts_at - interval '10 minutes' AND now() < l.ends_at) AS join_open`;
 
@@ -1065,6 +1135,7 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: 
     canAnswer: viewer === 'teacher' && status === 'requested',
     needsOutcome: viewer === 'teacher' && status === 'confirmed' && r.ended && !r.outcome,
     ended: r.ended,
+    kept: r.kept,
     meeting: {
       allowed: r.link_allowed,
       added: r.link_set_at !== null,
@@ -1090,7 +1161,10 @@ export async function lessonsForParent(sql: Db, parentId: string, now: Date = ne
   return rows.map((r) => toItem(r, 'parent', parentId));
 }
 
-/** The teacher's own lessons with students linked to them now in that subject (as homework, W-11). */
+/**
+ * The teacher's own lessons with students linked to them now in that subject (as homework, W-11),
+ * and lessons kept after a parent removed them (OC-53).
+ */
 export async function lessonsForTeacher(sql: Db, teacherId: string, now: Date = new Date()): Promise<LessonItem[]> {
   if (!UUID.test(teacherId)) return [];
   const rows = await sql<ListRow[]>`
@@ -1101,8 +1175,10 @@ export async function lessonsForTeacher(sql: Db, teacherId: string, now: Date = 
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     JOIN teacher_profiles tp ON tp.account_id = t.id AND tp.approval_status = 'approved'
     WHERE l.teacher_id = ${teacherId} AND t.status = 'active'
-      AND EXISTS (SELECT 1 FROM teacher_student_links k WHERE k.teacher_id = l.teacher_id
-                  AND k.student_id = l.student_id AND k.status = 'active' AND l.subject = ANY (k.subjects))
+      AND (EXISTS (SELECT 1 FROM teacher_student_links k WHERE k.teacher_id = l.teacher_id
+                   AND k.student_id = l.student_id AND k.status = 'active' AND l.subject = ANY (k.subjects))
+           -- OC-53: a lesson kept after the parent removed this teacher stays on their schedule.
+           OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id))
       AND l.ends_at > ${new Date(now.getTime() - 30 * DAY)}
     ORDER BY l.starts_at, l.id`;
   return rows.map((r) => toItem(r, 'teacher', teacherId));

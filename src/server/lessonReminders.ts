@@ -18,7 +18,8 @@ import type { NotificationViewer } from './notifications/access';
  * back before the start. A lesson AA Pro cancels takes its unread reminder with it.
  *
  * Recipients: an active parent of the child, the lesson's own teacher while approved, active and
- * linked to the child in that subject (never the child's name), and the child. Each person only
+ * linked to the child in that subject or teaching a lesson kept under OC-53 (never the child's
+ * name), and the child. Each person only
  * ever creates their own reminders.
  */
 
@@ -64,8 +65,10 @@ export async function noteLessonReminders(
       JOIN teacher_profiles tp ON tp.account_id = t.id AND tp.approval_status = 'approved'
       LEFT JOIN student_profiles sp ON sp.account_id = l.student_id
       WHERE l.teacher_id = ${viewer.id} AND ${window}
-        AND EXISTS (SELECT 1 FROM teacher_student_links k WHERE k.teacher_id = l.teacher_id
-                    AND k.student_id = l.student_id AND k.status = 'active' AND l.subject = ANY (k.subjects))`;
+        AND (EXISTS (SELECT 1 FROM teacher_student_links k WHERE k.teacher_id = l.teacher_id
+                     AND k.student_id = l.student_id AND k.status = 'active' AND l.subject = ANY (k.subjects))
+             -- OC-53 (0031): a lesson kept after the parent removed this teacher.
+             OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id))`;
   } else {
     due = await sql<Due[]>`
       SELECT l.id, l.subject, l.starts_at, t.display_name AS teacher_name, c.display_name AS child_name,
