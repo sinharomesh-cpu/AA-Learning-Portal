@@ -197,7 +197,10 @@ test('allow links, add a link, Join Class for the lesson’s people only, stop a
     await ctx.close();
   }
 
-  // 6. The second parent stops allowing: Join closes at once for everyone.
+  // 6. The second parent stops allowing: Join closes at once for everyone. The child's page stays
+  // open (no reload) and must update on its own within one 30-second re-check.
+  await k.goto('/student/schedule');
+  await expect(k.getByRole('link', { name: 'Join Class' })).toBeVisible();
   await p2.goto(`/parent/teachers/${teacher.id}`);
   const s2 = p2.getByRole('region', { name: 'Zoom meetings for lessons' });
   await s2.getByRole('button', { name: 'Stop allowing Ms Priya Rao’s meeting links for Kiran' }).click();
@@ -205,8 +208,19 @@ test('allow links, add a link, Join Class for the lesson’s people only, stop a
   await shot(p2, `PR3-parent-stop-confirm-${device}`);
   await p2.getByRole('dialog').getByRole('button', { name: 'Stop allowing' }).click();
   await expect(s2.getByText('Stopped. Join Class won’t open this teacher’s meetings for now.')).toBeVisible();
-  await k.goto('/student/schedule');
-  await expect(k.getByRole('link', { name: /Join Class/ })).toHaveCount(0);
+  await expect(k.getByRole('link', { name: /Join Class/ })).toHaveCount(0, { timeout: 45_000 });
+  await expect(k.getByRole('button', { name: 'Your teacher’s class link isn’t ready yet' })).toBeVisible();
+  // The booking itself is untouched: still confirmed, still on every calendar.
+  const [still] = await sql<{ status: string }[]>`SELECT status FROM lessons WHERE id = ${lesson}`;
+  expect(still!.status).toBe('confirmed');
+  await p.goto('/parent/calendar');
+  const kept = p.getByTestId('lesson-card').filter({ hasText: 'Maths with Ms Priya Rao' });
+  await expect(kept.getByText('Confirmed')).toBeVisible();
+  await expect(kept.getByTestId('meeting-state')).toHaveText('Waiting for you to allow this teacher’s meeting links.');
+  await t.goto('/teacher/schedule');
+  await expect(
+    t.getByTestId('lesson-card').filter({ hasText: 'Maths with Kiran' }).getByTestId('meeting-state'),
+  ).toHaveText('The parent hasn’t allowed your meeting links for this child yet.');
   const refused = await k.request.get(`/lessons/${lesson}/join`, { maxRedirects: 0 });
   expect(refused.status()).toBe(303);
   expect(refused.headers()['location']).toBe('/student/schedule?join=not_allowed');

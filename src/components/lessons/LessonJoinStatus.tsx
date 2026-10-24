@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, buttonClasses } from '@/components/Button';
 import { formatClock } from '@/lib/lessonDisplay';
@@ -8,6 +9,8 @@ import { JOIN_OPENS_MINUTES_BEFORE, joinState } from '@/lib/lessonRules';
 const MINUTE = 60_000;
 /** How often the state is re-checked while the page is open. */
 export const JOIN_STATUS_REFRESH_MS = 30_000;
+/** From this long before the start until the end, each re-check also refreshes the page's server data. */
+export const REFRESH_FROM_MINUTES = 15;
 /** What Join Class tells everyone before it opens Zoom (CR-17 §2.4.5). */
 export const JOIN_NOTE = 'Opens Zoom — a meeting run by your teacher, not by AA Pro. Not recorded.';
 const NOT_READY = 'Your teacher’s class link isn’t ready yet';
@@ -68,10 +71,19 @@ export function LessonJoinStatus({
   label?: string;
 }) {
   const [now, setNow] = useState(() => new Date(nowIso));
+  const router = useRouter();
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), JOIN_STATUS_REFRESH_MS);
+    const id = setInterval(() => {
+      const t = new Date();
+      setNow(t);
+      // Near and during the lesson, re-read the page's data from the server too, so a link the
+      // teacher just saved, or a permission a parent just gave or stopped, shows without a reload.
+      const near =
+        t.getTime() >= Date.parse(startIso) - REFRESH_FROM_MINUTES * MINUTE && t.getTime() < Date.parse(endIso);
+      if (lessonId && near && document.visibilityState === 'visible') router.refresh();
+    }, JOIN_STATUS_REFRESH_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [router, lessonId, startIso, endIso]);
   const state = joinState(startIso, endIso, now);
   const live = state === 'open' && ready && lessonId;
   return (
