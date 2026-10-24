@@ -5,6 +5,7 @@ import { queueEmail } from './auth/outbox';
 import { profileChangeDecision, teacherDecision } from './notifications/events';
 import { revokeAllSessions } from './auth/sessions';
 import { issueSetPassword } from './auth/setPasswordLink';
+import { closeLessonsWithoutLink } from './lessons';
 import { parentsToTellOfRejection, revalidateTeacherLinks } from './teacherLinks';
 import { syncListingWithProfile } from './teacherListings';
 import type { Db, Sql } from './db/client';
@@ -429,6 +430,8 @@ export async function setAccountActive(
     } else {
       await tx`UPDATE accounts SET status = 'deactivated', status_reason = ${reason} WHERE id = ${accountId}`;
       await revokeAllSessions(tx, accountId, now);
+      // D3A-13: a deactivated teacher's open requests close and upcoming lessons are cancelled.
+      if (account.role === 'teacher') await closeLessonsWithoutLink(tx, { teacherId: accountId }, now);
       if (account.role === 'parent') {
         // OC-72 (1): their children are signed out too, unless another parent of theirs is active.
         const children = await tx<Array<{ id: string }>>`

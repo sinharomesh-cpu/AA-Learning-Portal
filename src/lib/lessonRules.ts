@@ -69,7 +69,8 @@ export function lessonChange(
   };
 }
 
-export type LessonStatusName = 'proposed' | 'confirmed' | 'booked' | 'declined' | 'cancelled';
+/** `requested`: a parent's request waiting for the teacher (CR-17 PR 2); it holds no time (D3A-4). */
+export type LessonStatusName = 'proposed' | 'confirmed' | 'booked' | 'declined' | 'cancelled' | 'requested';
 
 /**
  * OC-45: only a lesson the parent has accepted (or an AI lesson that is booked) holds the
@@ -99,4 +100,22 @@ export const LESSON_RULES_TEXT = {
     'Teacher lessons can be cancelled or moved up to 30 minutes before the start. A teacher’s move needs the parent’s OK, and the parent is told if a teacher cancels.',
   aiChanges: 'AI lessons can be cancelled or moved any time before the start.',
   oneToOne: 'All lessons are 1:1.',
+} as const;
+
+/**
+ * The same rules as worded for real accounts in Phase 3A (CR-17 PR 2; owner decisions B1 and B2,
+ * 24 Oct 2026). Only what is available now: rescheduling a teacher lesson is cancel and request
+ * again (D3A-6); teacher proposals (OC-45) and lesson reminders (PR 7) are not offered yet, so
+ * they are not mentioned or promised. The demo keeps LESSON_RULES_TEXT unchanged.
+ */
+export const REAL_LESSON_RULES_TEXT = {
+  parentTeacherChanges:
+    'Teacher lessons: you or the teacher can cancel up to 30 minutes before the start. To change the time, cancel and request a new one.',
+  parentAiChanges: 'AI Tutor lessons: you or your child can cancel or move them any time before the start.',
+  join: LESSON_RULES_TEXT.join,
+  noReminders: 'Lesson reminders aren’t sent yet. Please note lesson times yourself.',
+  teacherChanges:
+    'You or the parent can cancel up to 30 minutes before the start; the family is told. To change the time, the parent cancels and requests a new one.',
+  teacherJoin: LESSON_RULES_TEXT.join.replace('Join', 'Start'),
+  oneToOne: LESSON_RULES_TEXT.oneToOne,
 } as const;

@@ -49,7 +49,7 @@ export function StudentRoster({ students, realAccount }: { students: HomeStudent
           <h3 className="font-headline text-headline-sm">No students linked yet</h3>
           <p className="text-body-md text-on-surface-variant">
             {realAccount
-              ? 'Students appear here once families book lessons with you (scheduling opens in a later phase).'
+              ? 'A child appears here once their parent links them to you and you accept the request.'
               : 'Students appear here once families book lessons with you.'}
           </p>
           {realAccount ? (

@@ -3,9 +3,11 @@ import {
   answerProposal,
   holdsTime,
   joinState,
+  LESSON_RULES_TEXT,
   lessonChange,
   MAX_STUDENTS_PER_LESSON,
   mayCreateMeeting,
+  REAL_LESSON_RULES_TEXT,
 } from './lessonRules';
 
 const START = '2026-10-20T10:00:00.000Z';
@@ -83,5 +85,40 @@ describe('OC-46 (D-07): cancel and reschedule', () => {
 describe('OC-47 (D-15): 1:1 only', () => {
   it('one student per lesson', () => {
     expect(MAX_STUDENTS_PER_LESSON).toBe(1);
+  });
+});
+
+describe('Lesson-rules wording (CR-17 PR 2: B1, B2)', () => {
+  it('real accounts: teacher-lesson lines never offer moving, proposals or reminders', () => {
+    const teacherLines = [
+      REAL_LESSON_RULES_TEXT.parentTeacherChanges,
+      REAL_LESSON_RULES_TEXT.teacherChanges,
+      REAL_LESSON_RULES_TEXT.teacherJoin,
+      REAL_LESSON_RULES_TEXT.join,
+      REAL_LESSON_RULES_TEXT.oneToOne,
+    ];
+    for (const t of teacherLines) {
+      expect(t).not.toMatch(/\bmov(e|ed|ing)\b|propos|email|remind/i);
+    }
+    expect(REAL_LESSON_RULES_TEXT.parentTeacherChanges).toContain('up to 30 minutes before the start');
+    expect(REAL_LESSON_RULES_TEXT.parentTeacherChanges).toContain('cancel and request a new one');
+    // AI lessons keep their own approved rule (OC-46 (3)), named as AI Tutor lessons.
+    expect(REAL_LESSON_RULES_TEXT.parentAiChanges).toMatch(/^AI Tutor lessons: .*any time before the start\.$/);
+    // B2: says plainly that no reminder is sent.
+    expect(REAL_LESSON_RULES_TEXT.noReminders).toBe(
+      'Lesson reminders aren’t sent yet. Please note lesson times yourself.',
+    );
+  });
+
+  it('the demo wording is unchanged', () => {
+    expect(LESSON_RULES_TEXT).toEqual({
+      join: 'Join opens 10 minutes before the start and stays open until the lesson ends.',
+      teacherProposal:
+        'A lesson a teacher proposes is only booked when the parent accepts it. No Zoom meeting until then.',
+      teacherChanges:
+        'Teacher lessons can be cancelled or moved up to 30 minutes before the start. A teacher’s move needs the parent’s OK, and the parent is told if a teacher cancels.',
+      aiChanges: 'AI lessons can be cancelled or moved any time before the start.',
+      oneToOne: 'All lessons are 1:1.',
+    });
   });
 });

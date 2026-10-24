@@ -12,7 +12,8 @@ import { SUBJECTS } from './subjects';
  * Owner-approved rules reflected: human lessons ≤ 40 min (OC-06); AI lessons 15 min (OC-89),
  * one at a time per child (OC-22). Lesson times are set in the family's zone (Asia/Kolkata).
  */
-export type LessonStatus = 'confirmed' | 'booked' | 'proposed';
+/** `requested`: a parent's request waiting for the teacher (CR-17 PR 2; real accounts only, never in the fixtures). */
+export type LessonStatus = 'confirmed' | 'booked' | 'proposed' | 'requested';
 
 export interface Lesson {
   id: string;

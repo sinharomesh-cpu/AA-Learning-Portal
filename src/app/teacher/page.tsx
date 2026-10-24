@@ -14,7 +14,7 @@ import { clockNow } from '@/lib/clock';
 import { cx } from '@/lib/cx';
 import { describeGrades } from '@/lib/grades';
 import { greeting } from '@/lib/localTime';
-import { LESSON_RULES_TEXT } from '@/lib/lessonRules';
+import { LESSON_RULES_TEXT, REAL_LESSON_RULES_TEXT } from '@/lib/lessonRules';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { getTeacherHome, type TeacherHome } from '@/server/teacherHome';
@@ -159,7 +159,12 @@ function Masthead({ home, now }: { home: TeacherHome; now: Date }) {
   );
 }
 
-const BAR = { confirmed: 'bg-primary', booked: 'bg-primary', proposed: 'bg-secondary-container' } as const;
+const BAR = {
+  confirmed: 'bg-primary',
+  booked: 'bg-primary',
+  proposed: 'bg-secondary-container',
+  requested: 'bg-secondary-container',
+} as const;
 
 function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
   const nowIso = now.toISOString();
@@ -174,12 +179,30 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-on-surface-variant">
             Today: {today} {today === 1 ? 'lesson' : 'lessons'}
           </span>
-          <LinkButton href="/teacher/propose" variant="secondary">
-            <Icon name="add" size={18} />
-            Propose a meeting
-          </LinkButton>
+          {home.mode === 'demo' ? (
+            // B1: hidden for real accounts until teacher proposals (OC-45) are built.
+            <LinkButton href="/teacher/propose" variant="secondary">
+              <Icon name="add" size={18} />
+              Propose a meeting
+            </LinkButton>
+          ) : null}
         </div>
       </div>
+      {home.mode === 'real' && home.lessonRequests ? (
+        <div
+          className={cx(PANEL, 'flex flex-wrap items-center justify-between gap-3 p-5')}
+          data-testid="lesson-requests-waiting"
+        >
+          <p className="m-0 text-body-md">
+            <strong>
+              {home.lessonRequests} lesson {home.lessonRequests === 1 ? 'request is' : 'requests are'} waiting for your
+              answer.
+            </strong>{' '}
+            Each one expires if it isn’t answered in time.
+          </p>
+          <LinkButton href="/teacher/schedule">Review requests</LinkButton>
+        </div>
+      ) : null}
       {home.lessons.length ? (
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {home.lessons.map((l) => (
@@ -209,8 +232,10 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                       </span>
                     </div>
                     <p className="text-body-md text-on-surface-variant">
-                      1-on-1 teacher lesson · {l.durationMinutes} min ·{' '}
-                      {l.status === 'confirmed' ? 'on Zoom' : 'no Zoom meeting until the parent accepts'}
+                      1-on-1 teacher lesson · {l.durationMinutes} min
+                      {home.mode === 'real'
+                        ? ''
+                        : ` · ${l.status === 'confirmed' ? 'on Zoom' : 'no Zoom meeting until the parent accepts'}`}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 text-label-sm text-on-surface-variant">
                       <span className="inline-flex items-center gap-1">
@@ -218,7 +243,7 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                         {l.dayLabel} {l.timeLabel}–{l.endLabel}
                       </span>
                       <LessonStatusChip status={l.status} viewer="teacher" />
-                      {l.status === 'confirmed' ? (
+                      {l.status === 'confirmed' && home.mode === 'demo' ? (
                         <span className="inline-flex items-center gap-1">
                           <Icon name="notifications" size={16} />
                           Email reminder to you and the parent, 15 min before
@@ -252,19 +277,28 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           <h3 className="font-headline text-headline-sm">No lessons coming up</h3>
           <p className="text-body-md text-on-surface-variant">
             {home.mode === 'real'
-              ? 'Booking lessons opens with scheduling in a later phase. Until then, families can send you enquiries from your listing.'
+              ? 'No confirmed lessons yet. When a linked family requests a lesson, it appears in My schedule for you to accept or decline.'
               : 'When families book you, the lessons appear here.'}
           </p>
         </div>
       )}
       <div className="flex flex-col gap-2">
         <LessonRules
-          items={[
-            LESSON_RULES_TEXT.join.replace('Join', 'Start'),
-            'A lesson you propose is only booked when the parent accepts it. No Zoom meeting until then.',
-            'You or the parent can cancel or move a lesson up to 30 minutes before the start. Your move needs the parent’s OK, and the parent is told if you cancel.',
-            LESSON_RULES_TEXT.oneToOne,
-          ]}
+          items={
+            home.mode === 'demo'
+              ? [
+                  LESSON_RULES_TEXT.join.replace('Join', 'Start'),
+                  'A lesson you propose is only booked when the parent accepts it. No Zoom meeting until then.',
+                  'You or the parent can cancel or move a lesson up to 30 minutes before the start. Your move needs the parent’s OK, and the parent is told if you cancel.',
+                  LESSON_RULES_TEXT.oneToOne,
+                ]
+              : // Real accounts (CR-17 PR 2, B1): nothing about proposing or moving, which aren't available.
+                [
+                  REAL_LESSON_RULES_TEXT.teacherJoin,
+                  REAL_LESSON_RULES_TEXT.teacherChanges,
+                  REAL_LESSON_RULES_TEXT.oneToOne,
+                ]
+          }
         />
       </div>
     </section>

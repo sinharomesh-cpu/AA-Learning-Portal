@@ -1,0 +1,68 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { db } from '@/server/db/client';
+import { isDemoMode } from '@/server/demo';
+import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
+import { getRealSession } from '@/server/session';
+
+/**
+ * Teacher lesson actions (CR-17 PR 2). The teacher comes from the session only; the server
+ * functions and the database check approval, the link, the deadline and the cut-off again.
+ */
+
+async function teacherId(): Promise<string> {
+  if (isDemoMode()) redirect('/teacher/schedule');
+  const real = await getRealSession();
+  if (!real || real.session.role !== 'teacher') redirect('/sign-in');
+  return real.session.accountId;
+}
+
+const str = (fd: FormData, key: string) => {
+  const v = fd.get(key);
+  return typeof v === 'string' ? v : '';
+};
+
+export interface ScheduleState {
+  error?: string;
+  notice?: string;
+}
+
+/**
+ * Each answer moves the lesson to another section of the page, so the result is shown at the
+ * top of the page (?done=…) rather than beside the buttons, which are gone after the change.
+ */
+const back = (done: string): never => {
+  revalidatePath('/teacher/schedule');
+  revalidatePath('/teacher');
+  redirect(`/teacher/schedule?done=${done}`);
+};
+
+/** Accept or decline a lesson request (with an optional reason for a decline). */
+export async function answerLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const answer = str(fd, 'answer') === 'accept' ? 'accept' : 'decline';
+  const r = await answerLesson(db(), id, str(fd, 'lessonId'), answer, str(fd, 'note'));
+  if (r.ok) return back(answer === 'accept' ? 'accepted' : 'declined');
+  if (r.reason === 'time_taken' || r.reason === 'expired' || r.reason === 'not_linked') return back(r.reason);
+  return back('closed');
+}
+
+/** Cancel a confirmed lesson, up to 30 minutes before the start. */
+export async function cancelTeacherLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await cancelLesson(db(), { id, role: 'teacher' }, str(fd, 'lessonId'));
+  if (r.ok) return back('cancelled');
+  if (r.reason === 'too_late') return { error: 'Lessons can’t be cancelled within 30 minutes of the start.' };
+  return back('closed');
+}
+
+/** After the lesson: Taught, or Did not take place (D3A-7). */
+export async function outcomeAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await recordOutcome(db(), id, str(fd, 'lessonId'), str(fd, 'outcome'));
+  if (r.ok || r.reason === 'done') return back('recorded');
+  if (r.reason === 'not_yet') return { error: 'You can record this once the lesson has ended.' };
+  return back('closed');
+}

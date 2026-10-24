@@ -11,6 +11,7 @@ import { answerEnquiry, expireEnquiries, withdrawEnquiry } from '@/server/teache
 import { acceptLinkRequest, addTeacher, declineLinkRequest, expireLinkRequests } from '@/server/teacherLinks';
 import { expireRateNegotiations } from '@/server/rateNegotiations';
 import { listResourcesForStudent } from '@/server/teacherResources';
+import { LESSON_NOTIFICATION_TYPES } from '@/server/lessons';
 import { createAdult, createChild, testDb, uniq } from './helpers';
 import {
   BASE,
@@ -435,10 +436,15 @@ describe('channels (AC-52, AC-51)', () => {
     ]);
   });
 
-  it('AC-51: no lesson reminder, cancellation, rescheduling, placeholder or booking notification type exists', async () => {
+  it('AC-51: no reminder, rescheduling, placeholder or booking notification type exists; lesson types are only the approved ones', async () => {
+    // CR-17 PR 2 (D3A-10, approved 23 Oct 2026) adds the in-app lesson types; the 15-minute
+    // reminder waits for PR 7, and rescheduling is cancel and request again (D3A-6).
     const [r] = await sql<{ n: number }[]>`
-      SELECT count(*)::int AS n FROM notifications WHERE type ~ '(lesson|booking|cancel|reschedul|placeholder)'`;
+      SELECT count(*)::int AS n FROM notifications WHERE type ~ '(lesson_remind|booking|reschedul|placeholder)'`;
     expect(r!.n).toBe(0);
+    const lessonTypes = await sql<{ type: string }[]>`
+      SELECT DISTINCT type FROM notifications WHERE type ~ '(lesson|cancel)' ORDER BY type`;
+    for (const { type } of lessonTypes) expect(LESSON_NOTIFICATION_TYPES as readonly string[]).toContain(type);
   });
 });
 
