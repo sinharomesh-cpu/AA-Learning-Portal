@@ -4,6 +4,7 @@ import {
   answerLesson,
   bookingOptions,
   cancelLesson,
+  defaultLessonMinutes,
   type FreeTime,
   freeTimes,
   lessonMaintenance,
@@ -12,6 +13,7 @@ import {
   lessonsForTeacher,
   recordOutcome,
   requestLesson,
+  validMinutes,
   withdrawLesson,
 } from '@/server/lessons';
 import { actionLabel, loadViewer, mayStillSee, type StoredNotification } from '@/server/notifications/access';
@@ -143,6 +145,14 @@ describe('PR 2: who can be booked, and the request', () => {
     expect((await ask(f, at(60), 40)).ok).toBe(true);
     expect(await ask(f, at(120), 9)).toEqual({ ok: false, reason: 'invalid' });
     expect(await ask(f, at(180), 41)).toEqual({ ok: false, reason: 'invalid' });
+    // Lengths must be 5-minute steps: 27 is refused by the server, and 0029 refuses it again.
+    expect(await ask(f, at(240), 27)).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('the default length is the teacher’s listed length, rounded down to a 5-minute step (32 -> 30)', () => {
+    expect([10, 12, 25, 30, 32, 39, 40].map((m) => defaultLessonMinutes(m))).toEqual([10, 10, 25, 30, 30, 35, 40]);
+    expect(defaultLessonMinutes(null)).toBeNull();
+    for (const m of [10, 12, 25, 30, 32, 39, 40]) expect(validMinutes(defaultLessonMinutes(m)!)).toBe(true);
   });
 
   it('times outside usual times, inside the notice or beyond 4 weeks are refused', async () => {

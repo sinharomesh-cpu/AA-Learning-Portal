@@ -165,6 +165,10 @@ describe('CR-15 hourly rules (FR-041)', () => {
     expect(checkHourly({ currency: 'INR', rateMinor: 0, minutes: 40 }, USUAL)).toEqual(['rate']);
     expect(checkHourly({ currency: 'EUR' as 'INR', rateMinor: 100, minutes: 40 }, USUAL)).toEqual(['currency']);
     expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 50 }, USUAL)).toEqual(['minutes']);
+    // A teacher's listed length is any whole number of minutes from 10 to 40 (32 is fine; booking rounds it).
+    expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 32 }, USUAL)).toEqual([]);
+    expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 9 }, USUAL)).toEqual(['minutes']);
+    expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 32.5 }, USUAL)).toEqual(['minutes']);
     expect(checkHourly({ currency: 'INR', rateMinor: 100, minutes: 40 }, [])).toEqual(['times']);
   });
 });

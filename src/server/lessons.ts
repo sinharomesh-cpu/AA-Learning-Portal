@@ -55,6 +55,15 @@ export function validMinutes(m: number): boolean {
   return Number.isInteger(m) && m >= LESSON_MINUTES_MIN && m <= LESSON_MINUTES_MAX && m % LESSON_MINUTES_STEP === 0;
 }
 
+/**
+ * F6 (D3A-15, owner approval 24 Oct 2026): the booking length offered by default for a teacher's
+ * listed (usual) length of 10-40 whole minutes: the next lower 5-minute step (32 -> 30).
+ */
+export function defaultLessonMinutes(usual: number | null | undefined): number | null {
+  if (!usual) return null;
+  return Math.max(LESSON_MINUTES_MIN, Math.floor(usual / LESSON_MINUTES_STEP) * LESSON_MINUTES_STEP);
+}
+
 /** Lesson price: rate x minutes / 60, rounded once, half up (CR-15; same formula as 0029). */
 export function lessonPrice(rateMinor: number, minutes: number): number {
   return Math.floor((rateMinor * minutes * 2 + 60) / 120);

@@ -17,6 +17,7 @@ import { rolePlaceholder } from '@/server/placeholder';
 import {
   bookingOptions,
   freeTimes,
+  defaultLessonMinutes,
   LESSON_MINUTES_MAX,
   LESSON_MINUTES_MIN,
   LESSON_MINUTES_STEP,
@@ -71,10 +72,7 @@ export default async function BookTeacherPage({
   // 5-minute steps a lesson can have (a listed 32 minutes becomes 30), until the parent picks one.
   const minutesRaw = Number(one(raw.m));
   const chosenLength = validMinutes(minutesRaw) ? minutesRaw : null;
-  const usual = chosen?.teacher.hourly?.minutes ?? null;
-  const usualStep = usual
-    ? Math.max(LESSON_MINUTES_MIN, Math.floor(usual / LESSON_MINUTES_STEP) * LESSON_MINUTES_STEP)
-    : null;
+  const usualStep = defaultLessonMinutes(chosen?.teacher.hourly?.minutes);
   const minutes = chosenLength ?? usualStep ?? 30;
   const free =
     chosen && chosen.teacher.hourly
