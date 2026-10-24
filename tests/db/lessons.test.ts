@@ -491,6 +491,36 @@ describe('PR 2: expiry without a scheduler (D3A-5)', () => {
 
 // ---------------------------------------------------------------------------------------------
 describe('PR 2: cancellation and outcome (OC-46, D3A-6, D3A-7)', () => {
+  it('a child’s account can never request, withdraw or cancel a lesson (server functions and database)', async () => {
+    // Owner review 24 Oct 2026 (14:47 IST), point 5: students cannot book or cancel human lessons.
+    const f = await family();
+    const start = at(3 * 60);
+    const asChild = await requestLesson(sql, f.child, {
+      childId: f.child,
+      teacherId: f.t,
+      subject: 'maths',
+      ...price(start),
+    });
+    expect(asChild.ok).toBe(false);
+    const open = await asked(f, start);
+    expect(await withdrawLesson(sql, f.child, open)).toEqual({ ok: false, reason: 'not_found' });
+    await answerLesson(sql, f.t, open, 'accept');
+    expect(await cancelLesson(sql, { id: f.child, role: 'parent' }, open)).toEqual({ ok: false, reason: 'not_found' });
+    expect(await cancelLesson(sql, { id: f.child, role: 'teacher' }, open)).toEqual({ ok: false, reason: 'not_found' });
+    // The database refuses a request row whose requester is the child, whatever the code sends.
+    let code = '';
+    try {
+      await sql`INSERT INTO lessons (teacher_id, student_id, requested_by, subject, starts_at, minutes, ends_at,
+                                     reply_deadline, currency, rate_minor, price_minor, price_basis)
+                VALUES (${f.t}, ${f.child}, ${f.child}, 'maths', ${at(6 * 60)}, 30, ${at(6 * 60 + 30)}, now(),
+                        'INR', 60000, 30000, 'listed')`;
+    } catch (e) {
+      code = (e as { code?: string }).code ?? '';
+    }
+    expect(code).toBe('42501'); // refused as "not allowed": only a parent of the child may request
+    expect((await row(open)).status).toBe('confirmed');
+  });
+
   it('cancel with at least 30 minutes left is allowed; with less, or after the start, refused (database clock)', async () => {
     const m = Math.floor((await dbNow()) / MIN) * MIN;
     const q = new Date(m - 3 * DAY);
