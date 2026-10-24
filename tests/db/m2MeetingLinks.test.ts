@@ -67,7 +67,7 @@ async function rawLesson(t: string, child: string, parent: string, status: strin
 }
 const allow = (f: { t: string; child: string; parent: string }, by = f.parent) =>
   sql`INSERT INTO meeting_link_permissions (teacher_id, student_id, granted_by) VALUES (${f.t}, ${f.child}, ${by}) RETURNING id`;
-const setLink = (lesson: string, by: string, link = 'https://us02web.zoom.us/j/81234567890?pwd=abc123') =>
+const setLink = (lesson: string, by: string, link = 'https://us02web.zoom.us/wc/join/81234567890?pwd=abc123') =>
   sql`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${lesson}, ${link}, ${by})
       ON CONFLICT (lesson_id) DO UPDATE SET url = EXCLUDED.url, set_by = EXCLUDED.set_by
       RETURNING version, delete_after`;
@@ -119,7 +119,7 @@ describe('M2 draft: parent permission (D3A-1)', () => {
     const [p] = await sql<{ withdrawn_how: string; withdrawn_by: string | null }[]>`
       SELECT withdrawn_how, withdrawn_by FROM meeting_link_permissions WHERE teacher_id = ${f.t}`;
     expect(p).toEqual({ withdrawn_how: 'aa_pro', withdrawn_by: null });
-    expect(await refused(setLink(f.lesson, f.t, 'https://zoom.us/j/2'))).toBe('23514');
+    expect(await refused(setLink(f.lesson, f.t, 'https://zoom.us/wc/join/2'))).toBe('23514');
   });
 });
 
@@ -128,22 +128,22 @@ describe('M2 draft: meeting links', () => {
     const f = await family();
     await allow(f);
     for (const ok of [
-      'https://zoom.us/j/81234567890',
-      'https://us06web.zoom.us/j/8123?pwd=Ab.c-d_e',
+      'https://zoom.us/wc/join/81234567890',
+      'https://us06web.zoom.us/wc/join/8123?pwd=Ab.c-d_e',
       'https://zoom.us',
     ])
       expect(await refused(setLink(f.lesson, f.t, ok))).toBe('accepted');
     for (const bad of [
-      'http://zoom.us/j/1',
-      'https://evilzoom.us/j/1',
+      'http://zoom.us/wc/join/1',
+      'https://evilzoom.us/wc/join/1',
       'https://zoom.us.evil.com/j/1',
-      'https://user@zoom.us/j/1',
+      'https://~@zoom.us/wc/join/1',
       'https://zoom.us:8443/j/1',
-      'https://ZOOM.US/j/1',
-      'https://zoom.us/j/1 onclick=x',
+      'https://ZOOM.US/wc/join/1',
+      'https://zoom.us/wc/join/1 onclick=x',
       'javascript:alert(1)',
       'https://bit.ly/abc',
-      `https://zoom.us/j/${'1'.repeat(490)}`,
+      `https://zoom.us/wc/join/${'1'.repeat(490)}`,
     ])
       expect(await refused(setLink(f.lesson, f.t, bad))).toBe('23514');
   });
@@ -163,7 +163,7 @@ describe('M2 draft: meeting links', () => {
     const [l] = await sql<{ ends_at: Date }[]>`SELECT ends_at FROM lessons WHERE id = ${f.lesson}`;
     expect(r!.version).toBe(1);
     expect(r!.delete_after.getTime()).toBe(l!.ends_at.getTime() + 7 * 86_400_000); // D3A-8
-    const [r2] = await setLink(f.lesson, f.t, 'https://zoom.us/j/999');
+    const [r2] = await setLink(f.lesson, f.t, 'https://zoom.us/wc/join/999');
     expect(r2!.version).toBe(2);
     expect(
       await refused(
@@ -175,7 +175,7 @@ describe('M2 draft: meeting links', () => {
     >`SELECT delete_after FROM lesson_meeting_links WHERE lesson_id = ${f.lesson}`;
     expect(kept!.delete_after.getTime()).toBe(l!.ends_at.getTime() + 7 * 86_400_000); // reset by the database
     await sql`UPDATE meeting_link_permissions SET withdrawn_how = 'parent', withdrawn_by = ${f.parent} WHERE teacher_id = ${f.t}`;
-    expect(await refused(setLink(f.lesson, f.t, 'https://zoom.us/j/3'))).toBe('23514');
+    expect(await refused(setLink(f.lesson, f.t, 'https://zoom.us/wc/join/3'))).toBe('23514');
   });
 
   it('a cancelled lesson keeps no link; the purge removes only links past delete-after', async () => {
@@ -234,7 +234,7 @@ describe('M2 draft: concurrency on two real connections', () => {
       });
       await new Promise((r) => setTimeout(r, 100));
       const link = refused(
-        b`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${f.lesson}, 'https://zoom.us/j/1', ${f.t})`,
+        b`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${f.lesson}, 'https://zoom.us/wc/join/1', ${f.t})`,
       );
       await cancel;
       expect(await link).toBe('23514');
@@ -251,7 +251,7 @@ describe('M2 draft: concurrency on two real connections', () => {
     const [a, b] = two();
     try {
       const link = a.begin(async (tx) => {
-        await tx`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${f.lesson}, 'https://zoom.us/j/1', ${f.t})`;
+        await tx`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${f.lesson}, 'https://zoom.us/wc/join/1', ${f.t})`;
         await tx`SELECT pg_sleep(0.4)`;
       });
       await new Promise((r) => setTimeout(r, 100));
@@ -276,7 +276,7 @@ describe('M2 draft: concurrency on two real connections', () => {
       });
       await new Promise((r) => setTimeout(r, 100));
       const link = refused(
-        b`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${f.lesson}, 'https://zoom.us/j/1', ${f.t})`,
+        b`INSERT INTO lesson_meeting_links (lesson_id, url, set_by) VALUES (${f.lesson}, 'https://zoom.us/wc/join/1', ${f.t})`,
       );
       await withdraw;
       expect(await link).toBe('23514');

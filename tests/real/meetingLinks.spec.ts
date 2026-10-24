@@ -14,7 +14,7 @@ import { seedActiveLink, seedChild, seedDb, seedParent, seedTeacher, type Sql } 
 
 const sql = seedDb();
 const shots = process.env.LESSON_SHOTS;
-const LINK = 'https://us02web.zoom.us/j/81234567890?pwd=SecretPass1';
+const LINK = 'https://us02web.zoom.us/wc/join/81234567890?pwd=SecretPass1';
 
 async function shot(page: Page, name: string) {
   if (!shots) return;
@@ -136,7 +136,7 @@ test('allow links, add a link, Join Class for the lesson’s people only, stop a
   await t.goto('/teacher/schedule');
   const tcard = t.getByTestId('lesson-card').filter({ hasText: 'Maths with Kiran' });
   await expect(tcard.getByTestId('meeting-state')).toHaveText('Add your Zoom meeting link so Join Class can open.');
-  await tcard.getByLabel('Zoom meeting link').fill('https://evilzoom.us/j/1');
+  await tcard.getByLabel('Zoom meeting link').fill('https://evilzoom.us/wc/join/1');
   await tcard.getByRole('button', { name: /^Save meeting link/ }).click();
   await expect(tcard.getByText(/must start with https:\/\/ and be a zoom\.us address/)).toBeVisible();
   await tcard.getByLabel('Zoom meeting link').fill(LINK);

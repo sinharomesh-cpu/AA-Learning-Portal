@@ -25,7 +25,7 @@ import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 const sql = testDb();
 afterAll(() => sql.end());
 
-const LINK = 'https://us02web.zoom.us/j/81234567890?pwd=SecretPass1';
+const LINK = 'https://us02web.zoom.us/wc/join/81234567890?pwd=SecretPass1';
 
 async function teacher(name = 'Ms Rao') {
   const id = await createAdult(sql, 'teacher');
@@ -78,21 +78,21 @@ const notes = (recipient: string) =>
 
 describe('PR 3: Zoom links accepted (https, zoom.us only, ≤ 500 characters)', () => {
   it('normalises good links and refuses everything else', () => {
-    expect(normaliseZoomLink('  https://us02web.ZOOM.us/j/8123?pwd=Ab.c-d_e  ')).toBe(
-      'https://us02web.zoom.us/j/8123?pwd=Ab.c-d_e',
+    expect(normaliseZoomLink('  https://us02web.ZOOM.us/wc/join/8123?pwd=Ab.c-d_e  ')).toBe(
+      'https://us02web.zoom.us/wc/join/8123?pwd=Ab.c-d_e',
     );
-    expect(normaliseZoomLink('https://zoom.us/j/81234567890')).toBe('https://zoom.us/j/81234567890');
+    expect(normaliseZoomLink('https://zoom.us/wc/join/81234567890')).toBe('https://zoom.us/wc/join/81234567890');
     for (const bad of [
-      'http://zoom.us/j/1',
-      'https://evilzoom.us/j/1',
+      'http://zoom.us/wc/join/1',
+      'https://evilzoom.us/wc/join/1',
       'https://zoom.us.example.com/j/1',
-      'https://user:pw@zoom.us/j/1',
+      'https://~@zoom.us/wc/join/1',
       'https://zoom.us:8443/j/1',
-      'https://zoom.us/j/1 2',
+      'https://zoom.us/wc/join/1 2',
       'javascript:alert(1)',
       'https://bit.ly/abc',
-      'zoom.us/j/1',
-      `https://zoom.us/j/${'1'.repeat(490)}`,
+      'zoom.us/wc/join/1',
+      `https://zoom.us/wc/join/${'1'.repeat(490)}`,
       '',
       42,
     ])
@@ -166,7 +166,7 @@ describe('PR 3: the teacher adds the lesson’s link', () => {
     expect(await setMeetingLink(sql, f.t, l, LINK)).toEqual({ ok: false, reason: 'not_allowed' });
     await allowMeetingLinks(sql, f.parent, f.t, f.child);
     expect(await setMeetingLink(sql, other, l, LINK)).toEqual({ ok: false, reason: 'not_found' });
-    expect(await setMeetingLink(sql, f.t, l, 'http://zoom.us/j/1')).toEqual({ ok: false, reason: 'invalid' });
+    expect(await setMeetingLink(sql, f.t, l, 'http://zoom.us/wc/join/1')).toEqual({ ok: false, reason: 'invalid' });
     const requested = await lesson(f, 5 * 24 * 60, 'requested');
     expect(await setMeetingLink(sql, f.t, requested, LINK)).toEqual({ ok: false, reason: 'closed' });
     const ended = await lesson(f, -120);
@@ -174,7 +174,7 @@ describe('PR 3: the teacher adds the lesson’s link', () => {
 
     expect(await setMeetingLink(sql, f.t, l, LINK)).toEqual({ ok: true, changed: true });
     expect(await setMeetingLink(sql, f.t, l, LINK)).toEqual({ ok: true, changed: false }); // same link: no news
-    expect(await setMeetingLink(sql, f.t, l, 'https://zoom.us/j/999')).toEqual({ ok: true, changed: true });
+    expect(await setMeetingLink(sql, f.t, l, 'https://zoom.us/wc/join/999')).toEqual({ ok: true, changed: true });
     for (const p of [f.parent, f.parent2]) {
       const n = (await notes(p)).filter((x) => x.type.startsWith('lesson_link_'));
       expect(n.map((x) => x.type)).toEqual(['lesson_link_added', 'lesson_link_changed']);

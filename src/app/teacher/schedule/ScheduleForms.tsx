@@ -165,7 +165,7 @@ export function MeetingLinkForm({ lessonId, label, added }: { lessonId: string; 
         autoComplete="off"
         required
         maxLength={500}
-        placeholder="https://us02web.zoom.us/j/…"
+        placeholder="https://…zoom.us/…"
         aria-describedby={helpId}
         className={INPUT}
       />
