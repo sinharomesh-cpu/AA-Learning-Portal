@@ -653,7 +653,9 @@ describe('PR 2: AA Pro closes (D3A-13, D3A-24)', () => {
     expect(told.some((t) => t.includes('cancelled: the teacher is no longer available'))).toBe(true);
   });
 
-  it('the parent removes the teacher or unticks the subject: lessons with that teacher close as "link ended"', async () => {
+  // OC-53 Option A: lessons more than 30 minutes away (these are 3 days ahead) are cancelled; lessons
+  // starting within 30 minutes stay (tests/db/keptLessons.test.ts).
+  it('the parent removes the teacher or unticks the subject: lessons more than 30 minutes away close as "link ended"', async () => {
     const f = await family();
     const a = await asked(f, at(0));
     await answerLesson(sql, f.t, a, 'accept');
