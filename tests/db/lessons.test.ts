@@ -34,7 +34,7 @@ afterEach(async () => {
   // Fixtures never leave the table's triggers off (they use a session setting, not ALTER TABLE).
   const t = await sql<{ e: string }[]>`
     SELECT tgenabled AS e FROM pg_trigger WHERE tgrelid = 'lessons'::regclass AND NOT tgisinternal`;
-  expect(t.map((r) => r.e)).toEqual(['O', 'O']);
+  expect(t.map((r) => r.e)).toEqual(['O', 'O', 'O']);
 });
 
 const MIN = 60_000;
