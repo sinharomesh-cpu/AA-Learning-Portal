@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
+import { setMeetingLink } from '@/server/meetingLinks';
 import { getRealSession } from '@/server/session';
 
 /**
@@ -64,5 +65,22 @@ export async function outcomeAction(_prev: ScheduleState, fd: FormData): Promise
   const r = await recordOutcome(db(), id, str(fd, 'lessonId'), str(fd, 'outcome'));
   if (r.ok || r.reason === 'done') return back('recorded');
   if (r.reason === 'not_yet') return { error: 'You can record this once the lesson has ended.' };
+  return back('closed');
+}
+
+/**
+ * CR-17 PR 3 (D3A-1): add or change the lesson's own Zoom link. The link is never sent back to
+ * the page; the parents are told it was added or changed.
+ */
+export async function meetingLinkAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await setMeetingLink(db(), id, str(fd, 'lessonId'), str(fd, 'link'));
+  if (r.ok) return back(r.changed ? 'link_saved' : 'link_same');
+  if (r.reason === 'invalid') {
+    return {
+      error: 'Paste the participant link from your Zoom meeting. It must start with https:// and be a zoom.us address.',
+    };
+  }
+  if (r.reason === 'not_allowed') return back('link_not_allowed');
   return back('closed');
 }

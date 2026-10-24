@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Icon } from '@/components/icons/Icon';
+import { FormMessage } from '@/components/forms/FormMessage';
+import { joinRefusalText } from '@/components/lessons/joinMessages';
 import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
@@ -22,7 +24,11 @@ export const dynamic = 'force-dynamic';
  * day and time, in the child's time zone. No requests, prices or buttons to book or cancel:
  * parents book (OC-06). Demo mode keeps its placeholder.
  */
-export default async function StudentSchedulePage() {
+export default async function StudentSchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const access = await requireRole('student');
   if (!access.allowed) return <AccessDenied viewerRole={access.viewer.role} />;
   if (isDemoMode()) {
@@ -39,6 +45,7 @@ export default async function StudentSchedulePage() {
   const tz = access.viewer.timeZone;
   const now = clockNow();
   const lessons = await lessonsForStudent(db(), access.viewer.id, now);
+  const refused = joinRefusalText((await searchParams).join, true);
   return (
     <div className="mx-auto flex max-w-[820px] flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -49,6 +56,7 @@ export default async function StudentSchedulePage() {
           times too.
         </p>
       </div>
+      {refused ? <FormMessage tone="info">{refused}</FormMessage> : null}
       {lessons.length ? (
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {lessons.map((l) => (
@@ -81,6 +89,8 @@ export default async function StudentSchedulePage() {
                   endIso={l.endsAt.toISOString()}
                   nowIso={now.toISOString()}
                   timeZone={tz}
+                  lessonId={l.id}
+                  ready={l.meeting.allowed && l.meeting.added}
                 />
               </article>
             </li>

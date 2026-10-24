@@ -90,6 +90,8 @@ export default async function StudentHomePage() {
                 endIso={nextHuman.endIso}
                 nowIso={now.toISOString()}
                 timeZone={tz}
+                lessonId={nextHuman.lessonId}
+                ready={nextHuman.joinReady}
               />
             )}
           </div>

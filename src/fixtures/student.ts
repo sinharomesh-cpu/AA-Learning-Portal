@@ -13,6 +13,9 @@ export interface DashboardSession {
   durationMinutes: number;
   teacherName?: string;
   topic?: string;
+  /** Real teacher lessons (CR-17 PR 3): the lesson, and whether Join Class can open in its window. */
+  lessonId?: string;
+  joinReady?: boolean;
 }
 
 export interface StudentDashboard {

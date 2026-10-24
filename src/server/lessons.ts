@@ -6,6 +6,7 @@ import { wallTimeToUtc } from './assignments';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql } from './db/client';
 import { dropLessonReminders } from './lessonReminders';
+import { askForMeetingPermission, purgeMeetingLinks } from './meetingLinks';
 import { notify } from './notifications/notify';
 
 /**
@@ -513,6 +514,8 @@ export async function answerLesson(
         now,
       );
       await tellAbout(tx, l.id, 'accepted', { actorId: teacherId }, now);
+      // CR-17 PR 3 (D3A-1): the parents are asked to allow the teacher's meeting links, if needed.
+      await askForMeetingPermission(tx, l.id, now);
       return { ok: true };
     }),
   ).catch((error) => {
@@ -702,6 +705,8 @@ export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promi
     for (const l of ended) await tellAbout(tx, l.id, 'outcome_needed', {}, now);
     return ended.length;
   });
+  // CR-17 PR 3 (D3A-8): meeting links 7 days after the lesson's end, at the next site activity.
+  done += await purgeMeetingLinks(sql);
   return done;
 }
 
@@ -748,6 +753,10 @@ export const LESSON_NOTIFICATION_TYPES = [
   'lesson_expired',
   'lesson_cancelled',
   'lesson_outcome_needed',
+  // CR-17 PR 3 (D3A-1): to parents only; never the link itself.
+  'lesson_link_added',
+  'lesson_link_changed',
+  'lesson_link_permission_needed',
   // CR-17 PR 7 (D3A-10 Option A): the best-effort, in-app 15-minute reminder.
   'lesson_reminder',
 ] as const;
@@ -961,6 +970,20 @@ export interface LessonItem {
   needsOutcome: boolean;
   /** The lesson's end has passed (database clock). */
   ended: boolean;
+  /**
+   * CR-17 PR 3: the teacher's own meeting link, as state only. The link itself is never in a
+   * lesson item; Join Class reads it on the server at click time.
+   */
+  meeting: {
+    /** A parent allows this teacher's meeting links for this child now (D3A-1). */
+    allowed: boolean;
+    /** The teacher has added a link for this lesson. */
+    added: boolean;
+    /** When the link was last added or changed (database clock). */
+    setAt: Date | null;
+    /** Join Class is open now: from 10 minutes before the start to the end (OC-44). */
+    joinOpen: boolean;
+  };
 }
 
 interface ListRow {
@@ -989,6 +1012,9 @@ interface ListRow {
   overdue: boolean;
   cancellable: boolean;
   ended: boolean;
+  link_allowed: boolean;
+  link_set_at: Date | null;
+  join_open: boolean;
 }
 
 const LIST_COLUMNS = (sql: Db) => sql`
@@ -997,7 +1023,11 @@ const LIST_COLUMNS = (sql: Db) => sql`
   l.outcome, l.currency, l.price_minor, l.rate_minor, l.price_basis, l.closed_by_account, cb.display_name AS closer_name,
   l.reply_deadline <= now() AS overdue,
   l.starts_at - make_interval(mins => ${CANCEL_CUTOFF_MINUTES}) >= now() AS cancellable,
-  l.ends_at <= now() AS ended`;
+  l.ends_at <= now() AS ended,
+  EXISTS (SELECT 1 FROM meeting_link_permissions mp WHERE mp.teacher_id = l.teacher_id
+          AND mp.student_id = l.student_id AND mp.withdrawn_at IS NULL) AS link_allowed,
+  ml.set_at AS link_set_at,
+  (now() >= l.starts_at - interval '10 minutes' AND now() < l.ends_at) AS join_open`;
 
 function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: string): LessonItem {
   const status: LessonStatus = r.status === 'requested' && r.overdue ? 'expired' : (r.status as LessonStatus);
@@ -1035,6 +1065,12 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: 
     canAnswer: viewer === 'teacher' && status === 'requested',
     needsOutcome: viewer === 'teacher' && status === 'confirmed' && r.ended && !r.outcome,
     ended: r.ended,
+    meeting: {
+      allowed: r.link_allowed,
+      added: r.link_set_at !== null,
+      setAt: r.link_set_at,
+      joinOpen: status === 'confirmed' && r.join_open,
+    },
   };
 }
 
@@ -1045,6 +1081,7 @@ export async function lessonsForParent(sql: Db, parentId: string, now: Date = ne
     SELECT ${LIST_COLUMNS(sql)}
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
     LEFT JOIN accounts cb ON cb.id = l.closed_by_account
+    LEFT JOIN lesson_meeting_links ml ON ml.lesson_id = l.id
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     WHERE l.student_id IN (SELECT g.student_id FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
                            WHERE g.parent_id = ${parentId} AND g.status = 'active' AND p.status = 'active')
@@ -1060,6 +1097,7 @@ export async function lessonsForTeacher(sql: Db, teacherId: string, now: Date = 
     SELECT ${LIST_COLUMNS(sql)}
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
     LEFT JOIN accounts cb ON cb.id = l.closed_by_account
+    LEFT JOIN lesson_meeting_links ml ON ml.lesson_id = l.id
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     JOIN teacher_profiles tp ON tp.account_id = t.id AND tp.approval_status = 'approved'
     WHERE l.teacher_id = ${teacherId} AND t.status = 'active'
@@ -1077,6 +1115,7 @@ export async function lessonsForStudent(sql: Db, studentId: string, now: Date = 
     SELECT ${LIST_COLUMNS(sql)}
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
     LEFT JOIN accounts cb ON cb.id = l.closed_by_account
+    LEFT JOIN lesson_meeting_links ml ON ml.lesson_id = l.id
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     WHERE l.student_id = ${studentId} AND c.status = 'active' AND l.status = 'confirmed'
       AND l.ends_at > ${now}
