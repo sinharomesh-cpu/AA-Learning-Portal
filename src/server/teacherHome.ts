@@ -11,7 +11,7 @@ import { teacherHomeLessons } from './lessonViews';
 import { db } from './db/client';
 import { isDemoMode } from './demo';
 import { listTeacherEnquiries } from './teacherEnquiries';
-import { listLinkRequests } from './teacherLinks';
+import { listLinkedStudents, listLinkRequests } from './teacherLinks';
 import { getTeacherRateSettings, teacherWaitingCount } from './rateNegotiations';
 import { PRICE_MODEL_LABEL } from '@/lib/listing';
 import { packageNeedsDetails } from './pricingModel';
@@ -152,6 +152,45 @@ const LISTING_WORDS: Record<ListingStatus, string> = {
   expired: 'Ended',
 };
 
+/**
+ * The teacher's roster for real accounts (CR-17 PR 2, owner decision B4): exactly the children
+ * with an ACTIVE link to this teacher (the existing rule, as on My students: listLinkedStudents).
+ * A waiting link request or a lesson request never adds a child. Next lesson from the confirmed
+ * lessons; lessons completed = lessons the teacher recorded as taught; last file shared.
+ */
+async function realStudents(
+  sql: ReturnType<typeof db>,
+  teacherId: string,
+  lessons: TeacherLesson[],
+): Promise<HomeStudent[]> {
+  const linked = await listLinkedStudents(sql, teacherId);
+  if (linked.length === 0) return [];
+  const ids = linked.map((s) => s.id);
+  const [taught, shared] = await Promise.all([
+    sql<Array<{ id: string; n: number }>>`
+      SELECT student_id AS id, count(*)::int AS n FROM lessons
+      WHERE teacher_id = ${teacherId} AND outcome = 'taught' AND student_id = ANY(${ids}) GROUP BY student_id`,
+    sql<Array<{ id: string; title: string }>>`
+      SELECT DISTINCT ON (s.student_id) s.student_id AS id, r.title
+      FROM resource_shares s JOIN teacher_resources r ON r.id = s.resource_id
+      WHERE r.teacher_id = ${teacherId} AND r.archived_at IS NULL AND s.unshared_at IS NULL
+        AND s.student_id = ANY(${ids})
+      ORDER BY s.student_id, s.shared_at DESC`,
+  ]);
+  return linked.map((s) => {
+    const next = lessons.find((l) => l.studentId === s.id);
+    return {
+      id: s.id,
+      name: s.name,
+      grade: s.grade,
+      subject: s.subjects.map((x) => SUBJECTS[x as SubjectId]?.name ?? x).join(', '),
+      completed: taught.find((t) => t.id === s.id)?.n ?? 0,
+      nextLesson: next ? `${next.dayLabel} ${next.timeLabel}` : null,
+      lastShared: shared.find((r) => r.id === s.id)?.title ?? null,
+    };
+  });
+}
+
 async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null> {
   const sql = db();
   const profile = await getTeacherProfile(sql, viewer.id);
@@ -177,6 +216,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
     ]);
   const tz = profile.timeZone;
   const booked = await teacherHomeLessons(viewer.id, tz, now);
+  const students = await realStudents(sql, viewer.id, booked.lessons);
   const days = nextSevenDays(tz, now);
   const counts = new Map<number, { open: number; taken: number }>();
   const weekRows: WeekRow[] = [];
@@ -217,7 +257,7 @@ async function realHome(viewer: Persona, now: Date): Promise<TeacherHome | null>
     weekRows,
     weekNote:
       'These are your usual weekly times. Linked families can request lessons inside them; you accept or decline each request in My schedule.',
-    students: [],
+    students,
     linkRequests: requests.length,
     packageNeedsDetails: pkg,
     verification,

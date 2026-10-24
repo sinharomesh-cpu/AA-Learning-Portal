@@ -5,7 +5,7 @@ import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { LessonKindChip, LessonStatusChip } from '@/components/lessons/LessonStatus';
 import { LessonRules } from '@/components/lessons/LessonRules';
-import { LESSON_RULES_TEXT } from '@/lib/lessonRules';
+import { LESSON_RULES_TEXT, REAL_LESSON_RULES_TEXT } from '@/lib/lessonRules';
 import { StatusChip } from '@/components/StatusChip';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
@@ -241,13 +241,23 @@ export default async function ParentHomePage() {
       </Card>
 
       <LessonRules
-        items={[
-          LESSON_RULES_TEXT.teacherProposal,
-          LESSON_RULES_TEXT.teacherChanges,
-          LESSON_RULES_TEXT.aiChanges,
-          LESSON_RULES_TEXT.join,
-          'Reminders: email to you 15 minutes before each lesson; your child sees AI lesson reminders on screen. Emails are queued, not sent, until an email service is approved.',
-        ]}
+        items={
+          isDemoMode()
+            ? [
+                LESSON_RULES_TEXT.teacherProposal,
+                LESSON_RULES_TEXT.teacherChanges,
+                LESSON_RULES_TEXT.aiChanges,
+                LESSON_RULES_TEXT.join,
+                'Reminders: email to you 15 minutes before each lesson; your child sees AI lesson reminders on screen. Emails are queued, not sent, until an email service is approved.',
+              ]
+            : // Real accounts (CR-17 PR 2, B2): only what is available now; no reminder is promised.
+              [
+                REAL_LESSON_RULES_TEXT.parentTeacherChanges,
+                REAL_LESSON_RULES_TEXT.parentAiChanges,
+                REAL_LESSON_RULES_TEXT.join,
+                REAL_LESSON_RULES_TEXT.noReminders,
+              ]
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-6">

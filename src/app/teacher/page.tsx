@@ -14,7 +14,7 @@ import { clockNow } from '@/lib/clock';
 import { cx } from '@/lib/cx';
 import { describeGrades } from '@/lib/grades';
 import { greeting } from '@/lib/localTime';
-import { LESSON_RULES_TEXT } from '@/lib/lessonRules';
+import { LESSON_RULES_TEXT, REAL_LESSON_RULES_TEXT } from '@/lib/lessonRules';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { getTeacherHome, type TeacherHome } from '@/server/teacherHome';
@@ -179,10 +179,13 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-on-surface-variant">
             Today: {today} {today === 1 ? 'lesson' : 'lessons'}
           </span>
-          <LinkButton href="/teacher/propose" variant="secondary">
-            <Icon name="add" size={18} />
-            Propose a meeting
-          </LinkButton>
+          {home.mode === 'demo' ? (
+            // B1: hidden for real accounts until teacher proposals (OC-45) are built.
+            <LinkButton href="/teacher/propose" variant="secondary">
+              <Icon name="add" size={18} />
+              Propose a meeting
+            </LinkButton>
+          ) : null}
         </div>
       </div>
       {home.mode === 'real' && home.lessonRequests ? (
@@ -281,12 +284,21 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
       )}
       <div className="flex flex-col gap-2">
         <LessonRules
-          items={[
-            LESSON_RULES_TEXT.join.replace('Join', 'Start'),
-            'A lesson you propose is only booked when the parent accepts it. No Zoom meeting until then.',
-            'You or the parent can cancel or move a lesson up to 30 minutes before the start. Your move needs the parent’s OK, and the parent is told if you cancel.',
-            LESSON_RULES_TEXT.oneToOne,
-          ]}
+          items={
+            home.mode === 'demo'
+              ? [
+                  LESSON_RULES_TEXT.join.replace('Join', 'Start'),
+                  'A lesson you propose is only booked when the parent accepts it. No Zoom meeting until then.',
+                  'You or the parent can cancel or move a lesson up to 30 minutes before the start. Your move needs the parent’s OK, and the parent is told if you cancel.',
+                  LESSON_RULES_TEXT.oneToOne,
+                ]
+              : // Real accounts (CR-17 PR 2, B1): nothing about proposing or moving, which aren't available.
+                [
+                  REAL_LESSON_RULES_TEXT.teacherJoin,
+                  REAL_LESSON_RULES_TEXT.teacherChanges,
+                  REAL_LESSON_RULES_TEXT.oneToOne,
+                ]
+          }
         />
       </div>
     </section>

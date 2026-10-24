@@ -10,7 +10,10 @@ export interface TimeOption {
   /** `${iso}|${priceMinor}|${currency}|${basis}`: the time and the price the parent is shown. */
   value: string;
   clock: string;
+  /** The whole lesson's price, e.g. "₹250". */
   price: string;
+  /** The hourly rate it comes from, e.g. "₹600". */
+  rate: string;
   agreed: boolean;
 }
 
@@ -50,7 +53,9 @@ export function RequestForm({
                 <span className="flex flex-col gap-0.5">
                   <strong className="text-[17px]">{o.clock}</strong>
                   <span className="text-sm text-on-surface-variant">
-                    {o.price} · {o.agreed ? 'your agreed rate' : 'listed rate'}
+                    {o.price} for {minutes} min
+                    <br />
+                    {o.agreed ? 'Agreed rate' : 'Listed rate'} {o.rate} an hour
                   </span>
                 </span>
               </label>

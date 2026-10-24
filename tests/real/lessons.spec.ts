@@ -44,21 +44,33 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await p.goto('/parent/book-teacher');
   await expect(p.getByRole('heading', { level: 1, name: 'Book a teacher' })).toBeVisible();
   await p.getByRole('radio', { name: new RegExp(`${child.name}: Maths with ${teacher.name}`) }).check();
-  await p.getByLabel('2. How long?').selectOption('25');
+  await expect(p.getByText('Listed rate ₹600 an hour · usual lesson 30 min')).toBeVisible();
+  // F6: without choosing a length, the teacher's usual length (30 minutes) is used.
   await p.getByRole('button', { name: 'Show free times' }).click();
   await expect(p.getByRole('heading', { name: '3. Choose a day and time' })).toBeVisible();
+  await expect(p.getByLabel('2. How long?')).toHaveValue('');
+  await expect(p.getByLabel('2. How long?').locator('option:checked')).toHaveText(
+    'Teacher’s usual length (30 minutes)',
+  );
+  await expect(p.getByText('₹300 for 30 min').first()).toBeVisible(); // ₹600 an hour x 30 / 60
+  await p.getByLabel('2. How long?').selectOption('25');
+  await p.getByRole('button', { name: 'Show free times' }).click();
+  await expect(p.getByText(/^25-minute Maths lesson/)).toBeVisible();
   const days = p.getByRole('navigation', { name: 'Days with free times' }).getByRole('link');
   await days.nth(2).click();
   // Wait for that day's times to replace the first day's before choosing one.
   await expect(days.nth(2)).toHaveAttribute('aria-current', 'date');
   await expect(p.getByRole('radio', { name: /4:00 pm/ })).toBeVisible();
   await p.getByRole('radio', { name: /4:30 pm/ }).check();
-  await expect(p.getByText('₹250 · listed rate').first()).toBeVisible(); // ₹600 an hour x 25 / 60
+  // F7: each time shows the whole lesson's price, its length and the rate it comes from.
+  await expect(p.getByText('₹250 for 25 min').first()).toBeVisible(); // ₹600 an hour x 25 / 60
+  await expect(p.getByText('Listed rate ₹600 an hour').first()).toBeVisible();
   await check(p, phone);
   await shot(p, `PR2-book-${device}`);
   await p.getByRole('button', { name: 'Send request' }).click();
   await expect(p.getByText('Request sent.')).toBeVisible();
   await expect(p.getByText('Waiting for the teacher').first()).toBeVisible();
+  await expect(p.getByText('₹250 for 25 min · Listed rate ₹600 an hour')).toBeVisible();
   await check(p, phone);
   await shot(p, `PR2-parent-requested-${device}`);
 
@@ -80,6 +92,15 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await shot(t, `PR2-teacher-schedule-${device}`);
   await t.goto('/teacher');
   await expect(t.getByRole('heading', { name: `Maths with ${child.name}` })).toBeVisible();
+  // B4: the linked child is on the roster; B1: no Propose button; real-account rules only.
+  const roster = t.getByRole('region', { name: 'My students' });
+  await expect(roster.getByRole('heading', { name: child.name })).toBeVisible();
+  await expect(roster).not.toContainText('later phase');
+  await expect(t.getByRole('link', { name: 'Propose a meeting' })).toHaveCount(0);
+  const teacherRules = t.getByRole('region', { name: 'Lesson rules' });
+  await expect(teacherRules).toContainText('To change the time, the parent cancels and requests a new one.');
+  await expect(teacherRules).not.toContainText(/propose|move a lesson/i);
+  await check(t, phone);
   await shot(t, `PR2-teacher-home-${device}`);
 
   // Both parents see it confirmed; the second parent got a notification naming the child.
@@ -88,6 +109,16 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await shot(p, `PR2-parent-calendar-${device}`);
   await p.goto('/parent');
   await expect(p.getByText(/Maths with/).first()).toBeVisible();
+  // F1, B2: the rules say what is available now, and that no reminder is sent yet.
+  const rules = p.getByRole('region', { name: 'Lesson rules' });
+  await expect(rules).toContainText(
+    'Teacher lessons: you or the teacher can cancel up to 30 minutes before the start.',
+  );
+  await expect(rules).toContainText(
+    'AI Tutor lessons: you or your child can cancel or move them any time before the start.',
+  );
+  await expect(rules).toContainText('Lesson reminders aren’t sent yet.');
+  await expect(rules).not.toContainText(/email|propose|teacher’s move/i);
   await check(p, phone);
   await shot(p, `PR2-parent-home-${device}`);
   const [note] = await sql<{ title: string }[]>`

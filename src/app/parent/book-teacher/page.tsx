@@ -64,8 +64,15 @@ export default async function BookTeacherPage({
   );
   const pick = one(raw.pick);
   const chosen = choices.find((x) => `${x.child.id}.${x.teacher.id}.${x.subject}` === pick) ?? null;
+  // F6 (D3A-15): the length defaults to the chosen teacher's usual (listed) length, on the
+  // 5-minute steps a lesson can have (a listed 32 minutes becomes 30), until the parent picks one.
   const minutesRaw = Number(one(raw.m));
-  const minutes = validMinutes(minutesRaw) ? minutesRaw : (chosen?.teacher.hourly?.minutes ?? 30);
+  const chosenLength = validMinutes(minutesRaw) ? minutesRaw : null;
+  const usual = chosen?.teacher.hourly?.minutes ?? null;
+  const usualStep = usual
+    ? Math.max(LESSON_MINUTES_MIN, Math.floor(usual / LESSON_MINUTES_STEP) * LESSON_MINUTES_STEP)
+    : null;
+  const minutes = chosenLength ?? usualStep ?? 30;
   const free =
     chosen && chosen.teacher.hourly
       ? await freeTimes(
@@ -79,7 +86,7 @@ export default async function BookTeacherPage({
   const day = days.find((d) => d.date === one(raw.d)) ?? days[0] ?? null;
   const zone = `${formatZoneName(now.toISOString(), { timeZone: tz })}, ${tz}`;
   const base = (extra: Record<string, string>) =>
-    `/parent/book-teacher?${new URLSearchParams({ pick, m: String(minutes), ...extra }).toString()}`;
+    `/parent/book-teacher?${new URLSearchParams({ pick, m: chosenLength ? String(chosenLength) : '', ...extra }).toString()}`;
 
   return (
     <div className="mx-auto flex max-w-[980px] flex-col gap-6">
@@ -129,7 +136,7 @@ export default async function BookTeacherPage({
                           </strong>
                           <span className="text-sm text-on-surface-variant">
                             {rate
-                              ? `${formatMoney(rate.rateMinor, rate.currency)} an hour (listed) · usually ${rate.minutes} min`
+                              ? `Listed rate ${formatMoney(rate.rateMinor, rate.currency)} an hour · usual lesson ${rate.minutes} min`
                               : 'This teacher hasn’t set an hourly rate yet'}
                           </span>
                         </span>
@@ -147,9 +154,12 @@ export default async function BookTeacherPage({
                 <select
                   id="lesson-length"
                   name="m"
-                  defaultValue={String(minutes)}
-                  className={cx(INPUT, 'min-h-12 w-40')}
+                  defaultValue={chosenLength ? String(chosenLength) : ''}
+                  className={cx(INPUT, 'min-h-12 w-auto min-w-40')}
                 >
+                  <option value="">
+                    {usualStep ? `Teacher’s usual length (${usualStep} minutes)` : 'Teacher’s usual length'}
+                  </option>
                   {LENGTHS.map((m) => (
                     <option key={m} value={m}>
                       {m} minutes
@@ -213,9 +223,10 @@ export default async function BookTeacherPage({
                       value: `${t.startsAt.toISOString()}|${t.priceMinor}|${t.currency}|${t.basis}`,
                       clock: formatClock(t.startsAt, tz),
                       price: formatMoney(t.priceMinor, t.currency),
+                      rate: formatMoney(t.rateMinor, t.currency),
                       agreed: t.basis === 'agreed',
                     }))}
-                    summary={`${minutes}-minute ${SUBJECTS[chosen.subject].name} lesson for ${chosen.child.name} with ${chosen.teacher.name}. The teacher has 48 hours to answer (less when the lesson is sooner). The price is for information: AA Pro takes no payment.`}
+                    summary={`${minutes}-minute ${SUBJECTS[chosen.subject].name} lesson for ${chosen.child.name} with ${chosen.teacher.name}. Each price is for the whole ${minutes}-minute lesson: the hourly rate × ${minutes} ÷ 60. The teacher has 48 hours to answer (less when the lesson is sooner). Prices are for information: AA Pro takes no payment.`}
                   />
                 </>
               )}

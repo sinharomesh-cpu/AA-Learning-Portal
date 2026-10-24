@@ -61,9 +61,9 @@ export function LessonCard({
           </p>
           {l.price ? (
             <p className="m-0 text-sm leading-5 text-on-surface-variant">
-              {formatMoney(l.price.priceMinor, l.price.currency)} ·{' '}
-              {l.price.basis === 'agreed' ? 'your agreed rate' : 'listed rate'} (
-              {formatMoney(l.price.rateMinor, l.price.currency)} an hour)
+              {formatMoney(l.price.priceMinor, l.price.currency)} for {l.minutes} min ·{' '}
+              {l.price.basis === 'agreed' ? 'Agreed rate' : 'Listed rate'}{' '}
+              {formatMoney(l.price.rateMinor, l.price.currency)} an hour
             </p>
           ) : null}
           {l.status === 'requested' ? (
