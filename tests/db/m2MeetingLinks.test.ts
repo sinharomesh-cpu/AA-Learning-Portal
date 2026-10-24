@@ -316,6 +316,13 @@ describe('M2 draft: rollback', () => {
       VALUES (${f.parent}, 'update', ${type}, 'Sample', '/parent', 'lesson', ${f.lesson}, ${`${type}:${uniq()}`})`;
     await note('lesson_link_added');
     await note('lesson_accepted');
+    // Link-level notifications (about the teacher-child link): removed only for the two M2 types.
+    const linkNote = (type: string) => sql`
+      INSERT INTO notifications (recipient_id, kind, type, title, href, entity_type, entity_id, dedupe_key)
+      VALUES (${f.parent}, 'update', ${type}, 'Sample', '/parent', 'link_request', ${f.link}, ${`${type}:${uniq()}`})`;
+    await linkNote('meeting_links_allowed');
+    await linkNote('meeting_links_stopped');
+    await linkNote('link_accepted');
     const lessonsBefore = (await sql`SELECT count(*)::int AS n FROM lessons`)[0]!.n;
 
     const revert = await readFile(new URL('../../db/rollback/0030_revert_meeting_links.sql', import.meta.url), 'utf8');
@@ -331,6 +338,9 @@ describe('M2 draft: rollback', () => {
     ).toHaveLength(0);
     expect((await sql`SELECT type FROM notifications WHERE entity_id = ${f.lesson}`).map((r) => r.type)).toEqual([
       'lesson_accepted',
+    ]);
+    expect((await sql`SELECT type FROM notifications WHERE entity_id = ${f.link}`).map((r) => r.type)).toEqual([
+      'link_accepted',
     ]);
     expect((await sql`SELECT count(*)::int AS n FROM lessons`)[0]!.n).toBe(lessonsBefore);
     // M1 still works after the revert: cancelling a lesson no longer touches a missing table.
