@@ -147,16 +147,25 @@ test('AC-27 (f), AC-67 cause 2: a teacher–child link removed after the list wa
     entityType: 'link_request',
     entityId: link,
   });
-  const responses = actionResponses(page);
   await signInAs(page, teacher.email);
   await expect(page).toHaveURL(/\/teacher$/);
+  // Notification responses from here on (the sign-in action's own response carries the
+  // dashboard it redirects to, roster included, which is not a notification response).
+  const responses = actionResponses(page);
   await openBell(page);
   const row = rows(page).filter({ hasText: title });
   await expect(row).toContainText('Done');
-  // AC-18, AC-59: no response to the teacher names the child or carries their id.
-  const seen = await everything(page, responses);
+  // AC-18, AC-59: no notification shown to the teacher, and no notification response, names the
+  // child or carries their id. (Owner decision, 24 Oct 2026 07:59 IST: the check covers the
+  // notification panel and every notification network response, not the whole dashboard, whose
+  // "My students" roster lists linked children by first name on purpose (B4), as My students does.)
+  const seen = [await panel(page).innerHTML(), ...(await Promise.all(responses))].join('\n');
   expect(seen).not.toContain('Quillon');
   expect(seen).not.toContain(child.id);
+  // Authorised roster visibility (B4): while linked, the child's first name is on the roster.
+  await expect(
+    page.getByRole('region', { name: 'My students' }).getByRole('heading', { name: 'Quillon' }),
+  ).toBeVisible();
 
   // Access ends after the list was shown: the open step re-checks now.
   await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now() WHERE id = ${link}`;
@@ -168,6 +177,17 @@ test('AC-27 (f), AC-67 cause 2: a teacher–child link removed after the list wa
   await expect(bellCount(page)).toHaveCount(0);
   await openBell(page);
   await expect(rows(page).getByTestId('notification-title')).toHaveText([REDACTED]);
+
+  // Roster access ends with the link (B4): reloaded, the dashboard shows neither the child's name
+  // nor their id, in the page or in the document the server sent.
+  await page.keyboard.press('Escape');
+  const dashboard = await page.goto('/teacher');
+  const roster = page.getByRole('region', { name: 'My students' });
+  await expect(roster).toBeVisible();
+  await expect(roster).not.toContainText('Quillon');
+  const sent = [await dashboard!.text(), await page.content()].join('\n');
+  expect(sent).not.toContain('Quillon');
+  expect(sent).not.toContain(child.id);
 });
 
 test('AC-27, AC-67 cause 3: a worksheet unshared — redacted for the student and the parent', async ({
