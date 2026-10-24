@@ -83,6 +83,8 @@ export async function studentTodayLessons(studentId: string, tz: string, now: Da
       endIso: l.endsAt.toISOString(),
       durationMinutes: l.minutes,
       teacherName: l.teacherName,
+      lessonId: l.id,
+      joinReady: l.meeting.allowed && l.meeting.added,
     }));
 }
 

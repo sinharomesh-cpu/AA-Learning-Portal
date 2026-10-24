@@ -14,6 +14,7 @@ import { MESSAGE_MAX, REQUEST_DAYS } from '@/lib/linkRequests';
 import {
   addFromDirectoryAction,
   addTeacherAction,
+  meetingPermissionAction,
   removeTeacherAction,
   resendRequestAction,
   type TeacherFormState,
@@ -376,6 +377,67 @@ export function SendAgainButton({ requestId, primary }: { requestId: string; pri
       <Button type="submit" variant={primary ? 'primary' : 'secondary'} inactive={pending}>
         {pending ? 'Sending…' : 'Send again'}
       </Button>
+    </form>
+  );
+}
+
+/**
+ * CR-17 PR 3 (D3A-1): "Allow [teacher] to use their own Zoom meetings for [child]", or stop it.
+ * Stopping asks for a confirmation, because Join Class closes at once for this child's lessons.
+ */
+export function MeetingPermissionForm({
+  teacherId,
+  teacherName,
+  childId,
+  childName,
+  allowed,
+}: {
+  teacherId: string;
+  teacherName: string;
+  childId: string;
+  childName: string;
+  allowed: boolean;
+}) {
+  const [state, action, pending] = useActionState<TeacherFormState, FormData>(meetingPermissionAction, {});
+  const [open, setOpen] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  return (
+    <form ref={form} action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="teacherId" value={teacherId} />
+      <input type="hidden" name="childId" value={childId} />
+      <input type="hidden" name="choice" value={allowed ? 'stop' : 'allow'} />
+      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      {allowed ? (
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            inactive={pending}
+            onClick={() => setOpen(true)}
+            aria-label={`Stop allowing ${teacherName}’s meeting links for ${childName}`}
+          >
+            Stop allowing
+          </Button>
+          <ConfirmDialog
+            open={open}
+            title={`Stop ${teacherName}’s meeting links for ${childName}?`}
+            confirmLabel="Stop allowing"
+            cancelLabel="Keep allowing"
+            onCancel={() => setOpen(false)}
+            onConfirm={() => {
+              setOpen(false);
+              form.current?.requestSubmit();
+            }}
+          >
+            Join Class won’t open this teacher’s meetings for {childName} until a parent allows them again. Lessons stay
+            booked. The other parent is told.
+          </ConfirmDialog>
+        </>
+      ) : (
+        <Button type="submit" inactive={pending}>
+          Allow {teacherName} to use their own Zoom meetings for {childName}
+        </Button>
+      )}
     </form>
   );
 }

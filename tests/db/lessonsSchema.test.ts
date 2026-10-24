@@ -23,7 +23,11 @@ const triggerStates = async () =>
       WHERE tgrelid = 'lessons'::regclass AND NOT tgisinternal ORDER BY 1`
   ).map((r) => `${r.n}:${r.e}`);
 afterEach(async () => {
-  expect(await triggerStates()).toEqual(['lessons_before_insert:O', 'lessons_before_update:O']);
+  expect(await triggerStates()).toEqual([
+    'lessons_before_insert:O',
+    'lessons_before_update:O',
+    'lessons_drop_link_on_cancel:O',
+  ]);
 });
 afterAll(() => sql.end());
 

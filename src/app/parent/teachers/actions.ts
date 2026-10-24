@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { dayAndTime, MESSAGE_MAX } from '@/lib/linkRequests';
 import { db } from '@/server/db/client';
+import { allowMeetingLinks, stopMeetingLinks } from '@/server/meetingLinks';
 import { siteBaseUrl } from '@/server/requestInfo';
 import { getRealSession } from '@/server/session';
 import {
@@ -228,4 +229,22 @@ export async function resendRequestAction(_prev: TeacherFormState, fd: FormData)
     default:
       return { at, error: 'This request is no longer available.' };
   }
+}
+
+/**
+ * CR-17 PR 3 (D3A-1, rules 1–4): allow, or stop, a teacher's own Zoom meeting links for one child.
+ * Either parent may do either; it takes effect at once and the other parent is told.
+ */
+export async function meetingPermissionAction(_prev: TeacherFormState, fd: FormData): Promise<TeacherFormState> {
+  const id = await parentId();
+  const teacherId = str(fd, 'teacherId');
+  const childId = str(fd, 'childId');
+  const allow = str(fd, 'choice') === 'allow';
+  const r = allow
+    ? await allowMeetingLinks(db(), id, teacherId, childId)
+    : await stopMeetingLinks(db(), id, teacherId, childId);
+  if (!r.ok) return { error: 'This teacher isn’t linked to this child any more. Check My teachers.' };
+  revalidatePath(`/parent/teachers/${teacherId}`);
+  revalidatePath('/parent/calendar');
+  redirect(`/parent/teachers/${teacherId}?meeting=${allow ? 'allowed' : 'stopped'}`);
 }
