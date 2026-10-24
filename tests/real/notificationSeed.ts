@@ -47,9 +47,9 @@ export interface Adult {
   name: string;
 }
 
-export async function seedParent(sql: Sql, first = `Anita${hex()}`): Promise<Adult> {
+export async function seedParent(sql: Sql, first = `Anita${hex()}`, last = 'Sample'): Promise<Adult> {
   const email = `n2-parent-${hex()}@example.com`;
-  const name = `${first} Sample`;
+  const name = `${first} ${last}`;
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO accounts (role, status, email, display_name, password_hash, time_zone, email_verified_at)
     VALUES ('parent', 'active', ${email}, ${name}, ${await adultHash()}, 'Asia/Kolkata', now()) RETURNING id`;
@@ -59,9 +59,10 @@ export async function seedParent(sql: Sql, first = `Anita${hex()}`): Promise<Adu
 export type Approval = 'approved' | 'draft' | 'submitted' | 'changes_requested' | 'rejected';
 
 /** A teacher: approved and active, awaiting approval (draft / submitted / changes requested) or not approved. */
-export async function seedTeacher(sql: Sql, approval: Approval = 'approved'): Promise<Adult> {
+export async function seedTeacher(sql: Sql, approval: Approval = 'approved', displayName?: string): Promise<Adult> {
   const email = `n2-teacher-${hex()}@example.com`;
-  const name = `Seeded Tutor ${hex()}`;
+  // A readable name for screenshot runs (CR-17 PR 2, T1); by default a unique one, as before.
+  const name = displayName ?? `Seeded Tutor ${hex()}`;
   const status = approval === 'approved' ? 'active' : 'pending_approval';
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO accounts (role, status, email, display_name, password_hash, time_zone, email_verified_at)

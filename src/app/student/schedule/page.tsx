@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { JoinButton } from '@/components/JoinButton';
 import { Icon } from '@/components/icons/Icon';
+import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
 import { NotReadyYet } from '@/components/states/NotReadyYet';
@@ -72,12 +72,11 @@ export default async function StudentSchedulePage() {
                     </p>
                   </div>
                 </div>
-                <JoinButton
-                  lesson={{
-                    startIso: l.startsAt.toISOString(),
-                    endIso: l.endsAt.toISOString(),
-                    nowIso: now.toISOString(),
-                  }}
+                <LessonJoinStatus
+                  startIso={l.startsAt.toISOString()}
+                  endIso={l.endsAt.toISOString()}
+                  nowIso={now.toISOString()}
+                  timeZone={tz}
                 />
               </article>
             </li>

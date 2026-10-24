@@ -295,6 +295,15 @@ describe('PR 2: free start times and time zones', () => {
     ).toEqual(['10:30', '11:00']);
     await asked(f, at(60), 40);
     expect(await day()).toEqual(['10:30']); // 11:00 now requested by this family; 10:00 overlaps their own confirmed lesson
+    // U2 (F8): the day says how many times are hidden because this child already asked for them, for
+    // either parent of the child, but never for another family.
+    const hidden = async (parent: string, child: string) => {
+      const x = await freeTimes(sql, parent, { ...q, childId: child });
+      return x.ok ? x.days.find((d) => d.date === BASE.toISOString().slice(0, 10))?.alreadyRequested : undefined;
+    };
+    expect(await hidden(f.parent, f.child)).toBe(1);
+    expect(await hidden(f.parent2, f.child)).toBe(1);
+    expect(await hidden(g.parent, g.child)).toBe(0);
   });
 
   it('a London teacher and an India parent across the end of British Summer Time (25 Oct 2026)', async () => {
@@ -485,6 +494,15 @@ describe('PR 2: cancellation and outcome (OC-46, D3A-6, D3A-7)', () => {
     expect((await notes(f.t, a)).map((n) => n.type)).toEqual(['lesson_cancelled']);
     expect((await notes(f.parent2, a)).map((n) => n.type)).toEqual(['lesson_cancelled']);
     expect(await notes(f.parent, a)).toEqual([]); // the person who acted is not told
+    // U3 (B3): who cancelled, as each viewer sees it. The other parent sees a first name only.
+    const seen = async (list: Promise<Array<{ id: string; closedByYou: boolean; closedByName: string | null }>>) => {
+      const l = (await list).find((x) => x.id === a)!;
+      return { closedByYou: l.closedByYou, closedByName: l.closedByName };
+    };
+    expect(await seen(lessonsForParent(sql, f.parent))).toEqual({ closedByYou: true, closedByName: 'Anita' });
+    expect(await seen(lessonsForParent(sql, f.parent2))).toEqual({ closedByYou: false, closedByName: 'Anita' });
+    expect(await seen(lessonsForTeacher(sql, f.t))).toEqual({ closedByYou: false, closedByName: null });
+    expect((await lessonsForStudent(sql, f.child)).some((x) => x.id === a)).toBe(false); // the child sees confirmed lessons only
   });
 
   it('the teacher records the outcome once, only after the end; the sweep asks for it once', async () => {

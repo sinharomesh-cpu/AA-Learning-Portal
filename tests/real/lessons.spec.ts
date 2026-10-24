@@ -26,10 +26,11 @@ async function check(page: Page, phone: boolean) {
 test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   const phone = info.project.name === 'phone';
   const device = phone ? 'phone' : 'desktop';
-  const parent = await seedParent(sql);
-  const parent2 = await seedParent(sql, 'Ravi');
-  const teacher = await seedTeacher(sql);
-  const child = await seedChild(sql, parent.id);
+  // T1: readable, distinct invented names (the accounts are told apart by email and username).
+  const parent = await seedParent(sql, 'Anita', 'Shah');
+  const parent2 = await seedParent(sql, 'Ravi', 'Shah');
+  const teacher = await seedTeacher(sql, 'approved', 'Ms Priya Rao');
+  const child = await seedChild(sql, parent.id, 'Kiran');
   await sql`INSERT INTO guardian_links (parent_id, student_id) VALUES (${parent2.id}, ${child.id})`;
   await seedActiveLink(sql, teacher.id, child.id, parent.id);
   // Usual times 4:00-6:00 pm IST every day, and a listed hourly rate of INR 600 (30 minutes).
@@ -56,8 +57,19 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await p.getByLabel('2. How long?').selectOption('25');
   await p.getByRole('button', { name: 'Show free times' }).click();
   await expect(p.getByText(/^25-minute Maths lesson/)).toBeVisible();
-  const days = p.getByRole('navigation', { name: 'Days with free times' }).getByRole('link');
-  await days.nth(2).click();
+  // U2: the 4-week window as a calendar with a month heading and a Mon–Sun grid.
+  const grid = p.getByRole('navigation', { name: 'Days with free times' });
+  const firstMonth = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(Date.now() + 86_400_000));
+  await expect(grid.getByRole('heading', { level: 3, name: firstMonth })).toBeVisible();
+  const days = grid.getByRole('link');
+  await expect(days.first()).toHaveAccessibleName(/^\w+day \d{1,2} \w+, 4 free times$/);
+  // Keyboard: focus the third free day and open it with Enter.
+  await days.nth(2).focus();
+  await p.keyboard.press('Enter');
   // Wait for that day's times to replace the first day's before choosing one.
   await expect(days.nth(2)).toHaveAttribute('aria-current', 'date');
   await expect(p.getByRole('radio', { name: /4:00 pm/ })).toBeVisible();
@@ -67,12 +79,21 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await expect(p.getByText('Listed rate ₹600 an hour').first()).toBeVisible();
   await check(p, phone);
   await shot(p, `PR2-book-${device}`);
+  const bookUrl = p.url();
   await p.getByRole('button', { name: 'Send request' }).click();
   await expect(p.getByText('Request sent.')).toBeVisible();
   await expect(p.getByText('Waiting for the teacher').first()).toBeVisible();
   await expect(p.getByText('₹250 for 25 min · Listed rate ₹600 an hour')).toBeVisible();
   await check(p, phone);
   await shot(p, `PR2-parent-requested-${device}`);
+  // U2 (F8): back on the same day, the requested time is gone and the page says why.
+  await p.goto(bookUrl);
+  await expect(
+    p.getByText(/^1 time on this day is hidden: already requested for Kiran with this teacher\./),
+  ).toBeVisible();
+  await expect(p.getByRole('radio', { name: /4:30 pm/ })).toHaveCount(0);
+  await check(p, phone);
+  await shot(p, `PR2-book-already-requested-${device}`);
 
   // The teacher sees the request on the dashboard and accepts it in My schedule.
   const t = await (await browser.newContext()).newPage();
@@ -128,17 +149,21 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
     SELECT title FROM notifications WHERE recipient_id = ${teacher.id} AND type = 'lesson_requested'`;
   expect(tnote!.title).not.toContain(child.name);
 
-  // The child sees it in My schedule, without a price.
+  // The child sees it in My schedule, without a price; U1: Join says when it opens, and is unavailable.
   const k = await (await browser.newContext()).newPage();
   await childSignIn(k, child.username, child.password);
   await k.goto('/student/schedule');
   await expect(k.getByRole('heading', { name: `Maths with ${teacher.name}` })).toBeVisible();
   await expect(k.getByText('₹')).toHaveCount(0);
+  const join = k.getByRole('button', { name: 'Join opens at 4:20 pm' });
+  await expect(join).toBeVisible();
+  await expect(join).toHaveAttribute('aria-disabled', 'true');
+  await expect(k.getByRole('link', { name: /join/i })).toHaveCount(0);
   await check(k, phone);
   await shot(k, `PR2-child-schedule-${device}`);
 
   // Another family sees nothing.
-  const stranger = await seedParent(sql);
+  const stranger = await seedParent(sql, 'Meera', 'Iyer');
   const s = await (await browser.newContext()).newPage();
   await signInAs(s, stranger.email);
   await s.goto('/parent/calendar');
@@ -149,6 +174,15 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await p.getByRole('button', { name: /^Cancel lesson:/ }).click();
   await p.getByRole('dialog').getByRole('button', { name: 'Cancel lesson' }).click();
   await expect(p.getByText('Lesson cancelled. The teacher has been told.')).toBeVisible();
+  // U3 (B3): "Cancelled by you" for the parent who cancelled, the first name for the other parent.
+  await expect(p.getByText('Cancelled by you')).toBeVisible();
+  await check(p, phone);
+  await shot(p, `PR2-parent-cancelled-${device}`);
+  const p2 = await (await browser.newContext()).newPage();
+  await signInAs(p2, parent2.email);
+  await p2.goto('/parent/calendar');
+  await expect(p2.getByText('Cancelled by Anita')).toBeVisible();
+  await p2.context().close();
   const [cancelled] = await sql<{ n: number }[]>`
     SELECT count(*)::int AS n FROM notifications WHERE recipient_id = ${teacher.id} AND type = 'lesson_cancelled'`;
   expect(cancelled!.n).toBe(1);

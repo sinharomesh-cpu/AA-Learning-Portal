@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { JoinButton } from '@/components/JoinButton';
+import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
 import { SessionRow } from '@/components/SessionRow';
 import { StatusChip } from '@/components/StatusChip';
 import { SubjectCard } from '@/components/SubjectCard';
@@ -79,9 +80,18 @@ export default async function StudentHomePage() {
             </p>
           </div>
           <div className="flex flex-col items-stretch gap-2 lg:items-start">
-            <JoinButton
-              lesson={{ startIso: nextHuman.startIso, endIso: nextHuman.endIso, nowIso: now.toISOString() }}
-            />
+            {isDemoMode() ? (
+              <JoinButton
+                lesson={{ startIso: nextHuman.startIso, endIso: nextHuman.endIso, nowIso: now.toISOString() }}
+              />
+            ) : (
+              <LessonJoinStatus
+                startIso={nextHuman.startIso}
+                endIso={nextHuman.endIso}
+                nowIso={now.toISOString()}
+                timeZone={tz}
+              />
+            )}
           </div>
         </section>
       ) : (

@@ -43,13 +43,6 @@ export function formatDayName(date: string): string {
   );
 }
 
-/** "Tue 4" for a YYYY-MM-DD date. */
-export function formatDayShort(date: string): string {
-  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(
-    new Date(`${date}T12:00:00Z`),
-  );
-}
-
 /** The local calendar date (YYYY-MM-DD) of an instant in a time zone. */
 export function localDate(at: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone }).format(at);
@@ -65,7 +58,14 @@ export function formatMoney(minor: number, currency: string): string {
 
 /** The status in words for each viewer (the scope's agreed wording), with a chip colour. */
 export function lessonStatusText(
-  l: { status: LessonStatusName; closedBy: ClosedBy; closeReason: CloseReason },
+  l: {
+    status: LessonStatusName;
+    closedBy: ClosedBy;
+    closeReason: CloseReason;
+    /** B3: the viewer closed it; for a parent, the first name of the parent who did. */
+    closedByYou?: boolean;
+    closedByName?: string | null;
+  },
   viewer: 'parent' | 'teacher',
 ): { text: string; kind: ChipKind } {
   switch (l.status) {
@@ -84,8 +84,12 @@ export function lessonStatusText(
       return { text: 'Closed by AA Pro', kind: 'neutral' };
     case 'cancelled':
       if (l.closedBy === 'aa_pro') return { text: 'Cancelled by AA Pro', kind: 'error' };
-      if (l.closedBy === 'parent')
-        return { text: viewer === 'parent' ? 'Cancelled by a parent' : 'Cancelled by the parent', kind: 'error' };
+      if (l.closedBy === 'parent') {
+        if (viewer === 'teacher') return { text: 'Cancelled by the parent', kind: 'error' };
+        // B3: "you" for the parent who cancelled, their first name for the other parent.
+        if (l.closedByYou) return { text: 'Cancelled by you', kind: 'error' };
+        return { text: l.closedByName ? `Cancelled by ${l.closedByName}` : 'Cancelled by a parent', kind: 'error' };
+      }
       return { text: viewer === 'parent' ? 'Cancelled by the teacher' : 'Cancelled by you', kind: 'error' };
   }
 }

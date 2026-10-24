@@ -165,6 +165,8 @@ export interface FreeDay {
   /** The day in the parent's time zone, YYYY-MM-DD. */
   date: string;
   times: FreeTime[];
+  /** Start times on this day hidden because this child already has an open request for them. */
+  alreadyRequested: number;
 }
 
 export type FreeTimesResult =
@@ -218,10 +220,15 @@ export async function freeTimes(
   const requested = await sql<Array<{ s: Date }>>`
     SELECT starts_at AS s FROM lessons
     WHERE teacher_id = ${q.teacherId} AND student_id = ${q.childId} AND status = 'requested' AND reply_deadline > now()`;
+  const alreadyRequested: Date[] = [];
   const free = starts.filter((s) => {
     const e = s.getTime() + q.minutes * MIN;
     if (busy.some((x) => x.s.getTime() < e && s.getTime() < x.e.getTime())) return false;
-    return !requested.some((r) => r.s.getTime() === s.getTime());
+    if (requested.some((r) => r.s.getTime() === s.getTime())) {
+      alreadyRequested.push(s);
+      return false;
+    }
+    return true;
   });
   if (free.length === 0) return { ok: true, days: [], teacherZone: zone };
   let prices: Array<{ s: Date; basis: 'agreed' | 'listed'; rate: string; cur: string }>;
@@ -239,7 +246,7 @@ export async function freeTimes(
     const date = localDate(p.s, q.parentZone);
     let day = days.find((x) => x.date === date);
     if (!day) {
-      day = { date, times: [] };
+      day = { date, times: [], alreadyRequested: 0 };
       days.push(day);
     }
     const rate = Number(p.rate);
@@ -250,6 +257,11 @@ export async function freeTimes(
       priceMinor: lessonPrice(rate, q.minutes),
       basis: p.basis,
     });
+  }
+  // F8: say how many times are hidden on a shown day because this child already asked for them.
+  for (const s of alreadyRequested) {
+    const day = days.find((x) => x.date === localDate(s, q.parentZone));
+    if (day) day.alreadyRequested += 1;
   }
   return { ok: true, days, teacherZone: zone };
 }
@@ -920,6 +932,10 @@ export interface LessonItem {
   closedBy: 'parent' | 'teacher' | 'aa_pro' | null;
   closeReason: 'time_no_longer_free' | 'teacher_deactivated' | 'link_ended' | null;
   closeNote: string | null;
+  /** The viewer is the person who closed it (cancelled, withdrew or declined). */
+  closedByYou: boolean;
+  /** For a parent: the first name of the parent who closed it (B3), or null. */
+  closedByName: string | null;
   outcome: 'taught' | 'not_taken_place' | null;
   /** Shown to parents and teachers only, never to children (D3A-23). */
   price: { currency: string; priceMinor: number; rateMinor: number; basis: 'agreed' | 'listed' } | null;
@@ -953,6 +969,8 @@ interface ListRow {
   price_minor: string;
   rate_minor: string;
   price_basis: string;
+  closed_by_account: string | null;
+  closer_name: string | null;
   overdue: boolean;
   cancellable: boolean;
   ended: boolean;
@@ -961,12 +979,12 @@ interface ListRow {
 const LIST_COLUMNS = (sql: Db) => sql`
   l.id, l.teacher_id, t.display_name AS teacher_name, l.student_id, c.display_name AS child_name, sp.grade,
   l.subject, l.starts_at, l.ends_at, l.minutes, l.status, l.reply_deadline, l.closed_by, l.close_reason, l.close_note,
-  l.outcome, l.currency, l.price_minor, l.rate_minor, l.price_basis,
+  l.outcome, l.currency, l.price_minor, l.rate_minor, l.price_basis, l.closed_by_account, cb.display_name AS closer_name,
   l.reply_deadline <= now() AS overdue,
   l.starts_at - make_interval(mins => ${CANCEL_CUTOFF_MINUTES}) >= now() AS cancellable,
   l.ends_at <= now() AS ended`;
 
-function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student'): LessonItem {
+function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: string): LessonItem {
   const status: LessonStatus = r.status === 'requested' && r.overdue ? 'expired' : (r.status as LessonStatus);
   return {
     id: r.id,
@@ -984,6 +1002,9 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student'): LessonIte
     closedBy: r.closed_by as LessonItem['closedBy'],
     closeReason: r.close_reason as LessonItem['closeReason'],
     closeNote: viewer === 'student' ? null : r.close_note,
+    closedByYou: r.closed_by_account === viewerId,
+    // B3: a parent sees which parent cancelled (first name only); nobody else gets it.
+    closedByName: viewer === 'parent' && r.closed_by === 'parent' ? firstName(r.closer_name) || null : null,
     outcome: r.outcome as LessonItem['outcome'],
     price:
       viewer === 'student'
@@ -1008,12 +1029,13 @@ export async function lessonsForParent(sql: Db, parentId: string, now: Date = ne
   const rows = await sql<ListRow[]>`
     SELECT ${LIST_COLUMNS(sql)}
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
+    LEFT JOIN accounts cb ON cb.id = l.closed_by_account
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     WHERE l.student_id IN (SELECT g.student_id FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
                            WHERE g.parent_id = ${parentId} AND g.status = 'active' AND p.status = 'active')
       AND l.ends_at > ${new Date(now.getTime() - 30 * DAY)}
     ORDER BY l.starts_at, l.id`;
-  return rows.map((r) => toItem(r, 'parent'));
+  return rows.map((r) => toItem(r, 'parent', parentId));
 }
 
 /** The teacher's own lessons with students linked to them now in that subject (as homework, W-11). */
@@ -1022,6 +1044,7 @@ export async function lessonsForTeacher(sql: Db, teacherId: string, now: Date = 
   const rows = await sql<ListRow[]>`
     SELECT ${LIST_COLUMNS(sql)}
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
+    LEFT JOIN accounts cb ON cb.id = l.closed_by_account
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     JOIN teacher_profiles tp ON tp.account_id = t.id AND tp.approval_status = 'approved'
     WHERE l.teacher_id = ${teacherId} AND t.status = 'active'
@@ -1029,7 +1052,7 @@ export async function lessonsForTeacher(sql: Db, teacherId: string, now: Date = 
                   AND k.student_id = l.student_id AND k.status = 'active' AND l.subject = ANY (k.subjects))
       AND l.ends_at > ${new Date(now.getTime() - 30 * DAY)}
     ORDER BY l.starts_at, l.id`;
-  return rows.map((r) => toItem(r, 'teacher'));
+  return rows.map((r) => toItem(r, 'teacher', teacherId));
 }
 
 /** The child's own confirmed lessons that haven't ended, without prices or requests (D3A-23). */
@@ -1038,11 +1061,12 @@ export async function lessonsForStudent(sql: Db, studentId: string, now: Date = 
   const rows = await sql<ListRow[]>`
     SELECT ${LIST_COLUMNS(sql)}
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
+    LEFT JOIN accounts cb ON cb.id = l.closed_by_account
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
     WHERE l.student_id = ${studentId} AND c.status = 'active' AND l.status = 'confirmed'
       AND l.ends_at > ${now}
     ORDER BY l.starts_at, l.id`;
-  return rows.map((r) => toItem(r, 'student'));
+  return rows.map((r) => toItem(r, 'student', studentId));
 }
 
 /** For tests and pages that need one lesson's current row (no access check: callers check). */

@@ -8,7 +8,7 @@ import { CHOICE_CARD, INPUT, OVERLAY_INPUT, SHELL } from '@/components/ui/styles
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { clockNow } from '@/lib/clock';
 import { cx } from '@/lib/cx';
-import { formatClock, formatDayName, formatDayShort, formatMoney } from '@/lib/lessonDisplay';
+import { formatClock, formatDayName, formatMoney, localDate } from '@/lib/lessonDisplay';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
@@ -20,8 +20,11 @@ import {
   LESSON_MINUTES_MAX,
   LESSON_MINUTES_MIN,
   LESSON_MINUTES_STEP,
+  NOTICE_HOURS,
   validMinutes,
+  WINDOW_DAYS,
 } from '@/server/lessons';
+import { DayGrid } from './DayGrid';
 import { RequestForm } from './RequestForm';
 
 export const metadata: Metadata = { title: 'Book a human teacher' };
@@ -194,24 +197,20 @@ export default async function BookTeacherPage({
                 </FormMessage>
               ) : (
                 <>
-                  <nav aria-label="Days with free times" className="flex flex-wrap gap-2">
-                    {days.map((d) => (
-                      <Link
-                        key={d.date}
-                        href={base({ d: d.date })}
-                        aria-current={d.date === day.date ? 'date' : undefined}
-                        className={cx(
-                          'inline-flex min-h-12 items-center rounded-full border-2 px-4 font-bold no-underline',
-                          d.date === day.date
-                            ? 'border-primary bg-primary text-on-primary hover:text-on-primary'
-                            : 'border-outline text-on-surface hover:bg-surface-container-low',
-                        )}
-                      >
-                        {formatDayShort(d.date)}
-                        <span className="sr-only">, {d.times.length} free times</span>
-                      </Link>
-                    ))}
-                  </nav>
+                  <DayGrid
+                    first={localDate(new Date(now.getTime() + NOTICE_HOURS * 3_600_000), tz)}
+                    last={localDate(new Date(now.getTime() + WINDOW_DAYS * 86_400_000), tz)}
+                    free={new Map(days.map((d) => [d.date, d.times.length]))}
+                    chosen={day.date}
+                    href={(d) => base({ d })}
+                  />
+                  {day.alreadyRequested ? (
+                    <p className="m-0 text-sm leading-5 text-on-surface-variant">
+                      {day.alreadyRequested} {day.alreadyRequested === 1 ? 'time' : 'times'} on this day{' '}
+                      {day.alreadyRequested === 1 ? 'is' : 'are'} hidden: already requested for {chosen.child.name} with
+                      this teacher. See Family calendar.
+                    </p>
+                  ) : null}
                   <RequestForm
                     key={`${pick}-${minutes}-${day.date}`}
                     childId={chosen.child.id}
