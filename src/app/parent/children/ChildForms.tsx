@@ -350,11 +350,9 @@ export function ConsentForm() {
             'Required to use the AI Tutor:',
             "I agree that lesson context and my child's voice are processed during AI lessons, without storing raw audio.",
           ],
-          [
-            'emailReminders',
-            'Optional:',
-            'Send me booking confirmations and reminders by email. You can add WhatsApp later when it is available.',
-          ],
+          // The optional email-reminder box is not offered while AA Pro sends no email (owner,
+          // 25 Oct 2026, 18:38 IST); the server ignores the field too. Existing records stay as
+          // they are. When email exists, new versioned wording asks for fresh consent.
         ] as const
       ).map(([name, lead, text]) => (
         <label
