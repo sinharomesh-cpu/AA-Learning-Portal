@@ -383,6 +383,76 @@ describe('TL-2 (0033): final states and history (TL2-1)', () => {
   });
 });
 
+describe('TL-2 (0033): audit references can be cleared only by a real deletion (ON DELETE SET NULL)', () => {
+  const blank = (id: string, col: 'closed_by_account' | 'shared_book_id' | 'shared_chapter_id' | 'raised_by') =>
+    sql.unsafe(`UPDATE material_requests SET ${col} = NULL WHERE id = $1`, [id]);
+  const swap = (
+    id: string,
+    col: 'closed_by_account' | 'shared_book_id' | 'shared_chapter_id' | 'raised_by',
+    v: string,
+  ) => sql.unsafe(`UPDATE material_requests SET ${col} = $2 WHERE id = $1`, [id, v]);
+
+  it('a direct UPDATE cannot blank or swap who asked, who answered, or what was shared, while those rows exist', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const other = await book(f.parent, f.child, { title: 'Other book' });
+    const l = await lesson(f);
+    const shared = await raise(sql, l, f.t);
+    await share(shared, f.parent2, b.id, b.chapters[0]!);
+    const unav = await raise(sql, l, f.t);
+    await unavailable(unav, f.parent);
+    const withdrawn = await raise(sql, l, f.t);
+    await withdraw(withdrawn, f.t);
+    const open = await raise(sql, l, f.t);
+    const history = async () =>
+      sql`SELECT id, raised_by, status, closed_at, closed_by, closed_by_account, shared_book_id, shared_chapter_id,
+                 shared_label, answer_note FROM material_requests WHERE lesson_id = ${l} ORDER BY id`;
+    const before = await history();
+    for (const col of ['closed_by_account', 'shared_book_id', 'shared_chapter_id', 'raised_by'] as const)
+      expect(await code(blank(shared, col))).toBe('23514');
+    for (const id of [unav, withdrawn]) {
+      expect(await code(blank(id, 'closed_by_account'))).toBe('23514');
+      expect(await code(blank(id, 'raised_by'))).toBe('23514');
+    }
+    expect(await code(blank(open, 'raised_by'))).toBe('23514');
+    // Swapping to another real row is refused too.
+    expect(await code(swap(shared, 'closed_by_account', f.parent))).toBe('23514');
+    expect(await code(swap(shared, 'shared_book_id', other.id))).toBe('23514');
+    expect(await code(swap(shared, 'shared_chapter_id', b.chapters[1]!))).toBe('23514');
+    expect(await code(swap(open, 'raised_by', f.parent))).toBe('23514');
+    // And clearing a reference while answering (open -> shared) is refused as well.
+    expect(
+      await code(sql`UPDATE material_requests SET status = 'unavailable', closed_by = 'parent', closed_by_account = ${f.parent},
+                     raised_by = NULL WHERE id = ${open}`),
+    ).toBe('23514');
+    expect(await history()).toEqual(before);
+  });
+
+  it('a real deletion of the chapter, the book or the answering parent still clears the reference; the rest is kept', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child, { title: 'Maths Practice' });
+    const l = await lesson(f);
+    const r = await raise(sql, l, f.t);
+    await share(r, f.parent2, b.id, b.chapters[0]!);
+    const kept = { status: 'shared', closed_by: 'parent', shared_label: 'Maths Practice · 1. Fractions' };
+    await sql`DELETE FROM book_chapters WHERE id = ${b.chapters[0]!}`;
+    expect(await req(r)).toMatchObject({
+      ...kept,
+      shared_chapter_id: null,
+      shared_book_id: b.id,
+      closed_by_account: f.parent2,
+    });
+    await sql`DELETE FROM book_children WHERE book_id = ${b.id}`;
+    await sql`DELETE FROM book_chapters WHERE book_id = ${b.id}`;
+    await sql`DELETE FROM books WHERE id = ${b.id}`;
+    expect(await req(r)).toMatchObject({ ...kept, shared_book_id: null, closed_by_account: f.parent2 });
+    await sql`DELETE FROM accounts WHERE id = ${f.parent2}`;
+    const after = await req(r);
+    expect(after).toMatchObject({ ...kept, closed_by_account: null, raised_by: f.t });
+    expect(after.closed_at).not.toBeNull();
+  });
+});
+
 describe('TL-2 (0033): automatic closure follows the lesson lifecycle (TL2-7, safeguard 4)', () => {
   it('declined, withdrawn and cancelled lessons close their open requests; answered ones stay as they were', async () => {
     const f = await family();

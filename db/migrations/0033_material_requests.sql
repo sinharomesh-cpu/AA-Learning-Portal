@@ -142,22 +142,29 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- UPDATE. Nothing about the request itself ever changes.
+  -- UPDATE. Nothing about the request itself ever changes. A reference may become NULL only when
+  -- the row it points to no longer exists, which is exactly when ON DELETE SET NULL runs (it runs
+  -- after the delete, in the same transaction). A direct UPDATE that clears a reference to an
+  -- account, book or chapter that still exists is refused, so history cannot be blanked.
   IF (NEW.id, NEW.lesson_id, NEW.lesson_position, NEW.description, NEW.note, NEW.created_at)
      IS DISTINCT FROM (OLD.id, OLD.lesson_id, OLD.lesson_position, OLD.description, OLD.note, OLD.created_at)
-     OR (NEW.raised_by IS DISTINCT FROM OLD.raised_by AND NEW.raised_by IS NOT NULL) THEN
+     OR (NEW.raised_by IS DISTINCT FROM OLD.raised_by
+         AND (NEW.raised_by IS NOT NULL OR EXISTS (SELECT 1 FROM accounts WHERE id = OLD.raised_by))) THEN
     RAISE EXCEPTION 'a material request cannot be edited' USING ERRCODE = 'check_violation';
   END IF;
 
   IF OLD.status <> 'open' OR NEW.status = 'open' THEN
     -- Final (or still open): only the database clearing a reference to a deleted account, book
-    -- or chapter (ON DELETE SET NULL) is allowed; the label stays as history.
+    -- or chapter (ON DELETE SET NULL; see above) is allowed; the label stays as history.
     IF NEW.status = OLD.status
        AND (NEW.closed_at, NEW.closed_by, NEW.close_reason, NEW.shared_label, NEW.answer_note)
            IS NOT DISTINCT FROM (OLD.closed_at, OLD.closed_by, OLD.close_reason, OLD.shared_label, OLD.answer_note)
-       AND (NEW.closed_by_account IS NOT DISTINCT FROM OLD.closed_by_account OR NEW.closed_by_account IS NULL)
-       AND (NEW.shared_book_id IS NOT DISTINCT FROM OLD.shared_book_id OR NEW.shared_book_id IS NULL)
-       AND (NEW.shared_chapter_id IS NOT DISTINCT FROM OLD.shared_chapter_id OR NEW.shared_chapter_id IS NULL) THEN
+       AND (NEW.closed_by_account IS NOT DISTINCT FROM OLD.closed_by_account
+            OR (NEW.closed_by_account IS NULL AND NOT EXISTS (SELECT 1 FROM accounts WHERE id = OLD.closed_by_account)))
+       AND (NEW.shared_book_id IS NOT DISTINCT FROM OLD.shared_book_id
+            OR (NEW.shared_book_id IS NULL AND NOT EXISTS (SELECT 1 FROM books WHERE id = OLD.shared_book_id)))
+       AND (NEW.shared_chapter_id IS NOT DISTINCT FROM OLD.shared_chapter_id
+            OR (NEW.shared_chapter_id IS NULL AND NOT EXISTS (SELECT 1 FROM book_chapters WHERE id = OLD.shared_chapter_id))) THEN
       RETURN NEW;
     END IF;
     RAISE EXCEPTION 'an answered or closed material request cannot change' USING ERRCODE = 'check_violation';
