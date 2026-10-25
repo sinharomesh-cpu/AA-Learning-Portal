@@ -230,12 +230,17 @@ export async function setMeetingLink(
       }>
     >`
       SELECT l.id, l.student_id, l.subject, l.starts_at, l.status, l.ends_at <= now() AS ended,
-             EXISTS (SELECT 1 FROM teacher_student_links k JOIN accounts a ON a.id = k.teacher_id AND a.status = 'active'
-                     JOIN teacher_profiles tp ON tp.account_id = k.teacher_id AND tp.approval_status = 'approved'
-                     WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
-                       AND l.subject = ANY (k.subjects)) AS linked,
-             EXISTS (SELECT 1 FROM meeting_link_permissions p WHERE p.teacher_id = l.teacher_id
-                     AND p.student_id = l.student_id AND p.withdrawn_at IS NULL) AS allowed,
+             (EXISTS (SELECT 1 FROM teacher_student_links k JOIN accounts a ON a.id = k.teacher_id AND a.status = 'active'
+                      JOIN teacher_profiles tp ON tp.account_id = k.teacher_id AND tp.approval_status = 'approved'
+                      WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
+                        AND l.subject = ANY (k.subjects))
+              -- OC-53 (0031): this lesson was kept after the parent removed its teacher.
+              OR (EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id)
+                  AND EXISTS (SELECT 1 FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id
+                              AND tp.approval_status = 'approved' WHERE a.id = l.teacher_id AND a.status = 'active'))) AS linked,
+             (EXISTS (SELECT 1 FROM meeting_link_permissions p WHERE p.teacher_id = l.teacher_id
+                      AND p.student_id = l.student_id AND p.withdrawn_at IS NULL)
+              OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id AND kp.links_carried)) AS allowed,
              t.display_name AS teacher_name, c.display_name AS child_name
       FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
       WHERE l.id = ${lessonId} AND l.teacher_id = ${teacherId}
@@ -354,15 +359,21 @@ export async function joinTarget(sql: Db, viewer: JoinViewer, lessonId: string):
   >`
     SELECT now() >= l.starts_at - make_interval(mins => ${JOIN_OPENS_MINUTES}) AS opens_ok,
            now() >= l.ends_at AS ended,
-           EXISTS (SELECT 1 FROM meeting_link_permissions p WHERE p.teacher_id = l.teacher_id
-                   AND p.student_id = l.student_id AND p.withdrawn_at IS NULL) AS allowed,
+           (EXISTS (SELECT 1 FROM meeting_link_permissions p WHERE p.teacher_id = l.teacher_id
+                    AND p.student_id = l.student_id AND p.withdrawn_at IS NULL)
+            -- OC-53 (0031): permission carried to this kept lesson only.
+            OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id AND kp.links_carried)) AS allowed,
            ml.url,
            CASE ${viewer.role}::text
-             WHEN 'teacher' THEN l.teacher_id = ${viewer.id} AND EXISTS (
+             WHEN 'teacher' THEN l.teacher_id = ${viewer.id} AND (EXISTS (
                SELECT 1 FROM teacher_student_links k JOIN accounts a ON a.id = k.teacher_id AND a.status = 'active'
                JOIN teacher_profiles tp ON tp.account_id = k.teacher_id AND tp.approval_status = 'approved'
                WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
                  AND l.subject = ANY (k.subjects))
+               -- OC-53 (0031): the kept lesson's own teacher, while approved and active.
+               OR (EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id)
+                   AND EXISTS (SELECT 1 FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id
+                               AND tp.approval_status = 'approved' WHERE a.id = l.teacher_id AND a.status = 'active')))
              WHEN 'parent' THEN EXISTS (
                SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id AND p.status = 'active'
                WHERE g.student_id = l.student_id AND g.parent_id = ${viewer.id} AND g.status = 'active')

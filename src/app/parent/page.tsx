@@ -33,8 +33,9 @@ function longWeekday(iso: string, timeZone: string) {
 }
 
 function reminderText(l: ParentLesson) {
-  // CR-17 PR 2 (real accounts): no reminder is sent yet; the in-app reminder comes with PR 7.
-  if (!isDemoMode()) return '—';
+  // Real accounts (B2, owner 25 Oct 2026): only the real reminder, which is CR-17 PR 7's
+  // best-effort in-app one for a confirmed teacher lesson. No email is sent or promised.
+  if (!isDemoMode()) return l.kind === 'human' && l.status === 'confirmed' ? 'In AA Pro, 15 min before' : '—';
   // OC-49 (D-22): AI reminders go to the parent by email and to the child on screen.
   if (l.kind === 'ai') return 'Email to you · on screen for your child, 15 min before';
   // OC-45: a teacher's proposal is not booked yet, so it has no reminder.
@@ -250,7 +251,7 @@ export default async function ParentHomePage() {
                 LESSON_RULES_TEXT.join,
                 'Reminders: email to you 15 minutes before each lesson; your child sees AI lesson reminders on screen. Emails are queued, not sent, until an email service is approved.',
               ]
-            : // Real accounts (CR-17 PR 2, B2): only what is available now; no reminder is promised.
+            : // Real accounts (CR-17 PR 2, B2): only what is available now; reminders as PR 7 really works.
               [
                 REAL_LESSON_RULES_TEXT.parentTeacherChanges,
                 REAL_LESSON_RULES_TEXT.parentAiChanges,

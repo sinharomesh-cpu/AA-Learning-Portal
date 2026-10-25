@@ -273,7 +273,9 @@ export function ChangeLinksForm({
       />
       <p className="text-sm leading-5 text-on-surface-variant">
         Changes apply straight away. Unticking a child or subject stops the teacher seeing it at once, and withdraws a
-        waiting request. A child you tick for the first time becomes a new request that the teacher accepts or declines.
+        waiting request. Booked lessons it affects are cancelled, except lessons starting within the next 30 minutes,
+        which stay booked. A child you tick for the first time becomes a new request that the teacher accepts or
+        declines.
       </p>
       <div className="flex flex-wrap gap-3">
         <Button type="submit" inactive={pending}>

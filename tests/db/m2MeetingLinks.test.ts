@@ -325,6 +325,9 @@ describe('M2 draft: rollback', () => {
     await linkNote('link_accepted');
     const lessonsBefore = (await sql`SELECT count(*)::int AS n FROM lessons`)[0]!.n;
 
+    // M3 (0031) depends on M2's tables, so it is reverted first (and applied again afterwards).
+    const revertM3 = await readFile(new URL('../../db/rollback/0031_revert_kept_lessons.sql', import.meta.url), 'utf8');
+    await sql.begin((tx) => tx.unsafe(revertM3));
     const revert = await readFile(new URL('../../db/rollback/0030_revert_meeting_links.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(revert));
     expect(
@@ -348,6 +351,8 @@ describe('M2 draft: rollback', () => {
 
     const forward = await readFile(new URL('../../db/migrations/0030_meeting_links.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(forward));
+    const forwardM3 = await readFile(new URL('../../db/migrations/0031_kept_lessons.sql', import.meta.url), 'utf8');
+    await sql.begin((tx) => tx.unsafe(forwardM3));
     expect(
       await sql`SELECT 1 FROM information_schema.tables WHERE table_name IN ('lesson_meeting_links', 'meeting_link_permissions')`,
     ).toHaveLength(2);
@@ -370,8 +375,9 @@ describe('M2 draft: two builds migrating at the same moment', () => {
     const b = postgres(u.toString(), { max: 1, onnotice: () => {} });
     try {
       await migrate(a, { dir: upTo29 }); // the test database as it is today: 0001-0029
+      // Both runs apply everything after 0029 exactly once between them (0030, and 0031 since M3).
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
-      expect([...ra, ...rb]).toEqual(['0030_meeting_links.sql']);
+      expect([...ra, ...rb].sort()).toEqual(['0030_meeting_links.sql', '0031_kept_lessons.sql']);
       const rows = await a`SELECT name FROM schema_migrations WHERE name = '0030_meeting_links.sql'`;
       expect(rows).toHaveLength(1);
     } finally {
