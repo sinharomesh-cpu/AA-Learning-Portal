@@ -180,12 +180,19 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
             Today: {today} {today === 1 ? 'lesson' : 'lessons'}
           </span>
           {home.mode === 'demo' ? (
-            // B1: hidden for real accounts until teacher proposals (OC-45) are built.
             <LinkButton href="/teacher/propose" variant="secondary">
               <Icon name="add" size={18} />
               Propose a meeting
             </LinkButton>
-          ) : null}
+          ) : (
+            // F2 (owner, 25 Oct 2026, 18:38 IST; replaces B1's hiding for private Friends & Family
+            // testing): shown so testers can give feedback. It says on the button and on its page
+            // that it isn't available yet; nothing is proposed, sent or booked (OC-45 not built).
+            <LinkButton href="/teacher/propose" variant="secondary">
+              <Icon name="add" size={18} />
+              Propose a meeting (not available yet)
+            </LinkButton>
+          )}
         </div>
       </div>
       {home.mode === 'real' && home.lessonRequests ? (
