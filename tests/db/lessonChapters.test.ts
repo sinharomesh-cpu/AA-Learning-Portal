@@ -444,6 +444,18 @@ describe('TL-1: who sees the chapters (D-TLS-10, D-TLS-19)', () => {
     expect(tl.chapters.every((c) => !c.shared && c.href === null)).toBe(true);
   });
 
+  it('a direct UPDATE cannot clear or swap the chapter reference while the chapter still exists', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child, { title: 'Maths Practice' });
+    const id = await asked(f, at(0), { chapterIds: [b.chapters[0]] });
+    const before = await rowsOf(id);
+    expect(await code(sql`UPDATE lesson_chapters SET book_chapter_id = NULL WHERE lesson_id = ${id}`)).toBe('23514');
+    expect(await code(sql`UPDATE lesson_chapters SET book_chapter_id = ${b.chapters[1]} WHERE lesson_id = ${id}`)).toBe(
+      '23514',
+    );
+    expect(await rowsOf(id)).toEqual(before);
+  });
+
   it('teacher link or subject ends: the request closes as before (link ended), chapters kept as history', async () => {
     const f = await family();
     const b = await book(f.parent, f.child);

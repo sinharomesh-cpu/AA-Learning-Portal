@@ -50,7 +50,9 @@ DECLARE
 BEGIN
   IF TG_OP = 'UPDATE' THEN
     -- The chapter itself was deleted (ON DELETE SET NULL): keep the row and its label as history.
+    -- Only then: a direct UPDATE that clears the reference while the chapter still exists is refused.
     IF OLD.book_chapter_id IS NOT NULL AND NEW.book_chapter_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM book_chapters WHERE id = OLD.book_chapter_id)
        AND (NEW.lesson_id, NEW.position, NEW.source, NEW.topic, NEW.label, NEW.created_at)
            IS NOT DISTINCT FROM (OLD.lesson_id, OLD.position, OLD.source, OLD.topic, OLD.label, OLD.created_at) THEN
       RETURN NEW;
