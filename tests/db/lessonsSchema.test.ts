@@ -26,6 +26,8 @@ afterEach(async () => {
   expect(await triggerStates()).toEqual([
     'lessons_before_insert:O',
     'lessons_before_update:O',
+    // TL-2 (0033): closes open material requests when a lesson closes; 0029's and 0030's unchanged.
+    'lessons_close_material_requests:O',
     'lessons_drop_link_on_cancel:O',
   ]);
 });

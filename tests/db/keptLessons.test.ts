@@ -440,7 +440,13 @@ describe('M3 (0031) rollback, on a throw-away database (order: M3, then M2, then
           >`SELECT prosrc AS src FROM pg_proc WHERE proname = 'lesson_meeting_links_before_write'`
         )[0]!.src;
       expect(await fnBefore()).toContain('lessons_kept');
-      // TL-1 (0032) is newer and depends on lessons: it is reverted first (and applied again below).
+      // TL-2 (0033) and TL-1 (0032) are newer and depend on lessons: they are reverted first, newest
+      // first (and applied again below).
+      const revertTl2 = await readFile(
+        new URL('../../db/rollback/0033_revert_material_requests.sql', import.meta.url),
+        'utf8',
+      );
+      await db.begin((tx) => tx.unsafe(revertTl2));
       const revertTl1 = await readFile(
         new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url),
         'utf8',
@@ -462,12 +468,13 @@ describe('M3 (0031) rollback, on a throw-away database (order: M3, then M2, then
         await db.begin((tx) => tx.unsafe(r));
       }
       expect(await db`SELECT 1 FROM information_schema.tables WHERE table_name = 'lessons'`).toHaveLength(0);
-      // And forward again: 0029, 0030, 0031, 0032.
+      // And forward again: 0029, 0030, 0031, 0032, 0033.
       for (const f of [
         '0029_lessons.sql',
         '0030_meeting_links.sql',
         '0031_kept_lessons.sql',
         '0032_lesson_chapters.sql',
+        '0033_material_requests.sql',
       ]) {
         const m = await readFile(new URL(`../../db/migrations/${f}`, import.meta.url), 'utf8');
         await db.begin((tx) => tx.unsafe(m));
@@ -497,8 +504,12 @@ describe('M3 (0031) rollback, on a throw-away database (order: M3, then M2, then
     try {
       await migrate(a, { dir: upTo30 }); // the shared test database as it is today: 0001-0030
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
-      // Both runs apply everything after 0030 exactly once between them (0031, and 0032 since TL-1).
-      expect([...ra, ...rb].sort()).toEqual(['0031_kept_lessons.sql', '0032_lesson_chapters.sql']);
+      // Both runs apply everything after 0030 exactly once between them (0031; 0032 since TL-1; 0033 since TL-2).
+      expect([...ra, ...rb].sort()).toEqual([
+        '0031_kept_lessons.sql',
+        '0032_lesson_chapters.sql',
+        '0033_material_requests.sql',
+      ]);
     } finally {
       await a.end();
       await b.end();
