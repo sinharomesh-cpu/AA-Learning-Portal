@@ -87,7 +87,9 @@ export async function giveChildConsentAction(_prev: ChildFormState, fd: FormData
   const result = await recordChildConsents(db(), session.accountId, {
     guardian: str(fd, 'guardian') === 'yes',
     aiTutor: str(fd, 'aiTutor') === 'yes',
-    emailReminders: str(fd, 'emailReminders') === 'yes',
+    // Not offered while email reminders are unavailable (owner, 25 Oct 2026, 18:38 IST): a sent
+    // field is ignored, so no email consent is recorded under the current notice wording.
+    emailReminders: false,
   });
   if (!result.ok) return { error: 'Please tick both required boxes to continue.' };
   revalidatePath('/parent/children/new');
