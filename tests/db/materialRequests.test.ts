@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { afterAll, describe, expect, inject, it } from 'vitest';
+import { setAccountActive } from '@/server/admin';
 import { answerLesson, cancelLesson, requestLesson, withdrawLesson } from '@/server/lessons';
 import { removeTeacher, updateTeacherLinks } from '@/server/teacherLinks';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
@@ -455,6 +456,29 @@ describe('TL-2 (0033): automatic closure follows the lesson lifecycle (TL2-7, sa
     expect(again).not.toContain(rSoon);
   });
 
+  it('a teacher deactivated by an admin (D3A-13): cancelled and declined lessons close their requests', async () => {
+    const f = await family();
+    const pending = await lesson(f);
+    const confirmed = await lesson(f);
+    await answerLesson(sql, f.t, confirmed, 'accept');
+    const rp = await raise(sql, pending, f.t);
+    const rc = await raise(sql, confirmed, f.t);
+    const owner = await createAdult(sql, 'superadmin');
+    expect(await setAccountActive(sql, owner, f.t, { active: false, reason: 'Test deactivation' })).toEqual({
+      ok: true,
+    });
+    expect(await req(rp)).toMatchObject({
+      status: 'no_longer_needed',
+      closed_by: 'aa_pro',
+      close_reason: 'lesson_closed',
+    });
+    expect(await req(rc)).toMatchObject({
+      status: 'no_longer_needed',
+      closed_by: 'aa_pro',
+      close_reason: 'lesson_closed',
+    });
+  });
+
   it('unticking the subject closes that subject’s lessons and so their requests', async () => {
     const f = await family(undefined, ['maths', 'science']);
     const l = await lesson(f);
@@ -471,7 +495,16 @@ describe('TL-2 (0033): a request never changes the lesson or anyone’s access (
     const notAssigned = await book(f.parent, null);
     const l = await lesson(f, { chapterIds: [b.chapters[0]!] });
     await answerLesson(sql, f.t, l, 'accept');
+    // A live meeting-link permission and a saved meeting link (0030), so both are really compared.
+    await sql`INSERT INTO meeting_link_permissions (teacher_id, student_id, granted_by) VALUES (${f.t}, ${f.child}, ${f.parent})`;
+    await sql`INSERT INTO lesson_meeting_links (lesson_id, url, set_by)
+              VALUES (${l}, 'https://us02web.zoom.us/wc/join/81234567890?pwd=abc123', ${f.t})`;
     const before = await fingerprint(f, l);
+    expect(before).not.toBeNull();
+    const parts = await sql<{ p: number; m: number }[]>`
+      SELECT (SELECT count(*)::int FROM meeting_link_permissions WHERE student_id = ${f.child}) AS p,
+             (SELECT count(*)::int FROM lesson_meeting_links WHERE lesson_id = ${l}) AS m`;
+    expect(parts[0]).toEqual({ p: 1, m: 1 });
     const r1 = await raise(sql, l, f.t, { position: 1 });
     const r2 = await raise(sql, l, f.t);
     const r3 = await raise(sql, l, f.t);
