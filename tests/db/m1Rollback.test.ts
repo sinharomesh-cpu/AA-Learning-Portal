@@ -64,8 +64,13 @@ describe('M1 rollback (0029)', () => {
     await note('lesson', lesson);
     await note('assignment', lesson);
 
-    // Rollbacks run newest first: M3 (0031) and M2 (0030) depend on lessons, so they are reverted
-    // before M1.
+    // Rollbacks run newest first: TL-1 (0032), M3 (0031) and M2 (0030) depend on lessons, so they
+    // are reverted before M1.
+    const revertTl1 = await readFile(
+      new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin((tx) => tx.unsafe(revertTl1));
     const revertM3 = await readFile(new URL('../../db/rollback/0031_revert_kept_lessons.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(revertM3));
     const revertM2 = await readFile(

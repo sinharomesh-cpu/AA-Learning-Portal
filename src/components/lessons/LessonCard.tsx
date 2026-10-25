@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Icon } from '@/components/icons/Icon';
 import { StatusChip } from '@/components/StatusChip';
@@ -23,6 +24,40 @@ function meetingLine(l: LessonItem, viewer: 'parent' | 'teacher', timeZone: stri
   return l.meeting.added && l.meeting.setAt
     ? `Your meeting link was saved ${formatLessonTime(l.meeting.setAt, timeZone)}.`
     : 'Add your Zoom meeting link so Join Class can open.';
+}
+
+/**
+ * TL-1: the chapters or topic the parent asked for. A chapter the teacher can still view links to
+ * the view-only reader (teacher only); one no longer shared says so and shows no content (D-TLS-19).
+ */
+function LessonChapters({ chapters, lessonId }: { chapters: LessonItem['chapters']; lessonId: string }) {
+  const id = `chapters-${lessonId}`;
+  return (
+    <div className="flex flex-col gap-1" data-testid="lesson-chapters">
+      <p id={id} className="m-0 text-sm font-bold leading-5">
+        {chapters.length === 1 && chapters[0]!.topic ? 'Requested topic' : 'Requested chapters'}
+      </p>
+      <ul aria-labelledby={id} className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-sm leading-5">
+        {chapters.map((c, i) => (
+          <li key={i} className="break-words">
+            {c.href ? (
+              <Link href={c.href} className="inline-flex min-h-11 items-center font-bold">
+                {c.label}
+              </Link>
+            ) : (
+              <span>{c.label}</span>
+            )}
+            {!c.topic && !c.shared ? (
+              <span className="text-on-surface-variant" data-testid="chapter-not-shared">
+                {' '}
+                · No longer shared
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /**
@@ -84,6 +119,7 @@ export function LessonCard({
               {formatMoney(l.price.rateMinor, l.price.currency)} an hour
             </p>
           ) : null}
+          {l.chapters.length ? <LessonChapters chapters={l.chapters} lessonId={l.id} /> : null}
           {l.status === 'requested' ? (
             <p className="m-0 text-sm leading-5 text-on-surface-variant">
               {viewer === 'teacher' ? 'Answer by' : 'The teacher has until'}{' '}

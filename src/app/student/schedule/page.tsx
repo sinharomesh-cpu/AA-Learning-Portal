@@ -82,6 +82,15 @@ export default async function StudentSchedulePage({
                     <p className="m-0 text-[17px] leading-6">
                       {formatLessonTime(l.startsAt, tz)}–{formatClock(l.endsAt, tz)} · {l.minutes} min
                     </p>
+                    {l.chapters.length ? (
+                      // TL-1 (D-TLS-10): titles only, on confirmed lessons only; no status, no links.
+                      <p className="m-0 break-words text-[17px] leading-6" data-testid="child-chapters">
+                        <strong>
+                          {l.chapters[0]!.topic ? 'Topic' : l.chapters.length === 1 ? 'Chapter' : 'Chapters'}:
+                        </strong>{' '}
+                        {l.chapters.map((c) => c.label).join('; ')}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <LessonJoinStatus

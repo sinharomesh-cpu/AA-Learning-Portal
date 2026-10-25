@@ -293,7 +293,18 @@ export interface RequestInput {
   priceMinor: unknown;
   currency: unknown;
   basis: unknown;
+  /**
+   * TL-1 (D-TLS-6, D-TLS-7), optional: up to five chapter ids from chaptersForRequest, or one
+   * free-text topic (1–120 characters); never both. Nothing chosen = exactly today's request.
+   */
+  chapterIds?: unknown;
+  topic?: unknown;
 }
+
+/** TL-1: at most this many chapters on one lesson (D-TLS-6; also enforced by migration 0032). */
+export const MAX_LESSON_CHAPTERS = 5;
+/** TL-1: the longest topic (also enforced by migration 0032). */
+export const MAX_TOPIC_LENGTH = 120;
 
 export type RequestReason =
   | 'not_allowed'
@@ -306,13 +317,16 @@ export type RequestReason =
   | 'duplicate'
   | 'limit'
   | 'price_changed'
-  | 'no_rate';
+  | 'no_rate'
+  | 'chapters';
 
 export type RequestResult = { ok: true; id: string } | { ok: false; reason: RequestReason };
 
 /** Maps a database refusal from 0029 to a plain reason (the database checks every rule again). */
 function reasonFromDb(error: unknown): RequestReason | null {
-  const e = error as { code?: string; message?: string };
+  const e = error as { code?: string; message?: string; constraint_name?: string; table_name?: string };
+  // TL-1 (0032): a chapter or topic the database refused (not shared, changed meanwhile, too many).
+  if (e.table_name === 'lesson_chapters' || /chapter|topic/.test(e.message ?? '')) return 'chapters';
   if (e.code === '23505') return 'duplicate';
   if (e.code === '42501') return 'not_allowed';
   if (e.code !== '23514' && e.code !== 'P0001') return null;
@@ -326,6 +340,24 @@ function reasonFromDb(error: unknown): RequestReason | null {
   if (m.includes('approved, active and linked')) return 'not_linked';
   if (m.includes('active child account')) return 'not_allowed';
   return 'invalid';
+}
+
+/**
+ * TL-1: the parent's optional chapters (ids, unique, at most five) or one topic, never both.
+ * Returns null when the choice is not allowed; the database checks each chapter again (0032).
+ */
+function lessonChoices(chapterIds: unknown, topic: unknown): { chapterIds: string[]; topic: string | null } | null {
+  const raw =
+    chapterIds === undefined || chapterIds === null ? [] : Array.isArray(chapterIds) ? chapterIds : [chapterIds];
+  // Anything that is not a chapter id string refuses the request (never silently dropped).
+  if (raw.some((v) => typeof v !== 'string')) return null;
+  const ids = (raw as string[]).map((v) => v.trim()).filter((v) => v !== '');
+  if (ids.some((v) => !UUID.test(v)) || new Set(ids).size !== ids.length || ids.length > MAX_LESSON_CHAPTERS)
+    return null;
+  const t = typeof topic === 'string' ? topic.replace(/\s+/g, ' ').trim() : '';
+  if (t.length > MAX_TOPIC_LENGTH) return null;
+  if (t && ids.length) return null;
+  return { chapterIds: ids, topic: t || null };
 }
 
 /** The parent requests a lesson (§2.2). Refusals never reveal anything about other families. */
@@ -349,6 +381,8 @@ export async function requestLesson(
     return { ok: false, reason: 'price_changed' };
   }
   if (basis !== 'agreed' && basis !== 'listed') return { ok: false, reason: 'price_changed' };
+  const chosen = lessonChoices(input.chapterIds, input.topic);
+  if (!chosen) return { ok: false, reason: 'chapters' };
   const b = await bookable(sql, parentId, childId, teacherId, subject);
   if (!b) return { ok: false, reason: 'not_linked' };
   const endsAt = new Date(startsAt.getTime() + minutes * MIN);
@@ -365,6 +399,14 @@ export async function requestLesson(
         VALUES (${teacherId}, ${childId}, ${parentId}, ${subject}, ${startsAt}, ${minutes},
                 ${currency}, ${priceMinor}, ${basis})
         RETURNING id`;
+      // TL-1: the chosen chapters or topic, in the same database step (0032 refuses them later).
+      for (const [i, chapterId] of chosen.chapterIds.entries()) {
+        await tx`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id)
+                 VALUES (${row!.id}, ${i + 1}, ${chapterId})`;
+      }
+      if (chosen.topic) {
+        await tx`INSERT INTO lesson_chapters (lesson_id, position, topic) VALUES (${row!.id}, 1, ${chosen.topic})`;
+      }
       await writeAudit(
         tx,
         {
@@ -1062,6 +1104,11 @@ export interface LessonItem {
    */
   /** OC-53: kept when a parent ended the teacher's link, because it started within 30 minutes. */
   kept: boolean;
+  /**
+   * TL-1: the chapters or topic the parent asked for, in their order. A child gets them only on
+   * confirmed lessons (D-TLS-10; lessonsForStudent lists nothing else).
+   */
+  chapters: LessonChapter[];
   meeting: {
     /**
      * A parent allows this teacher's meeting links for this child now (D3A-1), or allowed them at
@@ -1075,6 +1122,20 @@ export interface LessonItem {
     /** Join Class is open now: from 10 minutes before the start to the end (OC-44). */
     joinOpen: boolean;
   };
+}
+
+/** One chapter or topic on a lesson (TL-1). */
+export interface LessonChapter {
+  /** Set by the database from the parent's own titles, or the topic; kept as history (D-TLS-15). */
+  label: string;
+  topic: boolean;
+  /**
+   * D-TLS-19: the lesson's teacher can view this chapter now under the existing book sharing
+   * (OC-41). False for a topic, or when the book or chapter is no longer shared ("No longer shared").
+   */
+  shared: boolean;
+  /** Teacher only, and only while shared: the view-only reader at that chapter. */
+  href: string | null;
 }
 
 interface ListRow {
@@ -1107,6 +1168,13 @@ interface ListRow {
   kept: boolean;
   link_set_at: Date | null;
   join_open: boolean;
+  chapters: Array<{
+    label: string;
+    topic: boolean;
+    shared: boolean;
+    book_id: string | null;
+    chapter_id: string | null;
+  }>;
 }
 
 const LIST_COLUMNS = (sql: Db) => sql`
@@ -1121,7 +1189,24 @@ const LIST_COLUMNS = (sql: Db) => sql`
    OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id AND kp.links_carried)) AS link_allowed,
   EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id) AS kept,
   ml.set_at AS link_set_at,
-  (now() >= l.starts_at - interval '10 minutes' AND now() < l.ends_at) AS join_open`;
+  (now() >= l.starts_at - interval '10 minutes' AND now() < l.ends_at) AS join_open,
+  -- TL-1: the chapters or topic, with "shared" = the lesson's teacher can view the chapter now,
+  -- under exactly the rule of listBooksForTeacher (OC-41): published live book assigned to the
+  -- child, live complete chapter, active link in the book's subject, approved teacher.
+  (SELECT coalesce(json_agg(json_build_object(
+            'label', lc.label, 'topic', lc.topic IS NOT NULL, 'book_id', ch.book_id, 'chapter_id', ch.id,
+            'shared', ch.id IS NOT NULL AND ch.archived_at IS NULL AND ch.complete
+                      AND bk.status = 'published' AND bk.archived_at IS NULL
+                      AND EXISTS (SELECT 1 FROM book_children bc WHERE bc.book_id = bk.id AND bc.student_id = l.student_id)
+                      AND EXISTS (SELECT 1 FROM teacher_student_links tl
+                                  JOIN teacher_profiles tlp ON tlp.account_id = tl.teacher_id AND tlp.approval_status = 'approved'
+                                  WHERE tl.teacher_id = l.teacher_id AND tl.student_id = l.student_id
+                                    AND tl.status = 'active' AND bk.subject = ANY (tl.subjects)))
+          ORDER BY lc.position), '[]'::json)
+   FROM lesson_chapters lc
+   LEFT JOIN book_chapters ch ON ch.id = lc.book_chapter_id
+   LEFT JOIN books bk ON bk.id = ch.book_id
+   WHERE lc.lesson_id = l.id) AS chapters`;
 
 function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: string): LessonItem {
   const status: LessonStatus = r.status === 'requested' && r.overdue ? 'expired' : (r.status as LessonStatus);
@@ -1160,6 +1245,15 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: 
     needsOutcome: viewer === 'teacher' && status === 'confirmed' && r.ended && !r.outcome,
     ended: r.ended,
     kept: r.kept,
+    chapters: r.chapters.map((c) => ({
+      label: c.label,
+      topic: c.topic,
+      shared: c.shared,
+      href:
+        viewer === 'teacher' && c.shared && c.book_id && c.chapter_id
+          ? `/books/${c.book_id}?chapter=${c.chapter_id}`
+          : null,
+    })),
     meeting: {
       allowed: r.link_allowed,
       added: r.link_set_at !== null,

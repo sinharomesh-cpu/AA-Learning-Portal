@@ -25,6 +25,7 @@ import {
   validMinutes,
   WINDOW_DAYS,
 } from '@/server/lessons';
+import { chaptersForRequest } from '@/server/books';
 import { DayGrid } from './DayGrid';
 import { RequestForm } from './RequestForm';
 
@@ -84,6 +85,8 @@ export default async function BookTeacherPage({
         )
       : null;
   const days = free?.ok ? free.days : [];
+  // TL-1: the chapters this parent may name for this child and subject (the same set 0032 accepts).
+  const requestable = chosen ? await chaptersForRequest(sql, access.viewer.id, chosen.child.id, chosen.subject) : [];
   const day = days.find((d) => d.date === one(raw.d)) ?? days[0] ?? null;
   const zone = `${formatZoneName(now.toISOString(), { timeZone: tz })}, ${tz}`;
   const base = (extra: Record<string, string>) =>
@@ -223,6 +226,9 @@ export default async function BookTeacherPage({
                       rate: formatMoney(t.rateMinor, t.currency),
                       agreed: t.basis === 'agreed',
                     }))}
+                    chapters={requestable}
+                    childName={chosen.child.name}
+                    subjectName={SUBJECTS[chosen.subject].name}
                     summary={`${minutes}-minute ${SUBJECTS[chosen.subject].name} lesson for ${chosen.child.name} with ${chosen.teacher.name}. Each price is for the whole ${minutes}-minute lesson: the hourly rate × ${minutes} ÷ 60. The teacher has 48 hours to answer (less when the lesson is sooner). Prices are for information: AA Pro takes no payment.`}
                   />
                 </>

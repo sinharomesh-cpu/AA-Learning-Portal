@@ -746,6 +746,42 @@ export async function listBooksForStudent(sql: Sql, studentId: string): Promise<
   );
 }
 
+/** One chapter a parent may name on a lesson request (TL-1). */
+export interface RequestableChapter {
+  id: string;
+  /** "Book title · 3. Chapter title", exactly as the database labels it (0032). */
+  label: string;
+}
+
+/**
+ * TL-1 (D-TLS-6, D-TLS-7): the chapters a parent may name when requesting a lesson for this child
+ * in this subject. The same set migration 0032 accepts, and the same books the child's linked
+ * teacher can already view (OC-41): live, complete chapters of the family's live, published books
+ * assigned to this child, in that subject. Only for an active parent of the child; empty otherwise.
+ */
+export async function chaptersForRequest(
+  sql: Db,
+  parentId: string,
+  childId: string,
+  subject: string,
+): Promise<RequestableChapter[]> {
+  if (!UUID.test(parentId) || !UUID.test(childId) || !(SUBJECT_IDS as readonly string[]).includes(subject)) return [];
+  return sql<RequestableChapter[]>`
+    SELECT ch.id, format('%s · %s. %s', b.title, ch.number, ch.title) AS label
+    FROM book_chapters ch
+    JOIN books b ON b.id = ch.book_id
+    JOIN book_children k ON k.book_id = b.id AND k.student_id = ${childId}
+    WHERE ch.archived_at IS NULL AND ch.complete
+      AND b.status = 'published' AND b.archived_at IS NULL AND b.subject = ${subject}
+      AND EXISTS (SELECT 1 FROM guardian_links g JOIN accounts a ON a.id = g.parent_id
+                  WHERE g.parent_id = b.owner_id AND g.student_id = ${childId} AND g.status = 'active'
+                    AND a.role = 'parent' AND a.status = 'active')
+      AND EXISTS (SELECT 1 FROM guardian_links g JOIN accounts a ON a.id = g.parent_id
+                  WHERE g.parent_id = ${parentId} AND g.student_id = ${childId} AND g.status = 'active'
+                    AND a.role = 'parent' AND a.status = 'active')
+    ORDER BY b.title, b.id, ch.number`;
+}
+
 /** A linked teacher's view of one child's books, in the subjects linked now (view only). */
 export async function listBooksForTeacher(sql: Sql, teacherId: string, studentId: string): Promise<BookCard[]> {
   if (!UUID.test(teacherId) || !UUID.test(studentId)) return [];
