@@ -106,6 +106,19 @@ test.describe('teacher dashboard (P21, boards 55 and 56)', () => {
     await signInAdult(page, /Teacher A\. Rao/);
   });
 
+  test('F2: the demo’s Propose a meeting is unchanged (label and Not ready yet page)', async ({ page }) => {
+    const button = page.getByRole('link', { name: 'Propose a meeting', exact: true });
+    await expect(button).toBeVisible();
+    await button.click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Propose a meeting' })).toBeVisible();
+    await expect(
+      page.getByText(
+        'Proposing meetings needs scheduling and the Zoom connection (later phases). Whether a parent must confirm first is still being decided.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Go to my dashboard' })).toBeVisible();
+  });
+
   test('shows own lessons in the teacher’s time zone, availability, students and sharing', async ({ page }) => {
     await expect(page.getByRole('heading', { level: 1, name: 'Teacher A. Rao' })).toBeVisible();
     await expect(page.getByText(/Times are shown in your time zone \(GMT\+8, Asia\/Singapore\)/)).toBeVisible();

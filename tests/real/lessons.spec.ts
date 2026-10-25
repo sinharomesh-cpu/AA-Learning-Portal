@@ -113,11 +113,12 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await shot(t, `PR2-teacher-schedule-${device}`);
   await t.goto('/teacher');
   await expect(t.getByRole('heading', { name: `Maths with ${child.name}` })).toBeVisible();
-  // B4: the linked child is on the roster; B1: no Propose button; real-account rules only.
+  // B4: the linked child is on the roster; real-account rules only. F2 (owner, 25 Oct 2026):
+  // Propose is shown for Friends & Family feedback, saying it isn't available (proposeMeeting.spec).
   const roster = t.getByRole('region', { name: 'My students' });
   await expect(roster.getByRole('heading', { name: child.name })).toBeVisible();
   await expect(roster).not.toContainText('later phase');
-  await expect(t.getByRole('link', { name: 'Propose a meeting' })).toHaveCount(0);
+  await expect(t.getByRole('link', { name: 'Propose a meeting (not available yet)' })).toBeVisible();
   const teacherRules = t.getByRole('region', { name: 'Lesson rules' });
   await expect(teacherRules).toContainText('To change the time, the parent cancels and requests a new one.');
   await expect(teacherRules).not.toContainText(/propose|move a lesson/i);
