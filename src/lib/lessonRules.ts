@@ -105,8 +105,8 @@ export const LESSON_RULES_TEXT = {
 /**
  * The same rules as worded for real accounts in Phase 3A (CR-17 PR 2; owner decisions B1 and B2,
  * 24 Oct 2026). Only what is available now: rescheduling a teacher lesson is cancel and request
- * again (D3A-6); teacher proposals (OC-45) and lesson reminders (PR 7) are not offered yet, so
- * they are not mentioned or promised. The demo keeps LESSON_RULES_TEXT unchanged.
+ * again (D3A-6); teacher proposals (OC-45) are not offered yet, so they are not mentioned or
+ * promised; lesson reminders are described as PR 7 really works (in-app, best-effort; no email). The demo keeps LESSON_RULES_TEXT unchanged.
  */
 export const REAL_LESSON_RULES_TEXT = {
   parentTeacherChanges:

@@ -130,6 +130,13 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await shot(p, `PR2-parent-calendar-${device}`);
   await p.goto('/parent');
   await expect(p.getByText(/Maths with/).first()).toBeVisible();
+  // B2 (owner, 25 Oct 2026): the week's reminder column (desktop only) states the real in-app
+  // reminder, never email.
+  if (!phone) {
+    const weekRow = p.getByRole('row').filter({ hasText: /Maths/ }).first();
+    await expect(weekRow).toContainText('In AA Pro, 15 min before');
+    await expect(weekRow).not.toContainText(/email/i);
+  }
   // F1; PR 7: the rules say what is available now, including the best-effort in-app reminder.
   const rules = p.getByRole('region', { name: 'Lesson rules' });
   await expect(rules).toContainText(

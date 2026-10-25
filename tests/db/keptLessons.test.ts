@@ -209,6 +209,78 @@ describe('OC-53 Option A: the parent removes the teacher', () => {
     );
   });
 
+  it('OD-A scope: one change keeps only its own child/subject lessons; nothing unrelated is kept or touched', async () => {
+    // Owner, 25 Oct 2026, 13:18 IST: removing a child's link applies Option A to that child's
+    // lessons; unticking a subject applies it only to that subject's lessons.
+    const f = await family(); // child A: maths and science
+    const sib = async (subjects: string[]) => {
+      const c = await createChild(sql, f.parent);
+      await sql`UPDATE student_profiles SET subjects = ${subjects} WHERE account_id = ${c}`;
+      await activeLink(sql, { teacher: f.t, child: c, parent: f.parent, subjects });
+      return c;
+    };
+    const b = await sib(['maths']); // B: left out of the choice (link removed)
+    const c = await sib(['maths']); // C: unchanged
+    const d = await sib(['maths']); // D: link already ended earlier, its lesson not yet swept
+    // Non-overlapping 10-minute lessons with the one teacher.
+    const dStale = await lessonIn({ ...f, child: d }, -9); // running, inside the window
+    const aMathsSoon = await lessonIn(f, 2, 'maths');
+    const bSoon = await lessonIn({ ...f, child: b }, 14);
+    const cSoon = await lessonIn({ ...f, child: c }, 26);
+    const aScienceLater = await lessonIn(f, 45, 'science');
+    const aMathsLater = await lessonIn(f, 60, 'maths');
+    const bLater = await lessonIn({ ...f, child: b }, 75);
+    await sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
+               WHERE teacher_id = ${f.t} AND student_id = ${d}`;
+    });
+
+    const r = await updateTeacherLinks(sql, f.parent, f.t, [
+      { childId: f.child, subjects: ['science'] }, // maths unticked
+      { childId: c, subjects: ['maths'] }, // unchanged; B left out
+    ]);
+    expect(r.ok).toBe(true);
+    // In scope and within 30 minutes: kept.
+    expect(await kept(aMathsSoon)).toMatchObject({ kept_by: f.parent });
+    expect(await kept(bSoon)).toMatchObject({ kept_by: f.parent });
+    // In scope, more than 30 minutes away: cancelled as "link ended".
+    for (const id of [aMathsLater, bLater]) {
+      expect(await row(id)).toMatchObject({ status: 'cancelled', close_reason: 'link_ended' });
+    }
+    // Not in this change's scope: the unticked child's other subject and the unchanged child are untouched.
+    for (const id of [aScienceLater, cSoon]) {
+      expect(await kept(id)).toBeUndefined();
+      expect((await row(id)).status).toBe('confirmed');
+    }
+    // A lesson whose link ended by some earlier event is never kept by this parent's change
+    // (D3A-24 closes it as before).
+    expect(await kept(dStale)).toBeUndefined();
+    expect(await row(dStale)).toMatchObject({ status: 'cancelled', close_reason: 'link_ended' });
+    const audit = await sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM audit_events WHERE event_type = 'LESSON_KEPT_AFTER_LINK_END'
+        AND details->>'lesson' = ANY(${[aMathsSoon, bSoon, cSoon, dStale, aScienceLater]})`;
+    expect(audit[0]!.n).toBe(2);
+  });
+
+  it('OD-A scope: a subject untick alone never keeps another child’s stale lesson', async () => {
+    const f = await family();
+    const d = await createChild(sql, f.parent);
+    await sql`UPDATE student_profiles SET subjects = ${['maths']} WHERE account_id = ${d}`;
+    await activeLink(sql, { teacher: f.t, child: d, parent: f.parent, subjects: ['maths'] });
+    const dStale = await lessonIn({ ...f, child: d }, 4);
+    const aScienceSoon = await lessonIn(f, 16, 'science');
+    await sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
+               WHERE teacher_id = ${f.t} AND student_id = ${d}`;
+    });
+    await updateTeacherLinks(sql, f.parent, f.t, [{ childId: f.child, subjects: ['maths'] }]); // science unticked
+    expect(await kept(aScienceSoon)).toMatchObject({ kept_by: f.parent });
+    expect(await kept(dStale)).toBeUndefined();
+    expect(await row(dStale)).toMatchObject({ status: 'cancelled', close_reason: 'link_ended' });
+  });
+
   it('requests (never inside 30 minutes) still close as "link ended"', async () => {
     const f = await family();
     await sql.begin(async (tx) => {

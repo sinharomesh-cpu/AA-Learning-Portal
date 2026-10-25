@@ -17,7 +17,7 @@ import { writeAudit } from './auth/audit';
 import { queueEmail } from './auth/outbox';
 import { issueSetPassword } from './auth/setPasswordLink';
 import type { Db, Sql } from './db/client';
-import { closeLessonsWithoutLink } from './lessons';
+import { closeLessonsWithoutLink, type KeepScope } from './lessons';
 import { linkRequestAnswered, linkRequestExpired, linkRequestReceived } from './notifications/events';
 import { inTx } from './notifications/notify';
 import type { ExpiryScope } from './teacherEnquiries';
@@ -614,15 +614,20 @@ export async function updateTeacherLinks(
       live.filter((l) => !keep.has(l.student_id)),
       now,
     );
+    const unticked: KeepScope[] = [];
     for (const c of picked) {
       const l = byChild.get(c.childId);
       if (l && unique(l.subjects).join() !== unique(c.subjects).join()) {
         await tx`UPDATE teacher_student_links SET subjects = ${unique(c.subjects)} WHERE id = ${l.id}`;
+        // OD-A: only the subjects this parent unticked on an active link (a waiting request has no lessons).
+        const gone = l.subjects.filter((x) => !c.subjects.includes(x));
+        if (l.status === 'active' && gone.length) unticked.push({ childId: c.childId, subjects: gone });
       }
     }
-    // D3A-24 with OC-53 Option A: lessons in a subject that was unticked, or with a child removed,
-    // are closed by AA Pro, except this parent's children's lessons starting within 30 minutes.
-    await closeLessonsWithoutLink(tx, { teacherId }, now, { keepSoonFor: { parentId, childIds: [...mine.keys()] } });
+    // D3A-24 with OC-53 Option A (scope OD-A): lessons in an unticked subject are closed by AA Pro,
+    // except those starting within 30 minutes; other subjects and children are not affected.
+    // (Removed children were handled by removeLinks above.)
+    await closeLessonsWithoutLink(tx, { teacherId }, now, { keepSoonFor: { parentId, scope: unticked } });
     if (teacher?.ok) await tellTeacher(tx, teacherId, sent.created.length, baseUrl, now);
     await writeAudit(
       tx,
@@ -783,7 +788,7 @@ async function removeLinks(
     const children = await tx<Array<{ student_id: string }>>`
       SELECT student_id FROM teacher_student_links WHERE id = ANY(${active})`;
     await closeLessonsWithoutLink(tx, { teacherId }, now, {
-      keepSoonFor: { parentId, childIds: children.map((c) => c.student_id) },
+      keepSoonFor: { parentId, scope: children.map((c) => ({ childId: c.student_id })) },
     });
   }
   if (waiting.length) {

@@ -637,6 +637,12 @@ export async function recordOutcome(
 
 // ======================================================================= AA Pro closes
 
+/** OC-53 / OD-A: one child affected by a parent's change; `subjects` omitted means every subject. */
+export interface KeepScope {
+  childId: string;
+  subjects?: string[];
+}
+
 /**
  * D3A-13, D3A-24: open requests and upcoming lessons whose teacher was deactivated, or whose
  * link or subject ended, are closed by AA Pro, and the parents are told. Called in the same
@@ -644,32 +650,50 @@ export async function recordOutcome(
  * the shared sweep as a backstop for any other path. A suspended teacher's lessons are left as
  * they are: they can't accept new ones, and suspension may be lifted.
  *
- * OC-53 Option A (owner, 25 Oct 2026, 00:05 IST): when the change was a PARENT's (`keepSoonFor`),
- * that parent's children's confirmed lessons starting within the next 30 minutes (database clock,
- * `lessons_kept_window_ok`: start <= now + 30 min and not yet ended) are KEPT, recorded in
- * `lessons_kept`, and both sides are told; every other upcoming lesson is cancelled as before.
- * A kept lesson is never cancelled by a later sweep; only its teacher's deactivation cancels it.
+ * OC-53 Option A (owner, 25 Oct 2026, 00:05 IST; scope OD-A, 13:18 IST): when the change was a
+ * PARENT's (`keepSoonFor`), the confirmed lessons IN THE SCOPE OF THAT CHANGE starting within the
+ * next 30 minutes (database clock, `lessons_kept_window_ok`: start <= now + 30 min and not yet
+ * ended) are KEPT, recorded in `lessons_kept`, and both sides are told; every other upcoming lesson
+ * whose link ended is cancelled as before. The scope is one entry per affected child: the teacher
+ * removed or the child's link removed (`subjects` omitted: all that child's lessons with the
+ * teacher), or some subjects unticked (`subjects`: only lessons in those subjects). Lessons of other
+ * children, other subjects and other families are never kept by this change (and, still being
+ * linked, are not touched at all). A kept lesson is never cancelled by a later sweep; only its
+ * teacher's deactivation cancels it.
  */
 export async function closeLessonsWithoutLink(
   tx: Db,
   scope: { teacherId?: string; studentId?: string },
   now: Date = new Date(),
-  opts: { keepSoonFor?: { parentId: string; childIds: string[] } } = {},
+  opts: { keepSoonFor?: { parentId: string; scope: KeepScope[] } } = {},
 ): Promise<number> {
   const teacherId = scope.teacherId && UUID.test(scope.teacherId) ? scope.teacherId : null;
   const studentId = scope.studentId && UUID.test(scope.studentId) ? scope.studentId : null;
   const keep = opts.keepSoonFor && UUID.test(opts.keepSoonFor.parentId) ? opts.keepSoonFor : null;
-  const keepFor = new Set((keep?.childIds ?? []).filter((id) => UUID.test(id)));
+  // Child -> the subjects whose link this change ended (null: every subject, the link itself ended).
+  const keepFor = new Map<string, Set<string> | null>();
+  for (const k of keep?.scope ?? []) {
+    if (!UUID.test(k.childId)) continue;
+    const had = keepFor.get(k.childId);
+    if (had === null || !k.subjects) keepFor.set(k.childId, null);
+    else keepFor.set(k.childId, new Set([...(had ?? []), ...k.subjects]));
+  }
+  const inScope = (childId: string, subject: string) => {
+    if (!keepFor.has(childId)) return false;
+    const subjects = keepFor.get(childId);
+    return subjects === null || subjects!.has(subject);
+  };
   const due = await tx<
     Array<{
       id: string;
       student_id: string;
+      subject: string;
       status: string;
       reason: 'teacher_deactivated' | 'link_ended';
       soon: boolean;
     }>
   >`
-    SELECT l.id, l.student_id, l.status,
+    SELECT l.id, l.student_id, l.subject, l.status,
            CASE WHEN t.status = 'deactivated' THEN 'teacher_deactivated' ELSE 'link_ended' END AS reason,
            lessons_kept_window_ok(l.starts_at, l.ends_at, now()) AS soon
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id
@@ -686,7 +710,7 @@ export async function closeLessonsWithoutLink(
     FOR UPDATE OF l`;
   let closed = 0;
   for (const l of due) {
-    if (keep && l.status === 'confirmed' && l.reason === 'link_ended' && l.soon && keepFor.has(l.student_id)) {
+    if (keep && l.status === 'confirmed' && l.reason === 'link_ended' && l.soon && inScope(l.student_id, l.subject)) {
       await tx`INSERT INTO lessons_kept (lesson_id, kept_by) VALUES (${l.id}, ${keep.parentId})`;
       await writeAudit(
         tx,
