@@ -49,7 +49,11 @@ const DONE: Record<string, { tone: 'success' | 'info' | 'warning'; text: string 
   // TL-2: material requests (in-app notices only).
   material_requested: {
     tone: 'success',
-    text: 'Material request sent. The parents see it in AA Pro (no email or WhatsApp is sent).',
+    text: 'Material request sent to the parent. They see it in AA Pro; no email or WhatsApp is sent.',
+  },
+  material_duplicate: {
+    tone: 'info',
+    text: 'That material is already requested for this lesson and waiting for the parent, so nothing new was sent.',
   },
   material_withdrawn: { tone: 'success', text: 'Material request withdrawn.' },
   material_closed: { tone: 'info', text: 'That lesson or material request is no longer open.' },
@@ -113,7 +117,13 @@ export default async function TeacherSchedulePage({
             />
             {/* TL2-2: requested or confirmed lessons that haven't ended; not lessons kept under OC-53. */}
             {(l.status === 'requested' || l.status === 'confirmed') && !l.ended && !l.kept ? (
-              <AskForMaterialForm lessonId={l.id} label={describe(l)} chapters={l.chapters} />
+              <AskForMaterialForm
+                // A new request changes the key, so the form starts again closed and empty.
+                key={`${l.id}:${(materials.get(l.id) ?? []).map((r) => r.id).join(',')}`}
+                lessonId={l.id}
+                label={describe(l)}
+                chapters={l.chapters}
+              />
             ) : null}
           </LessonCard>
         </li>

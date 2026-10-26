@@ -89,8 +89,10 @@ const endLesson = (id: string) =>
              confirmed_at = confirmed_at - interval '10 days', starts_at = starts_at - interval '10 days',
              ends_at = ends_at - interval '10 days' WHERE id = ${id}`;
   });
+let item = 0;
+/** Each call asks for a different item by default (an identical open request is a "duplicate"). */
 const ask = async (f: Fam, l: string, o: { position?: string; description?: string; note?: string } = {}) => {
-  const r = await requestMaterial(sql, f.t, { lessonId: l, description: 'Workbook', ...o });
+  const r = await requestMaterial(sql, f.t, { lessonId: l, description: `Workbook ${++item}`, ...o });
   if (!r.ok) throw new Error(`ask refused: ${r.reason}`);
   return r.id;
 };
@@ -157,6 +159,41 @@ describe('TL-2 server: the teacher asks (requestMaterial)', () => {
       reason: 'not_found',
     });
     expect(await sql`SELECT 1 FROM material_requests WHERE lesson_id = ${l}`).toHaveLength(0);
+  });
+
+  it('one request per item: a repeated or simultaneous identical request is refused as "duplicate"; another item is fine', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const l = await lesson(f, [b.chapters[0]!]);
+    expect((await requestMaterial(sql, f.t, { lessonId: l, position: '1' })).ok).toBe(true);
+    expect(await requestMaterial(sql, f.t, { lessonId: l, position: '1' })).toEqual({ ok: false, reason: 'duplicate' });
+    expect((await requestMaterial(sql, f.t, { lessonId: l, description: 'Ruler' })).ok).toBe(true);
+    expect(await requestMaterial(sql, f.t, { lessonId: l, description: '  ruler ' })).toEqual({
+      ok: false,
+      reason: 'duplicate',
+    });
+    // Two identical requests at the same moment (two tabs, a double click): exactly one is created.
+    const both = await Promise.all([
+      requestMaterial(sql, f.t, { lessonId: l, description: 'Graph paper' }),
+      requestMaterial(sql, f.t, { lessonId: l, description: 'Graph paper' }),
+    ]);
+    expect(both.map((r) => (r.ok ? 'ok' : r.reason)).sort()).toEqual(['duplicate', 'ok']);
+    const rows = await sql`SELECT coalesce(description, lesson_position::text) AS w FROM material_requests
+                           WHERE lesson_id = ${l} ORDER BY created_at`;
+    expect(rows.map((r) => r.w)).toEqual(['1', 'Ruler', 'Graph paper']);
+    // Each parent got exactly one notice per request.
+    const [{ n }] =
+      (await sql`SELECT count(*)::int AS n FROM notifications n JOIN material_requests m ON m.id = n.entity_id
+                               WHERE m.lesson_id = ${l} AND n.type = 'material_requested'`) as unknown as [
+        { n: number },
+      ];
+    expect(n).toBe(6);
+    // Once it is answered or withdrawn, the same item may be asked for again.
+    const [first] = await sql<
+      { id: string }[]
+    >`SELECT id FROM material_requests WHERE lesson_id = ${l} AND lesson_position = 1`;
+    await withdrawMaterialRequest(sql, f.t, first!.id);
+    expect((await requestMaterial(sql, f.t, { lessonId: l, position: '1' })).ok).toBe(true);
   });
 
   it('the sixth open request says "limit"; a closed lesson says "closed"', async () => {

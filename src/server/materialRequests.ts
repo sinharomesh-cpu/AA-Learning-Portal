@@ -184,7 +184,7 @@ export async function shareOptions(sql: Db, parentId: string, requestId: string)
 
 // ======================================================================= actions
 
-export type MaterialReason = 'not_found' | 'closed' | 'limit' | 'invalid' | 'not_shareable';
+export type MaterialReason = 'not_found' | 'closed' | 'limit' | 'invalid' | 'not_shareable' | 'duplicate';
 export type MaterialResult = { ok: true; id: string } | { ok: false; reason: MaterialReason };
 
 const clean = (v: unknown, max: number): string | null | undefined => {
@@ -283,6 +283,14 @@ export async function requestMaterial(
     return await inTx(sql, async (tx) => {
       const f = await facts(tx, lessonId);
       if (!f || f.teacher_id !== teacherId) return { ok: false as const, reason: 'not_found' as const };
+      // The same lock 0033 takes for new requests, taken first, so the check below and the insert
+      // are serialised: a double click or two tabs sending the same request create it only once.
+      await tx`SELECT 1 FROM lessons WHERE id = ${lessonId} FOR NO KEY UPDATE`;
+      const [same] = await tx`
+        SELECT 1 FROM material_requests
+        WHERE lesson_id = ${lessonId} AND status = 'open'
+          AND (lesson_position = ${position} OR lower(description) = lower(${description}))`;
+      if (same) return { ok: false as const, reason: 'duplicate' as const };
       const [r] = await tx<Array<{ id: string }>>`
         INSERT INTO material_requests (lesson_id, raised_by, lesson_position, description, note)
         VALUES (${lessonId}, ${teacherId}, ${position}, ${description}, ${note}) RETURNING id`;

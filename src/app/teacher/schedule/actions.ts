@@ -111,6 +111,7 @@ export async function requestMaterialAction(_prev: ScheduleState, fd: FormData):
   }
   if (r.reason === 'limit')
     return { error: 'This lesson already has 5 open requests. Withdraw one, or wait for answers.' };
+  if (r.reason === 'duplicate') return back('material_duplicate');
   return back('material_closed');
 }
 

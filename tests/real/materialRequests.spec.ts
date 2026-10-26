@@ -29,6 +29,12 @@ async function bookable(db: Sql, teacher: string) {
   await db`INSERT INTO teacher_listings (public_id, teacher_id, hourly_offered, hourly_currency, hourly_rate_minor, hourly_minutes)
            VALUES (${`t-${Math.random().toString(36).slice(2, 12).padEnd(10, 'a')}`}, ${teacher}, true, 'INR', 60000, 30)`;
 }
+/** Material requests on this child's lessons, straight from the database. */
+async function requestsFor(childId: string) {
+  const [r] = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM material_requests m JOIN lessons l ON l.id = m.lesson_id WHERE l.student_id = ${childId}`;
+  return r!.n;
+}
 async function sharedBook(db: Sql, parent: string, child: string | null, title: string, chapters: string[]) {
   const [b] = await db<{ id: string }[]>`
     INSERT INTO books (owner_id, title, subject, form, status) VALUES (${parent}, ${title}, 'maths', 'chapter_files', 'published')
@@ -88,17 +94,30 @@ test('TL-2: teacher asks, parent shares or says unavailable, teacher withdraws, 
   await check(t, phone);
   await shot(t, `TL2-teacher-ask-${device}`);
   await ask.getByRole('button', { name: /^Send material request:/ }).click();
-  await expect(t.getByText('Material request sent.')).toBeVisible();
+  await expect(
+    t.getByText('Material request sent to the parent. They see it in AA Pro; no email or WhatsApp is sent.'),
+  ).toBeVisible();
+  // One submission, one request: the new request is listed, and the form is closed and empty again.
+  await expect(card().getByTestId('material-request')).toHaveCount(1);
+  await expect(card().getByTestId('ask-material')).toHaveCount(0);
+  await expect(card().getByRole('button', { name: /^Ask the parent for material:/ })).toBeVisible();
+  expect(await requestsFor(child.id)).toBe(1);
+  await check(t, phone);
+  await shot(t, `TL2-teacher-sent-${device}`);
   await card()
     .getByRole('button', { name: /^Ask the parent for material:/ })
     .click();
+  await expect(card().getByTestId('ask-material').getByLabel('Note for the parent (optional)')).toHaveValue('');
   await card().getByTestId('ask-material').getByLabel('What do you need?').selectOption('other');
   await card().getByTestId('ask-material').getByLabel('Describe it').fill('Times-tables worksheet');
+  // A double click on Send still creates exactly one request.
   await card()
     .getByTestId('ask-material')
     .getByRole('button', { name: /^Send material request:/ })
-    .click();
+    .dblclick();
   await expect(card().getByTestId('material-request')).toHaveCount(2);
+  await expect(card().getByTestId('ask-material')).toHaveCount(0);
+  expect(await requestsFor(child.id)).toBe(2);
   await expect(card().getByTestId('material-request').first()).toContainText('Waiting for the parent');
 
   // 2. The child sees no material requests (D-TLS-21).
