@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
+import { getBookForViewer } from '@/server/books';
 import { answerLesson, cancelLesson, requestLesson } from '@/server/lessons';
 import {
   closeEndedMaterialRequests,
@@ -12,6 +13,7 @@ import {
 } from '@/server/materialRequests';
 import { listNotifications, openNotification } from '@/server/notifications/queries';
 import { runSharedSweep } from '@/server/notifications/sweep';
+import { removeTeacher } from '@/server/teacherLinks';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
 /**
@@ -82,6 +84,20 @@ async function lesson(f: Fam, chapterIds: string[] = []) {
   if (!r.ok) throw new Error(`request refused: ${r.reason}`);
   return r.id;
 }
+/** A confirmed lesson starting `min` minutes from now (database clock); triggers skipped for this insert only. */
+const lessonIn = (f: Fam, min: number) =>
+  sql.begin(async (tx) => {
+    await tx`SET LOCAL session_replication_role = replica`;
+    const [r] = await tx<{ id: string }[]>`
+      INSERT INTO lessons (teacher_id, student_id, requested_by, subject, starts_at, minutes, ends_at, requested_at,
+                           reply_deadline, status, confirmed_at, currency, rate_minor, price_minor, price_basis)
+      SELECT ${f.t}, ${f.child}, ${f.parent}, 'maths', s, 10, s + interval '10 minutes', s - interval '3 days',
+             s - interval '3 days' + interval '48 hours', 'confirmed', s - interval '3 days' + interval '1 minute',
+             'INR', 60000, 10000, 'listed'
+      FROM (SELECT date_trunc('minute', now()) + make_interval(mins => ${min}) AS s) x
+      RETURNING id`;
+    return r!.id;
+  });
 const endLesson = (id: string) =>
   sql.begin(async (tx) => {
     await tx`SET LOCAL session_replication_role = replica`;
@@ -428,5 +444,73 @@ describe('TL-2 server: the parent home count and the sweep', () => {
       close_reason: 'lesson_ended',
     });
     expect(await closeEndedMaterialRequests(sql)).toBe(0);
+  });
+});
+
+describe('TL-2 decision record: the two edge cases (owner, 26 Oct 2026, 10:37 IST)', () => {
+  it('edge case 1, OC-53 kept lesson: open requests stay until it ends; the parent may say "not available" but cannot share; the removed teacher cannot ask', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const kept = await lessonIn(f, 10); // starts in 10 minutes: kept under OC-53 Option A
+    const r1 = await ask(f, kept);
+    const r2 = await ask(f, kept);
+    expect(await removeTeacher(sql, f.parent, f.t)).toEqual({ ok: true });
+    expect((await sql`SELECT 1 FROM lessons_kept WHERE lesson_id = ${kept}`).length).toBe(1);
+    // Both requests are still open and still count on the parent's home.
+    expect((await sql`SELECT status FROM material_requests WHERE id IN ${sql([r1, r2])}`).map((r) => r.status)).toEqual(
+      ['open', 'open'],
+    );
+    expect(await openMaterialRequestCount(sql, f.parent)).toBe(2);
+    // Sharing is refused (the teacher can no longer view the book); nothing is offered to share.
+    expect(await shareOptions(sql, f.parent, r1)).toEqual([]);
+    expect(await shareMaterial(sql, f.parent, { requestId: r1, bookId: b.id })).toEqual({
+      ok: false,
+      reason: 'not_shareable',
+    });
+    // "Not available" is accepted, and the teacher is told in AA Pro only if still active and approved (they are).
+    expect(await markMaterialUnavailable(sql, f.parent, { requestId: r1, note: 'Not needed now' })).toEqual({
+      ok: true,
+      id: r1,
+    });
+    // The removed teacher cannot raise a new request on the kept lesson.
+    expect(await requestMaterial(sql, f.t, { lessonId: kept, description: 'Another book' })).toEqual({
+      ok: false,
+      reason: 'not_found',
+    });
+    expect((await sql`SELECT count(*)::int AS n FROM material_requests WHERE lesson_id = ${kept}`)[0]!.n).toBe(2);
+    // When the kept lesson ends, the remaining open request closes as "lesson ended".
+    await endLesson(kept);
+    expect(await closeEndedMaterialRequests(sql)).toBeGreaterThanOrEqual(1);
+    expect((await sql`SELECT status, close_reason FROM material_requests WHERE id = ${r2}`)[0]).toEqual({
+      status: 'no_longer_needed',
+      close_reason: 'lesson_ended',
+    });
+    expect((await sql`SELECT status FROM material_requests WHERE id = ${r1}`)[0]!.status).toBe('unavailable');
+  });
+
+  it('edge case 2: an answer recorded just before a cancellation grants nothing; the reader and its page files refuse a teacher no longer authorised', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const l = await lesson(f);
+    await answerLesson(sql, f.t, l, 'accept');
+    const r = await ask(f, l);
+    // The parent's share is recorded first (as if it won a race with the cancellation)...
+    expect((await shareMaterial(sql, f.parent, { requestId: r, bookId: b.id, chapterId: b.chapters[0] })).ok).toBe(
+      true,
+    );
+    // ...and while the teacher is still linked, the reader allows them under the existing sharing
+    // rule (OC-41) that applied before any request: the request itself added nothing.
+    expect(await getBookForViewer(sql, f.t, b.id)).not.toBeNull();
+    // Then the parent removes the teacher: the lesson is cancelled (OC-53: more than 30 minutes away).
+    expect(await removeTeacher(sql, f.parent, f.t)).toEqual({ ok: true });
+    expect((await sql`SELECT status FROM lessons WHERE id = ${l}`)[0]!.status).toBe('cancelled');
+    // The answer stays as history ("shared" is final), but the teacher can no longer open anything.
+    expect((await sql`SELECT status FROM material_requests WHERE id = ${r}`)[0]!.status).toBe('shared');
+    expect(await getBookForViewer(sql, f.t, b.id)).toBeNull();
+    // (The page files apply the same rule, mayReadFile; books.test.ts proves a teacher whose link
+    // ended is refused both the reader and the stored page files.)
+    // No link to it is offered to the teacher any more.
+    const v = (await materialRequestsFor(sql, { id: f.t, role: 'teacher' }, [l])).get(l) ?? [];
+    expect(v.every((x) => x.sharedHref === null)).toBe(true);
   });
 });
