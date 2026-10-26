@@ -28,7 +28,9 @@ export type EntityType =
   // CR-17 PR 5: a student's homework (assignment_targets.id).
   | 'assignment'
   // CR-17 PR 2: a lesson request or lesson (lessons.id).
-  | 'lesson';
+  | 'lesson'
+  // TL-2 (0033): a material request on a lesson (material_requests.id).
+  | 'material_request';
 
 export interface NotifyInput {
   recipientId: string;

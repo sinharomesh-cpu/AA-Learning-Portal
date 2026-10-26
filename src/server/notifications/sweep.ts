@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Sql } from '../db/client';
 import { lessonMaintenance } from '../lessons';
+import { closeEndedMaterialRequests } from '../materialRequests';
 import { expireRateNegotiations } from '../rateNegotiations';
 import { expireEnquiries } from '../teacherEnquiries';
 import { expireLinkRequests } from '../teacherLinks';
@@ -52,6 +53,8 @@ export interface SweepResult {
   reminders: number;
   /** CR-17 PR 2: lesson expiry, AA Pro closes and outcome requests. */
   lessons: number;
+  /** TL-2: open material requests on lessons that have ended (no notification). */
+  materialRequests: number;
   failed: number;
 }
 
@@ -67,13 +70,14 @@ export async function runSharedSweep(sql: Sql, baseUrl: string, now: Date = new 
     rateProposals: 0,
     reminders: 0,
     lessons: 0,
+    materialRequests: 0,
     failed: 0,
   };
   if (!(await claimSharedSweep(sql))) return result;
   result.ran = true;
   const part = async (
     fn: () => Promise<number>,
-    key: 'enquiries' | 'linkRequests' | 'rateProposals' | 'reminders' | 'lessons',
+    key: 'enquiries' | 'linkRequests' | 'rateProposals' | 'reminders' | 'lessons' | 'materialRequests',
   ) => {
     try {
       result[key] = await fn();
@@ -87,6 +91,7 @@ export async function runSharedSweep(sql: Sql, baseUrl: string, now: Date = new 
   await part(() => expireRateNegotiations(sql, now), 'rateProposals');
   await part(() => queueListingReminders(sql, baseUrl, now), 'reminders');
   await part(() => lessonMaintenance(sql, now), 'lessons');
+  await part(() => closeEndedMaterialRequests(sql), 'materialRequests');
   return result;
 }
 

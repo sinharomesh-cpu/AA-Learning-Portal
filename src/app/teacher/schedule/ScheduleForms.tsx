@@ -11,7 +11,9 @@ import {
   cancelTeacherLessonAction,
   meetingLinkAction,
   outcomeAction,
+  requestMaterialAction,
   type ScheduleState,
+  withdrawMaterialAction,
 } from './actions';
 
 function Result({ state }: { state: ScheduleState }) {
@@ -177,6 +179,132 @@ export function MeetingLinkForm({ lessonId, label, added }: { lessonId: string; 
       <Button type="submit" variant="secondary" inactive={pending} aria-label={`Save meeting link: ${label}`}>
         {added ? 'Change link' : 'Save link'}
       </Button>
+    </form>
+  );
+}
+
+/**
+ * TL-2: ask the child's parents for a book or chapter for this lesson. The choice is one of the
+ * chapters the parent asked for on this lesson, or "Something else" with a short description.
+ */
+export function AskForMaterialForm({
+  lessonId,
+  label,
+  chapters,
+}: {
+  lessonId: string;
+  label: string;
+  /** The lesson's requested chapters, in order (position = index + 1). Topics are not offered. */
+  chapters: Array<{ label: string; topic: boolean }>;
+}) {
+  const [state, action, pending] = useActionState<ScheduleState, FormData>(requestMaterialAction, {});
+  const [open, setOpen] = useState(false);
+  const options = chapters
+    .map((c, i) => ({ value: String(i + 1), label: c.label, topic: c.topic }))
+    .filter((o) => !o.topic);
+  const [what, setWhat] = useState(options[0]?.value ?? 'other');
+  const formId = useId();
+  const whatId = useId();
+  const descId = useId();
+  const noteId = useId();
+  const helpId = useId();
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        aria-expanded={false}
+        aria-controls={formId}
+        onClick={() => setOpen(true)}
+        aria-label={`Ask the parent for material: ${label}`}
+        className="self-start"
+      >
+        Ask the parent for material
+      </Button>
+    );
+  }
+  return (
+    <form id={formId} action={action} className="flex w-full max-w-[460px] flex-col gap-2" data-testid="ask-material">
+      <input type="hidden" name="lessonId" value={lessonId} />
+      <label htmlFor={whatId} className="text-sm font-bold">
+        What do you need?
+      </label>
+      <select
+        id={whatId}
+        name="what"
+        value={what}
+        onChange={(e) => setWhat(e.target.value)}
+        className={INPUT}
+        aria-describedby={helpId}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+        <option value="other">Something else (describe it)</option>
+      </select>
+      {what === 'other' ? (
+        <>
+          <label htmlFor={descId} className="text-sm font-bold">
+            Describe it
+          </label>
+          <input id={descId} name="description" required maxLength={200} className={INPUT} />
+        </>
+      ) : null}
+      <label htmlFor={noteId} className="text-sm font-bold">
+        Note for the parent (optional)
+      </label>
+      <textarea id={noteId} name="note" maxLength={300} rows={2} className={cx(INPUT, 'py-2')} />
+      <p id={helpId} className="m-0 text-sm leading-5 text-on-surface-variant">
+        The parent can share a book or chapter you can already view, or say it isn’t available. Asking doesn’t change
+        the lesson. Up to 5 open requests per lesson.
+      </p>
+      <Result state={state} />
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" inactive={pending} aria-label={`Send material request: ${label}`}>
+          Send request
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+          Close
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** TL-2: withdraw an open material request, after a confirmation. */
+export function WithdrawMaterialButton({ requestId, label }: { requestId: string; label: string }) {
+  const [state, action, pending] = useActionState<ScheduleState, FormData>(withdrawMaterialAction, {});
+  const [open, setOpen] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  return (
+    <form ref={form} action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="requestId" value={requestId} />
+      <Result state={state} />
+      <Button
+        type="button"
+        variant="secondary"
+        inactive={pending}
+        onClick={() => setOpen(true)}
+        aria-label={`Withdraw material request: ${label}`}
+        className="self-start"
+      >
+        Withdraw request
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title="Withdraw this material request?"
+        confirmLabel="Withdraw"
+        cancelLabel="Keep it"
+        onCancel={() => setOpen(false)}
+        onConfirm={() => {
+          setOpen(false);
+          form.current?.requestSubmit();
+        }}
+      >
+        {label}. The parent no longer needs to answer it.
+      </ConfirmDialog>
     </form>
   );
 }

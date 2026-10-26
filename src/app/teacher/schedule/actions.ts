@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
+import { requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
 import { setMeetingLink } from '@/server/meetingLinks';
 import { getRealSession } from '@/server/session';
 
@@ -83,4 +84,39 @@ export async function meetingLinkAction(_prev: ScheduleState, fd: FormData): Pro
   }
   if (r.reason === 'not_allowed') return back('link_not_allowed');
   return back('closed');
+}
+
+/**
+ * TL-2: ask the parents for material for this lesson: one of the lesson's requested chapters, or a
+ * description, with an optional note. The server and the database check the lesson, the link and
+ * the limit of five open requests again. The parents get an in-app notice only.
+ */
+export async function requestMaterialAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const what = str(fd, 'what');
+  const r = await requestMaterial(db(), id, {
+    lessonId: str(fd, 'lessonId'),
+    position: what === 'other' ? null : what,
+    description: what === 'other' ? str(fd, 'description') : null,
+    note: str(fd, 'note'),
+  });
+  if (r.ok) return back('material_requested');
+  if (r.reason === 'invalid') {
+    return {
+      error:
+        what === 'other'
+          ? 'Describe what you need (up to 200 characters). The note can be up to 300 characters.'
+          : 'Choose one of the lesson’s chapters, or “Something else” and describe it.',
+    };
+  }
+  if (r.reason === 'limit')
+    return { error: 'This lesson already has 5 open requests. Withdraw one, or wait for answers.' };
+  return back('material_closed');
+}
+
+/** TL-2: withdraw an open material request (the parents' notice then shows "No longer needed"). */
+export async function withdrawMaterialAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await withdrawMaterialRequest(db(), id, str(fd, 'requestId'));
+  return back(r.ok ? 'material_withdrawn' : 'material_closed');
 }
