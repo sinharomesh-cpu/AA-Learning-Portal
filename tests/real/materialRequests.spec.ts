@@ -98,7 +98,6 @@ test('TL-2: teacher asks, parent shares or says unavailable, teacher withdraws, 
     .getByTestId('ask-material')
     .getByRole('button', { name: /^Send material request:/ })
     .click();
-  await expect(t.getByText('Material request sent.')).toBeVisible();
   await expect(card().getByTestId('material-request')).toHaveCount(2);
   await expect(card().getByTestId('material-request').first()).toContainText('Waiting for the parent');
 
@@ -167,7 +166,8 @@ test('TL-2: teacher asks, parent shares or says unavailable, teacher withdraws, 
       .getByTestId('ask-material')
       .getByRole('button', { name: /^Send material request:/ })
       .click();
-    await expect(t.getByText('Material request sent.')).toBeVisible();
+    // The banner is already there from earlier requests: wait for this request itself.
+    await expect(card().getByTestId('material-request').filter({ hasText: what })).toBeVisible();
   }
   await card()
     .getByTestId('material-request')
