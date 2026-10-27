@@ -1,4 +1,5 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import postgres from 'postgres';
+import { afterAll, describe, expect, inject, it } from 'vitest';
 import { getBookForViewer } from '@/server/books';
 import { answerLesson, cancelLesson, requestLesson } from '@/server/lessons';
 import {
@@ -512,5 +513,197 @@ describe('TL-2 decision record: the two edge cases (owner, 26 Oct 2026, 10:37 IS
     // No link to it is offered to the teacher any more.
     const v = (await materialRequestsFor(sql, { id: f.t, role: 'teacher' }, [l])).get(l) ?? [];
     expect(v.every((x) => x.sharedHref === null)).toBe(true);
+  });
+});
+
+describe('independent review (27 Oct 2026): F4 to F6 and the F3 timing case', () => {
+  it('F4: past its reply deadline a requested lesson is no longer live: no new request, no share, no "not available", and nothing is notified', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const l = await lesson(f);
+    const r = await ask(f, l);
+    const [row] = await sql<{ deadline: Date }[]>`SELECT reply_deadline AS deadline FROM lessons WHERE id = ${l}`;
+    const deadline = row!.deadline;
+    const late = new Date(deadline.getTime() + MIN); // the expiry sweep has not run yet: still 'requested'
+    expect((await sql`SELECT status FROM lessons WHERE id = ${l}`)[0]!.status).toBe('requested');
+    // The screens already say "No longer needed" at this time...
+    expect((await materialRequestsFor(sql, { id: f.parent, role: 'parent' }, [l], late)).get(l)![0]).toMatchObject({
+      status: 'no_longer_needed',
+      canAnswer: false,
+    });
+    const notices = (await sql`SELECT count(*)::int AS n FROM notifications WHERE entity_type = 'material_request'`)[0]!
+      .n;
+    // ...and now the server agrees, even if the actions are called directly.
+    expect(await shareMaterial(sql, f.parent, { requestId: r, bookId: b.id }, late)).toEqual({
+      ok: false,
+      reason: 'closed',
+    });
+    expect(await markMaterialUnavailable(sql, f.parent, { requestId: r }, late)).toEqual({
+      ok: false,
+      reason: 'closed',
+    });
+    expect(await requestMaterial(sql, f.t, { lessonId: l, description: 'Late ask' }, late)).toEqual({
+      ok: false,
+      reason: 'closed',
+    });
+    expect((await sql`SELECT status FROM material_requests WHERE lesson_id = ${l}`).map((x) => x.status)).toEqual([
+      'open',
+    ]);
+    expect((await sql`SELECT count(*)::int AS n FROM notifications WHERE entity_type = 'material_request'`)[0]!.n).toBe(
+      notices,
+    );
+    // Control: before the deadline the same share is accepted (business rule unchanged).
+    expect(await shareMaterial(sql, f.parent, { requestId: r, bookId: b.id })).toEqual({ ok: true, id: r });
+  });
+
+  it('F5: a teacher who is no longer approved, or no longer linked, cannot withdraw; on an OC-53 kept lesson they still can', async () => {
+    const f = await family();
+    const l = await lesson(f);
+    await answerLesson(sql, f.t, l, 'accept');
+    const r = await ask(f, l);
+    await sql`UPDATE teacher_profiles SET approval_status = 'changes_requested' WHERE account_id = ${f.t}`;
+    expect(await withdrawMaterialRequest(sql, f.t, r)).toEqual({ ok: false, reason: 'not_found' });
+    await sql`UPDATE teacher_profiles SET approval_status = 'approved' WHERE account_id = ${f.t}`;
+    // Link ended outside a removal (no cancellation, no kept record): not on their schedule, so no withdrawal.
+    await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now() WHERE teacher_id = ${f.t} AND student_id = ${f.child}`;
+    expect(await withdrawMaterialRequest(sql, f.t, r)).toEqual({ ok: false, reason: 'not_found' });
+    expect((await sql`SELECT status FROM material_requests WHERE id = ${r}`)[0]!.status).toBe('open');
+    // OC-53 kept lesson (EC-1): still on the removed teacher's schedule, so they may still withdraw.
+    const g = await family();
+    const kept = await lessonIn(g, 10);
+    const rk = await ask(g, kept);
+    expect(await removeTeacher(sql, g.parent, g.t)).toEqual({ ok: true });
+    expect(await withdrawMaterialRequest(sql, g.t, rk)).toEqual({ ok: true, id: rk });
+  });
+
+  it('F6: a teacher reads requests only on lessons that are on their schedule, whatever ids are sent', async () => {
+    const f = await family();
+    const l = await lesson(f);
+    await answerLesson(sql, f.t, l, 'accept');
+    const r = await ask(f, l);
+    expect(await markMaterialUnavailable(sql, f.parent, { requestId: r, note: 'Private family note' })).toMatchObject({
+      ok: true,
+    });
+    expect((await materialRequestsFor(sql, { id: f.t, role: 'teacher' }, [l])).get(l)).toHaveLength(1);
+    await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now() WHERE teacher_id = ${f.t} AND student_id = ${f.child}`;
+    // No longer linked and not kept: nothing, including the parent's typed answer.
+    expect((await materialRequestsFor(sql, { id: f.t, role: 'teacher' }, [l])).size).toBe(0);
+    // A kept lesson stays visible to its removed teacher (OC-53), as on My schedule.
+    const g = await family();
+    const kept = await lessonIn(g, 10);
+    await ask(g, kept);
+    expect(await removeTeacher(sql, g.parent, g.t)).toEqual({ ok: true });
+    expect((await materialRequestsFor(sql, { id: g.t, role: 'teacher' }, [kept])).get(kept)).toHaveLength(1);
+  });
+  // F3 (accepted limitation, owner 27 Oct 2026 18:16 IST, only once proven harmless): a parent's
+  // share and a cancellation of the same lesson at the same moment. Whichever transaction takes
+  // the request row first wins; the end state is exactly one of the two serial orders, never a
+  // mixture, and the request grants no access either way.
+  const blocked = async () => {
+    for (let i = 0; i < 200; i++) {
+      const [w] = await sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+      if (w!.n > 0) return;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    throw new Error('the second transaction never waited');
+  };
+  const raceSetup = async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const control = await book(f.parent, f.child, 'Never shared');
+    const l = await lesson(f);
+    await answerLesson(sql, f.t, l, 'accept');
+    const r = await ask(f, l);
+    const other = await ask(f, l);
+    return { f, b, control, l, r, other };
+  };
+  const finalState = async (l: string, r: string, other: string, t: string) => ({
+    lesson: (await sql`SELECT status FROM lessons WHERE id = ${l}`)[0]!.status,
+    rows: (await sql`SELECT count(*)::int AS n FROM material_requests WHERE lesson_id = ${l}`)[0]!.n,
+    request: (await sql`SELECT status, closed_by, close_reason FROM material_requests WHERE id = ${r}`)[0],
+    other: (await sql`SELECT status, closed_by, close_reason FROM material_requests WHERE id = ${other}`)[0],
+    sharedNotices: (
+      await sql`SELECT count(*)::int AS n FROM notifications
+                WHERE recipient_id = ${t} AND type = 'material_shared' AND entity_id = ${r}`
+    )[0]!.n,
+  });
+
+  it('F3, share wins the race: the end state equals "share, then cancel"; no duplicate, no lost row, no extra access', async () => {
+    const { f, b, control, l, r, other } = await raceSetup();
+    const url = inject('databaseUrl');
+    const a = postgres(url, { max: 1, onnotice: () => {} });
+    const c = postgres(url, { max: 1, onnotice: () => {} });
+    try {
+      let release!: () => void;
+      const hold = new Promise<void>((res) => (release = res));
+      let shared: unknown;
+      const share = a.begin(async (tx) => {
+        shared = await shareMaterial(tx as unknown as postgres.Sql, f.parent, { requestId: r, bookId: b.id });
+        await hold; // the share holds the request row, uncommitted
+      });
+      while (shared === undefined) await new Promise((res) => setTimeout(res, 10));
+      expect(shared).toEqual({ ok: true, id: r });
+      const cancel = cancelLesson(c, { id: f.parent, role: 'parent' }, l);
+      await blocked(); // the cancellation's close trigger waits for the request row
+      release();
+      await share;
+      expect(await cancel).toEqual({ ok: true });
+    } finally {
+      await a.end();
+      await c.end();
+    }
+    const raced = await finalState(l, r, other, f.t);
+    expect(raced).toEqual({
+      lesson: 'cancelled',
+      rows: 2,
+      request: { status: 'shared', closed_by: 'parent', close_reason: null },
+      other: { status: 'no_longer_needed', closed_by: 'aa_pro', close_reason: 'lesson_closed' },
+      sharedNotices: 1,
+    });
+    // The same two steps one after the other give exactly the same state.
+    const s2 = await raceSetup();
+    expect((await shareMaterial(sql, s2.f.parent, { requestId: s2.r, bookId: s2.b.id })).ok).toBe(true);
+    expect(await cancelLesson(sql, { id: s2.f.parent, role: 'parent' }, s2.l)).toEqual({ ok: true });
+    expect(await finalState(s2.l, s2.r, s2.other, s2.f.t)).toEqual(raced);
+    // No authorisation gained: the teacher's access to the shared book is exactly their access to a
+    // book of the same child that was never shared (OC-41 linking rule; the request adds nothing).
+    expect((await getBookForViewer(sql, f.t, b.id)) === null).toBe(
+      (await getBookForViewer(sql, f.t, control.id)) === null,
+    );
+  });
+
+  it('F3, cancellation wins the race: the share is refused as closed; nothing is shared and the teacher is told nothing', async () => {
+    const { f, b, l, r, other } = await raceSetup();
+    const url = inject('databaseUrl');
+    const a = postgres(url, { max: 1, onnotice: () => {} });
+    const c = postgres(url, { max: 1, onnotice: () => {} });
+    try {
+      let release!: () => void;
+      const hold = new Promise<void>((res) => (release = res));
+      let cancelled = false;
+      const cancel = c.begin(async (tx) => {
+        // The statement cancelLesson runs; its close trigger takes the open request rows.
+        await tx`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${l}`;
+        cancelled = true;
+        await hold;
+      });
+      while (!cancelled) await new Promise((res) => setTimeout(res, 10));
+      const share = shareMaterial(a, f.parent, { requestId: r, bookId: b.id });
+      await blocked();
+      release();
+      await cancel;
+      expect(await share).toEqual({ ok: false, reason: 'closed' });
+    } finally {
+      await a.end();
+      await c.end();
+    }
+    expect(await finalState(l, r, other, f.t)).toEqual({
+      lesson: 'cancelled',
+      rows: 2,
+      request: { status: 'no_longer_needed', closed_by: 'aa_pro', close_reason: 'lesson_closed' },
+      other: { status: 'no_longer_needed', closed_by: 'aa_pro', close_reason: 'lesson_closed' },
+      sharedNotices: 0,
+    });
   });
 });

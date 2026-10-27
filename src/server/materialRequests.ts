@@ -71,6 +71,19 @@ interface Row {
 const live = (sql: Db, now: Date) =>
   sql`((l.status = 'requested' AND l.reply_deadline > ${now}) OR (l.status = 'confirmed' AND l.ends_at > ${now}))`;
 
+/**
+ * The lesson's own teacher, while active and approved, on a lesson they may still see on My
+ * schedule: linked to the child for the subject, or kept for them under OC-53. The same rule as
+ * lessonsForTeacher, so reads (F6) and withdrawals (F5) never reach further than the schedule.
+ */
+const teacherSees = (sql: Db, teacherId: string) =>
+  sql`l.teacher_id = ${teacherId}
+      AND EXISTS (SELECT 1 FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id AND tp.approval_status = 'approved'
+                  WHERE a.id = ${teacherId} AND a.status = 'active')
+      AND (EXISTS (SELECT 1 FROM teacher_student_links k WHERE k.teacher_id = l.teacher_id
+                   AND k.student_id = l.student_id AND k.status = 'active' AND l.subject = ANY (k.subjects))
+           OR EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id))`;
+
 function toView(r: Row, viewer: 'parent' | 'teacher'): MaterialRequestView {
   const status: MaterialStatus = r.status === 'open' && !r.lesson_live ? 'no_longer_needed' : r.status;
   const visible = viewer === 'teacher' && r.status === 'shared' && r.shared_book_id !== null && r.teacher_can_view;
@@ -95,7 +108,7 @@ function toView(r: Row, viewer: 'parent' | 'teacher'): MaterialRequestView {
 
 /**
  * The requests on these lessons that this viewer may see (TL2-6): the lesson's own teacher while
- * active and approved; an active parent of the child. Anyone else gets nothing, whatever ids are
+ * active and approved and the lesson is on their schedule (teacherSees); an active parent of the child. Anyone else gets nothing, whatever ids are
  * sent. Grouped by lesson, oldest first.
  */
 export async function materialRequestsFor(
@@ -109,9 +122,7 @@ export async function materialRequestsFor(
   if (!UUID.test(viewer.id) || ids.length === 0 || viewer.role === 'student') return out;
   const who =
     viewer.role === 'teacher'
-      ? sql`l.teacher_id = ${viewer.id} AND EXISTS (
-              SELECT 1 FROM accounts a JOIN teacher_profiles tp ON tp.account_id = a.id AND tp.approval_status = 'approved'
-              WHERE a.id = ${viewer.id} AND a.status = 'active')`
+      ? teacherSees(sql, viewer.id)
       : sql`EXISTS (SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
                     WHERE g.parent_id = ${viewer.id} AND g.student_id = l.student_id AND g.status = 'active'
                       AND p.role = 'parent' AND p.status = 'active')`;
@@ -285,7 +296,10 @@ export async function requestMaterial(
       if (!f || f.teacher_id !== teacherId) return { ok: false as const, reason: 'not_found' as const };
       // The same lock 0033 takes for new requests, taken first, so the check below and the insert
       // are serialised: a double click or two tabs sending the same request create it only once.
-      await tx`SELECT 1 FROM lessons WHERE id = ${lessonId} FOR NO KEY UPDATE`;
+      const [isLive] = await tx<Array<{ ok: boolean }>>`
+        SELECT ${live(tx, now)} AS ok FROM lessons l WHERE l.id = ${lessonId} FOR NO KEY UPDATE`;
+      // The app's own rule (as on the screens): a request past its reply deadline is no longer live.
+      if (!isLive?.ok) return { ok: false as const, reason: 'closed' as const };
       const [same] = await tx`
         SELECT 1 FROM material_requests
         WHERE lesson_id = ${lessonId} AND status = 'open'
@@ -347,7 +361,9 @@ export async function shareMaterial(
       const done = await tx`
         UPDATE material_requests SET status = 'shared', closed_by = 'parent', closed_by_account = ${parentId},
                shared_book_id = ${bookId}, shared_chapter_id = ${chapterId}
-        WHERE id = ${requestId} AND status = 'open' RETURNING id`;
+        WHERE id = ${requestId} AND status = 'open'
+          AND EXISTS (SELECT 1 FROM lessons l WHERE l.id = material_requests.lesson_id AND ${live(tx, now)})
+        RETURNING id`;
       if (done.length === 0) return { ok: false as const, reason: 'closed' as const };
       const f = await facts(tx, m.lesson_id);
       if (f) await tellTeacher(tx, f, requestId, 'material_shared', now);
@@ -376,7 +392,9 @@ export async function markMaterialUnavailable(
       const done = await tx`
         UPDATE material_requests SET status = 'unavailable', closed_by = 'parent', closed_by_account = ${parentId},
                answer_note = ${note}
-        WHERE id = ${requestId} AND status = 'open' RETURNING id`;
+        WHERE id = ${requestId} AND status = 'open'
+          AND EXISTS (SELECT 1 FROM lessons l WHERE l.id = material_requests.lesson_id AND ${live(tx, now)})
+        RETURNING id`;
       if (done.length === 0) return { ok: false as const, reason: 'closed' as const };
       const f = await facts(tx, m.lesson_id);
       if (f) await tellTeacher(tx, f, requestId, 'material_unavailable', now);
@@ -399,7 +417,7 @@ export async function withdrawMaterialRequest(
     return await inTx(sql, async (tx) => {
       const [m] = await tx<Array<{ status: string }>>`
         SELECT m.status FROM material_requests m JOIN lessons l ON l.id = m.lesson_id
-        WHERE m.id = ${id} AND l.teacher_id = ${teacherId}`;
+        WHERE m.id = ${id} AND ${teacherSees(tx, teacherId)}`;
       if (!m) return { ok: false as const, reason: 'not_found' as const };
       const done = await tx`
         UPDATE material_requests SET status = 'no_longer_needed', closed_by = 'teacher', closed_by_account = ${teacherId}
