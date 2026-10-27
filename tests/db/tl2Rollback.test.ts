@@ -186,6 +186,46 @@ describe('TL-2 rollback (0033)', () => {
     expect(await counts()).toBe(before);
   });
 
+  it('re-review: the 0033 rollback, run statement by statement while a view or another table depends on material_requests, changes nothing', async () => {
+    const tl2 = async () => ({
+      ...(await objects()),
+      guards: (
+        await sql<{ t: string }[]>`
+          SELECT tgname AS t FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+          WHERE c.relname = 'material_requests' AND NOT t.tgisinternal ORDER BY 1`
+      ).map((r) => r.t),
+      notices: (
+        await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM notifications WHERE entity_type = 'material_request'`
+      )[0]!.n,
+    });
+    const revert = await readFile(
+      new URL('../../db/rollback/0033_revert_material_requests.sql', import.meta.url),
+      'utf8',
+    );
+    for (const dependent of [
+      { make: 'CREATE VIEW tl2_dependent AS SELECT id FROM material_requests', drop: 'DROP VIEW tl2_dependent' },
+      {
+        make: 'CREATE TABLE tl2_dependent (request_id uuid REFERENCES material_requests (id))',
+        drop: 'DROP TABLE tl2_dependent',
+      },
+    ]) {
+      await sql.unsafe(dependent.make);
+      try {
+        const before = await tl2();
+        expect(before.guards).toEqual(['material_requests_before_delete', 'material_requests_before_write']);
+        const rows = await counts();
+        const errors = await runEachStatement(revert);
+        expect(errors).toEqual([expect.stringMatching(/another object still depends on material_requests/)]);
+        expect(await tl2()).toEqual(before);
+        expect(await counts()).toBe(rows);
+        // Cancelling a lesson still closes its open requests (the lessons trigger is still there).
+        expect(before.lessonTriggers).toContain('lessons_close_material_requests');
+      } finally {
+        await sql.unsafe(dependent.drop);
+      }
+    }
+  });
+
   it('0033 is applied exactly once when two builds migrate at the same moment', async () => {
     const { mkdtemp, readdir, copyFile } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');

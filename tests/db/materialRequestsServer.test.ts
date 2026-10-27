@@ -599,14 +599,15 @@ describe('independent review (27 Oct 2026): F4 to F6 and the F3 timing case', ()
   // share and a cancellation of the same lesson at the same moment. Whichever transaction takes
   // the request row first wins; the end state is exactly one of the two serial orders, never a
   // mixture, and the request grants no access either way.
-  const blocked = async () => {
+  const pid = async (db: postgres.Sql) => (await db<{ p: number }[]>`SELECT pg_backend_pid() AS p`)[0]!.p;
+  /** Waits until `waiter` is blocked by `holder` specifically (not by any other lock in the database). */
+  const blocked = async (waiter: number, holder: number) => {
     for (let i = 0; i < 200; i++) {
-      const [w] = await sql<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`;
-      if (w!.n > 0) return;
+      const [w] = await sql<{ ok: boolean }[]>`SELECT ${holder}::int = ANY (pg_blocking_pids(${waiter}::int)) AS ok`;
+      if (w!.ok) return;
       await new Promise((r) => setTimeout(r, 25));
     }
-    throw new Error('the second transaction never waited');
+    throw new Error('the second transaction never waited for the first');
   };
   const raceSetup = async () => {
     const f = await family();
@@ -634,6 +635,7 @@ describe('independent review (27 Oct 2026): F4 to F6 and the F3 timing case', ()
     const url = inject('databaseUrl');
     const a = postgres(url, { max: 1, onnotice: () => {} });
     const c = postgres(url, { max: 1, onnotice: () => {} });
+    const [pa, pc] = [await pid(a), await pid(c)];
     try {
       let release!: () => void;
       const hold = new Promise<void>((res) => (release = res));
@@ -645,7 +647,7 @@ describe('independent review (27 Oct 2026): F4 to F6 and the F3 timing case', ()
       while (shared === undefined) await new Promise((res) => setTimeout(res, 10));
       expect(shared).toEqual({ ok: true, id: r });
       const cancel = cancelLesson(c, { id: f.parent, role: 'parent' }, l);
-      await blocked(); // the cancellation's close trigger waits for the request row
+      await blocked(pc, pa); // the cancellation's close trigger waits for the share's request row
       release();
       await share;
       expect(await cancel).toEqual({ ok: true });
@@ -678,6 +680,7 @@ describe('independent review (27 Oct 2026): F4 to F6 and the F3 timing case', ()
     const url = inject('databaseUrl');
     const a = postgres(url, { max: 1, onnotice: () => {} });
     const c = postgres(url, { max: 1, onnotice: () => {} });
+    const [pa, pc] = [await pid(a), await pid(c)];
     try {
       let release!: () => void;
       const hold = new Promise<void>((res) => (release = res));
@@ -690,7 +693,7 @@ describe('independent review (27 Oct 2026): F4 to F6 and the F3 timing case', ()
       });
       while (!cancelled) await new Promise((res) => setTimeout(res, 10));
       const share = shareMaterial(a, f.parent, { requestId: r, bookId: b.id });
-      await blocked();
+      await blocked(pa, pc); // the share waits for the cancellation's lock on the request row
       release();
       await cancel;
       expect(await share).toEqual({ ok: false, reason: 'closed' });

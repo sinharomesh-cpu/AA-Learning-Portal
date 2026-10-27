@@ -22,20 +22,35 @@
 -- at the first error (psql --single-transaction -v ON_ERROR_STOP=1). Before using it on the shared
 -- test database, take a Neon restore point or branch.
 
--- The lessons trigger goes first (it writes to material_requests, so it must never outlive the
--- table); then the table, which also drops its two guard triggers, so the guards can never be
--- removed while the table stays.
-DROP TRIGGER lessons_close_material_requests ON lessons;
-DROP TABLE material_requests;
-DROP FUNCTION lessons_close_material_requests();
-DROP FUNCTION material_requests_close_ended(int);
-DROP FUNCTION material_requests_before_delete();
-DROP FUNCTION material_requests_before_write();
-DROP FUNCTION material_requests_teacher_can_view(uuid, uuid, text, uuid);
-DROP FUNCTION material_requests_parent_ok(uuid, uuid);
+-- The whole rollback is ONE statement (a DO block), so it is atomic however it is run: by the
+-- runner, with psql -1, or with plain psql -f. It either completes or changes nothing.
+DO $$
+BEGIN
+  -- Anything else that depends on material_requests (another table's foreign key, or a view)
+  -- would make DROP TABLE fail; refuse with a clear message before anything is changed.
+  IF EXISTS (SELECT 1 FROM pg_constraint
+             WHERE contype = 'f' AND confrelid = 'material_requests'::regclass
+               AND conrelid <> 'material_requests'::regclass)
+     OR EXISTS (SELECT 1 FROM pg_depend d JOIN pg_rewrite r ON r.oid = d.objid
+                WHERE d.classid = 'pg_rewrite'::regclass AND d.refobjid = 'material_requests'::regclass
+                  AND r.ev_class <> 'material_requests'::regclass) THEN
+    RAISE EXCEPTION 'another object still depends on material_requests: remove it first';
+  END IF;
 
-DELETE FROM notifications WHERE entity_type = 'material_request';
-ALTER TABLE notifications DROP CONSTRAINT notifications_entity_type_check;
-ALTER TABLE notifications ADD CONSTRAINT notifications_entity_type_check CHECK (entity_type IN (
-  'enquiry', 'link_request', 'rate_proposal', 'resource_share', 'listing', 'learning_package', 'teacher_profile',
-  'assignment', 'lesson'));
+  -- The lessons trigger first (it writes to material_requests); then the table, which also drops
+  -- its two guard triggers.
+  DROP TRIGGER lessons_close_material_requests ON lessons;
+  DROP TABLE material_requests;
+  DROP FUNCTION lessons_close_material_requests();
+  DROP FUNCTION material_requests_close_ended(int);
+  DROP FUNCTION material_requests_before_delete();
+  DROP FUNCTION material_requests_before_write();
+  DROP FUNCTION material_requests_teacher_can_view(uuid, uuid, text, uuid);
+  DROP FUNCTION material_requests_parent_ok(uuid, uuid);
+
+  DELETE FROM notifications WHERE entity_type = 'material_request';
+  ALTER TABLE notifications DROP CONSTRAINT notifications_entity_type_check;
+  ALTER TABLE notifications ADD CONSTRAINT notifications_entity_type_check CHECK (entity_type IN (
+    'enquiry', 'link_request', 'rate_proposal', 'resource_share', 'listing', 'learning_package', 'teacher_profile',
+    'assignment', 'lesson'));
+END $$;
