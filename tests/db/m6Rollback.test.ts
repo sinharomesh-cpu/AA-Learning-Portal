@@ -65,6 +65,12 @@ describe('M6 rollback (0028)', () => {
       VALUES (${p!.id}, 'Sample', 'maths', 'single_pdf', 'chapters', ${bookFile}, 10) RETURNING id`;
     await sql`INSERT INTO book_chapters (book_id, number, title, first_page, last_page) VALUES (${b!.id}, 1, 'One', 1, 5)`;
 
+    // TL-1 (0032) refers to book_chapters, so it is reverted first.
+    const revertTl1 = await readFile(
+      new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin((tx) => tx.unsafe(revertTl1));
     const revert = await readFile(new URL('../../db/rollback/0028_revert_books.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(revert));
     expect(await tables()).toEqual([]);

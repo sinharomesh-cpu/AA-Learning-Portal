@@ -1,9 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
-import { CHOICE_CARD, OVERLAY_INPUT } from '@/components/ui/styles';
+import { CHOICE_CARD, INPUT, OVERLAY_INPUT } from '@/components/ui/styles';
 import { requestLessonAction, type LessonFormState } from '../calendar/actions';
 
 export interface TimeOption {
@@ -17,7 +17,20 @@ export interface TimeOption {
   agreed: boolean;
 }
 
-/** Step 3 of Book a teacher: one start time, then "Send request" (CR-17 PR 2). */
+/** TL-1: one chapter the parent may name (from chaptersForRequest). */
+export interface ChapterOption {
+  id: string;
+  label: string;
+}
+
+const MAX_CHAPTERS = 5;
+const MAX_TOPIC = 120;
+
+/**
+ * Step 3 of Book a teacher: one start time, then "Send request" (CR-17 PR 2). TL-1 (D-TLS-6,
+ * D-TLS-7): optionally, up to five chapters from the family's books shared with this child in this
+ * subject, or one topic, never both. Choosing nothing sends exactly today's request.
+ */
 export function RequestForm({
   childId,
   teacherId,
@@ -26,6 +39,9 @@ export function RequestForm({
   dayName,
   options,
   summary,
+  chapters,
+  childName,
+  subjectName,
 }: {
   childId: string;
   teacherId: string;
@@ -34,8 +50,15 @@ export function RequestForm({
   dayName: string;
   options: TimeOption[];
   summary: string;
+  chapters: ChapterOption[];
+  childName: string;
+  subjectName: string;
 }) {
   const [state, action, pending] = useActionState<LessonFormState, FormData>(requestLessonAction, {});
+  const [picked, setPicked] = useState<string[]>([]);
+  const [topic, setTopic] = useState('');
+  const toggle = (id: string, on: boolean) =>
+    setPicked((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id)));
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="childId" value={childId} />
@@ -62,6 +85,64 @@ export function RequestForm({
             </li>
           ))}
         </ul>
+      </fieldset>
+      <fieldset className="m-0 flex flex-col gap-3 border-0 p-0" aria-describedby="cover-help">
+        <legend className="mb-1 text-[17px] font-bold">What should the lesson cover? (optional)</legend>
+        <p id="cover-help" className="m-0 text-sm leading-5 text-on-surface-variant">
+          {chapters.length
+            ? `Choose up to ${MAX_CHAPTERS} chapters from your books shared with ${childName} for ${subjectName}, or type a topic instead.`
+            : `None of your published books for ${subjectName} is shared with ${childName} yet. You can type a topic instead.`}{' '}
+          The teacher sees your choice with the request.
+        </p>
+        {chapters.length ? (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Chapters">
+            {chapters.map((c) => {
+              const on = picked.includes(c.id);
+              const blocked = !on && (picked.length >= MAX_CHAPTERS || topic.trim() !== '');
+              return (
+                <li key={c.id}>
+                  <label
+                    className={`flex min-h-12 items-center gap-3 rounded-[16px] border border-card-border px-4 py-2 text-[15px] leading-[22px] ${
+                      blocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="chapter"
+                      value={c.id}
+                      checked={on}
+                      disabled={blocked}
+                      onChange={(e) => toggle(c.id, e.target.checked)}
+                      className="h-[22px] w-[22px] shrink-0 accent-primary"
+                    />
+                    <span className="break-words">{c.label}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="lesson-topic" className="text-[15px] font-bold">
+            {chapters.length ? 'Or a topic' : 'Topic'}
+          </label>
+          <input
+            id="lesson-topic"
+            name="topic"
+            value={topic}
+            maxLength={MAX_TOPIC}
+            disabled={picked.length > 0}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="For example: fractions revision"
+            className={`${INPUT} min-h-12`}
+            aria-describedby="topic-help"
+          />
+          <span id="topic-help" className="text-sm leading-5 text-on-surface-variant">
+            {picked.length > 0
+              ? `${picked.length} of ${MAX_CHAPTERS} chapters chosen. Clear them to type a topic instead.`
+              : `Up to ${MAX_TOPIC} characters.`}
+          </span>
+        </div>
       </fieldset>
       <p className="m-0 rounded-[18px] bg-surface-container-low px-4 py-3 text-[15px] leading-[22px]">{summary}</p>
       <div>

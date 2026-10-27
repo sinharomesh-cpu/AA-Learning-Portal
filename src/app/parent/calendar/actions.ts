@@ -41,6 +41,8 @@ const REQUEST_TEXT: Record<RequestReason, string> = {
   limit: 'You already have 10 open lesson requests. Wait for answers, or withdraw one, before sending another.',
   price_changed: 'The price has changed since this page opened. Check the new price below and send the request again.',
   no_rate: 'This teacher hasn’t set an hourly rate yet, so lessons can’t be requested.',
+  chapters:
+    'Choose up to 5 chapters from the list, or type one topic (up to 120 characters), not both. A chapter may no longer be shared: check the list again.',
 };
 
 /** "Send request" on Book a teacher. */
@@ -56,6 +58,9 @@ export async function requestLessonAction(_prev: LessonFormState, fd: FormData):
     priceMinor: priceMinor ?? '',
     currency: currency ?? '',
     basis: basis ?? '',
+    // TL-1: optional chapters (checkboxes) or one topic; the server and the database check them.
+    chapterIds: fd.getAll('chapter').filter((v): v is string => typeof v === 'string'),
+    topic: str(fd, 'topic'),
   });
   if (r.ok) {
     revalidatePath('/parent/calendar');
