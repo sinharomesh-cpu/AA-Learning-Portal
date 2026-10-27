@@ -4,8 +4,10 @@ import { FormMessage } from '@/components/forms/FormMessage';
 import { joinRefusalText } from '@/components/lessons/joinMessages';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
+import { MaterialRequestList } from '@/components/lessons/MaterialRequestList';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
+import { SUBJECTS } from '@/fixtures/subjects';
 import { clockNow } from '@/lib/clock';
 import { formatLessonTime } from '@/lib/lessonDisplay';
 import { formatZoneName } from '@/lib/time';
@@ -13,8 +15,10 @@ import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { type LessonItem, lessonsForParent } from '@/server/lessons';
+import { materialRequestsFor, type ShareOption, shareOptions } from '@/server/materialRequests';
 import { rolePlaceholder } from '@/server/placeholder';
 import { ParentLessonButton } from './LessonForms';
+import { MaterialAnswerForm } from './MaterialForms';
 
 export const metadata: Metadata = { title: 'Family calendar' };
 export const dynamic = 'force-dynamic';
@@ -24,6 +28,13 @@ const DONE: Record<string, { tone: 'success' | 'info'; text: string }> = {
   cancelled: { tone: 'success', text: 'Lesson cancelled. The teacher has been told.' },
   expired: { tone: 'info', text: 'That request had already expired.' },
   closed: { tone: 'info', text: 'That lesson or request is no longer open.' },
+  // TL-2: material requests. Notices are in AA Pro only: no email or WhatsApp is sent.
+  material_shared: { tone: 'success', text: 'Shared. The teacher sees it in AA Pro, view only.' },
+  material_unavailable: {
+    tone: 'success',
+    text: 'Saved. The teacher sees that it isn’t available. The lesson doesn’t change.',
+  },
+  material_closed: { tone: 'info', text: 'That material request is no longer open.' },
 };
 
 const DemoPlaceholder = rolePlaceholder(
@@ -51,6 +62,17 @@ export default async function FamilyCalendarPage({
   const tz = access.viewer.timeZone;
   const now = clockNow();
   const all = await lessonsForParent(db(), access.viewer.id, now);
+  // TL-2: the teachers' material requests on these lessons, and what this parent may share for each
+  // open one (only books the lesson's teacher can already view; checked again on sharing).
+  const materials = await materialRequestsFor(
+    db(),
+    { id: access.viewer.id, role: 'parent' },
+    all.map((l) => l.id),
+    now,
+  );
+  const choices = new Map<string, ShareOption[]>();
+  for (const list of materials.values())
+    for (const r of list) if (r.canAnswer) choices.set(r.id, await shareOptions(db(), access.viewer.id, r.id));
   const waiting = all.filter((l) => l.status === 'requested');
   const upcoming = all.filter((l) => l.status === 'confirmed' && l.endsAt > now);
   const past = all.filter((l) => !waiting.includes(l) && !upcoming.includes(l)).reverse();
@@ -100,7 +122,23 @@ export default async function FamilyCalendarPage({
                 </>
               ) : null
             }
-          />
+          >
+            <MaterialRequestList
+              lessonId={l.id}
+              requests={materials.get(l.id) ?? []}
+              viewer="parent"
+              actions={(r) =>
+                r.canAnswer ? (
+                  <MaterialAnswerForm
+                    requestId={r.id}
+                    label={`${r.what}, ${describe(l)}`}
+                    choices={choices.get(r.id) ?? []}
+                    noneText={`None of your published ${SUBJECTS[l.subject].name} books is shared with ${l.childName} yet.`}
+                  />
+                ) : null
+              }
+            />
+          </LessonCard>
         </li>
       ))}
     </ul>

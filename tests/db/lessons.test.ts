@@ -32,9 +32,10 @@ const sql = testDb();
 afterAll(() => sql.end());
 afterEach(async () => {
   // Fixtures never leave the table's triggers off (they use a session setting, not ALTER TABLE).
+  // Four since TL-2 (0033 adds lessons_close_material_requests; 0029's and 0030's are unchanged).
   const t = await sql<{ e: string }[]>`
     SELECT tgenabled AS e FROM pg_trigger WHERE tgrelid = 'lessons'::regclass AND NOT tgisinternal`;
-  expect(t.map((r) => r.e)).toEqual(['O', 'O', 'O']);
+  expect(t.map((r) => r.e)).toEqual(['O', 'O', 'O', 'O']);
 });
 
 const MIN = 60_000;

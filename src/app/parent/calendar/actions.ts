@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { cancelLesson, requestLesson, type RequestReason, withdrawLesson } from '@/server/lessons';
+import { markMaterialUnavailable, shareMaterial } from '@/server/materialRequests';
 import { getRealSession } from '@/server/session';
 
 /**
@@ -93,4 +94,33 @@ export async function cancelLessonAction(_prev: LessonFormState, fd: FormData): 
   if (r.ok) return back('cancelled');
   if (r.reason === 'too_late') return { error: 'Lessons can’t be cancelled within 30 minutes of the start.' };
   return back('closed');
+}
+
+/**
+ * TL-2: share a book (or one chapter of it) for the teacher's material request. Only books the
+ * lesson's teacher can already view are offered; the server and the database check that again, so
+ * sharing never gives the teacher anything new (safeguard 1). The teacher gets an in-app notice.
+ */
+export async function shareMaterialAction(_prev: LessonFormState, fd: FormData): Promise<LessonFormState> {
+  const id = await parentId();
+  const [bookId, chapterId] = str(fd, 'material').split('|');
+  if (!bookId) return { error: 'Choose a book or chapter to share.' };
+  const r = await shareMaterial(db(), id, { requestId: str(fd, 'requestId'), bookId, chapterId: chapterId ?? '' });
+  if (r.ok) return back('material_shared');
+  if (r.reason === 'not_shareable') {
+    return {
+      error:
+        'That book can’t be shared for this lesson any more. Check the list: only published books shared with your child in this subject can be used.',
+    };
+  }
+  return back('material_closed');
+}
+
+/** TL-2: say the material isn't available, with an optional note for the teacher. */
+export async function unavailableMaterialAction(_prev: LessonFormState, fd: FormData): Promise<LessonFormState> {
+  const id = await parentId();
+  const r = await markMaterialUnavailable(db(), id, { requestId: str(fd, 'requestId'), note: str(fd, 'note') });
+  if (r.ok) return back('material_unavailable');
+  if (r.reason === 'invalid') return { error: 'The note can be up to 300 characters.' };
+  return back('material_closed');
 }

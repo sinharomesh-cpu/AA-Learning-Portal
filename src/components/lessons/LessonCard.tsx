@@ -70,11 +70,14 @@ export function LessonCard({
   viewer,
   timeZone,
   actions,
+  children,
 }: {
   lesson: LessonItem;
   viewer: 'parent' | 'teacher';
   timeZone: string;
   actions?: ReactNode;
+  /** TL-2: the lesson's material requests and their forms, under the lesson details. */
+  children?: ReactNode;
 }) {
   const status = lessonStatusText(l, viewer);
   const subject = SUBJECTS[l.subject].name;
@@ -157,6 +160,7 @@ export function LessonCard({
               Lessons can’t be cancelled within 30 minutes of the start.
             </p>
           ) : null}
+          {children}
         </div>
       </div>
       {actions ? <div className="flex shrink-0 flex-col gap-2 md:items-end">{actions}</div> : null}

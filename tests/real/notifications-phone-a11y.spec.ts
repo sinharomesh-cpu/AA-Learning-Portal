@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, type Request, test } from '@playwright/test';
 import {
   bell,
   bellCount,
@@ -162,6 +162,18 @@ test('AC-41, AC-61: keyboard, focus, names, live region, reduced motion and axe 
 }, info) => {
   const phone = info.project.name === 'phone';
   const { teacher } = await busyTeacher();
+  // D-T2-1: Server Actions (bell refresh, panel list) still in flight, so the motion check below
+  // runs only once the panel has stopped changing.
+  let inflight = 0;
+  const isAction = (r: Request) => r.method() === 'POST' && !!r.headers()['next-action'];
+  page.on('request', (r) => {
+    if (isAction(r)) inflight += 1;
+  });
+  const ended = (r: Request) => {
+    if (isAction(r)) inflight -= 1;
+  };
+  page.on('requestfinished', ended);
+  page.on('requestfailed', ended);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await signInAs(page, teacher.email);
@@ -213,7 +225,27 @@ test('AC-41, AC-61: keyboard, focus, names, live region, reduced motion and axe 
   await expect(rows(page).first()).toContainText('Unread');
   await expect(rows(page).first()).toContainText('Needs your reply');
   // No animation with reduced motion (AX-13); no text under 12 px (AX-03).
-  expect(await dlg.evaluate((d) => d.getAnimations({ subtree: true }).length)).toBe(0);
+  // D-T2-1 (test-only): settle before counting. First, no bell refresh or panel request may still be
+  // in flight (a late response re-renders the panel). Then transitions that the last Tab started
+  // (0.01 ms under reduced motion) are allowed to complete. Any perceptible animation (longer than
+  // 1 ms in total, or endless) fails at once, and nothing at all may remain afterwards.
+  await expect.poll(() => inflight, { message: 'a bell refresh or panel request is still in flight' }).toBe(0);
+  const motion = await dlg.evaluate(async (d) => {
+    const describe = (a: Animation) => {
+      const t = a.effect?.getComputedTiming();
+      const el = (a.effect as KeyframeEffect | null)?.target as Element | null;
+      return `${a.constructor.name} ${(a as Animation & { transitionProperty?: string }).transitionProperty ?? ''} ${t?.duration}ms x${t?.iterations} on ${el?.tagName ?? '?'}[${el?.getAttribute('aria-label') ?? ''}]`;
+    };
+    const all = d.getAnimations({ subtree: true });
+    const perceptible = all.filter((a) => {
+      const t = a.effect?.getComputedTiming();
+      const total = Number(t?.duration ?? 0) * Number(t?.iterations ?? 1);
+      return !t || !Number.isFinite(total) || total > 1;
+    });
+    await Promise.all(all.filter((a) => !perceptible.includes(a)).map((a) => a.finished.catch(() => undefined)));
+    return { perceptible: perceptible.map(describe), remaining: d.getAnimations({ subtree: true }).map(describe) };
+  });
+  expect(motion).toEqual({ perceptible: [], remaining: [] });
   const small = await dlg.evaluate((d) =>
     [...d.querySelectorAll<HTMLElement>('*')]
       .filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim()))

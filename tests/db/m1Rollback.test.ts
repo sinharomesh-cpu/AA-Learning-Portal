@@ -64,8 +64,17 @@ describe('M1 rollback (0029)', () => {
     await note('lesson', lesson);
     await note('assignment', lesson);
 
-    // Rollbacks run newest first: TL-1 (0032), M3 (0031) and M2 (0030) depend on lessons, so they
+    // Rollbacks run newest first: TL-2 (0033), TL-1 (0032), M3 (0031) and M2 (0030) depend on lessons, so they
     // are reverted before M1.
+    const revertTl2 = await readFile(
+      new URL('../../db/rollback/0033_revert_material_requests.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin((tx) => tx.unsafe(revertTl2));
+    // With TL-2 reverted, the list is 0029's own again: that is what re-applying 0029 must restore.
+    const before29 = await entityCheck();
+    expect(before29).toContain("'lesson'");
+    expect(before29).not.toContain('material_request');
     const revertTl1 = await readFile(
       new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url),
       'utf8',
@@ -90,7 +99,7 @@ describe('M1 rollback (0029)', () => {
 
     const forward = await readFile(new URL('../../db/migrations/0029_lessons.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(forward));
-    expect(await entityCheck()).toBe(before);
+    expect(await entityCheck()).toBe(before29);
     expect(await sql`SELECT 1 FROM information_schema.tables WHERE table_name = 'lessons'`).toHaveLength(1);
   });
 });

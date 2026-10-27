@@ -163,6 +163,20 @@ export async function mayStillSee(sql: Db, v: NotificationViewer, n: StoredNotif
       // CR-17 PR 7: a child sees only the reminder for their own lesson.
       if (v.role === 'student') return one(sql`SELECT 1 FROM lessons WHERE id = ${id} AND student_id = ${v.id}`);
       return false;
+    case 'material_request':
+      // TL-2 (TL2-6): an active parent of the lesson's child; the lesson's own teacher. Never the child.
+      if (v.role === 'parent') {
+        return one(sql`
+          SELECT 1 FROM material_requests m JOIN lessons l ON l.id = m.lesson_id
+          JOIN guardian_links g ON g.student_id = l.student_id AND g.parent_id = ${v.id} AND g.status = 'active'
+          WHERE m.id = ${id}`);
+      }
+      if (v.role === 'teacher') {
+        return one(sql`
+          SELECT 1 FROM material_requests m JOIN lessons l ON l.id = m.lesson_id
+          WHERE m.id = ${id} AND l.teacher_id = ${v.id}`);
+      }
+      return false;
     case 'listing':
       return v.role === 'teacher' && one(sql`SELECT 1 FROM teacher_listings WHERE id = ${id} AND teacher_id = ${v.id}`);
     case 'learning_package':
@@ -236,6 +250,18 @@ export async function actionLabel(
       if (l.status === 'requested') return l.overdue ? 'No longer needed' : 'Needs your reply';
       if (l.status === 'confirmed') return l.outcome ? 'Done' : 'Needs your reply';
       if (l.status === 'declined' && l.closed_by === 'teacher') return 'Done';
+      return 'No longer needed';
+    }
+    case 'material_request': {
+      // TL-2: the parents' "Material requested" notice: open on a live lesson = needs a reply;
+      // shared or unavailable = done; withdrawn, closed with its lesson, or the lesson ended = no longer needed.
+      const [m] = await sql<Array<{ status: string; live: boolean }>>`
+        SELECT m.status,
+               ((l.status = 'requested' AND l.reply_deadline > ${now}) OR (l.status = 'confirmed' AND l.ends_at > ${now})) AS live
+        FROM material_requests m JOIN lessons l ON l.id = m.lesson_id WHERE m.id = ${id}`;
+      if (!m || v.role !== 'parent') return 'No longer needed';
+      if (m.status === 'open') return m.live ? 'Needs your reply' : 'No longer needed';
+      if (m.status === 'shared' || m.status === 'unavailable') return 'Done';
       return 'No longer needed';
     }
     case 'learning_package': {

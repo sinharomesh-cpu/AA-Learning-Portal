@@ -4,6 +4,7 @@ import { FormMessage } from '@/components/forms/FormMessage';
 import { joinRefusalText } from '@/components/lessons/joinMessages';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
+import { MaterialRequestList } from '@/components/lessons/MaterialRequestList';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
 import { SUBJECTS } from '@/fixtures/subjects';
@@ -14,8 +15,16 @@ import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { type LessonItem, lessonsForTeacher } from '@/server/lessons';
+import { materialRequestsFor } from '@/server/materialRequests';
 import { rolePlaceholder } from '@/server/placeholder';
-import { AnswerButtons, MeetingLinkForm, OutcomeButtons, TeacherCancelButton } from './ScheduleForms';
+import {
+  AnswerButtons,
+  AskForMaterialForm,
+  MeetingLinkForm,
+  OutcomeButtons,
+  TeacherCancelButton,
+  WithdrawMaterialButton,
+} from './ScheduleForms';
 
 export const metadata: Metadata = { title: 'My schedule' };
 export const dynamic = 'force-dynamic';
@@ -37,6 +46,17 @@ const DONE: Record<string, { tone: 'success' | 'info' | 'warning'; text: string 
     text: 'Meeting link saved. The family has been told; the link itself is not shown to anyone.',
   },
   link_same: { tone: 'info', text: 'That is the link already saved for this lesson.' },
+  // TL-2: material requests (in-app notices only).
+  material_requested: {
+    tone: 'success',
+    text: 'Material request sent to the parent. They see it in AA Pro; no email or WhatsApp is sent.',
+  },
+  material_duplicate: {
+    tone: 'info',
+    text: 'That material is already requested for this lesson and waiting for the parent, so nothing new was sent.',
+  },
+  material_withdrawn: { tone: 'success', text: 'Material request withdrawn.' },
+  material_closed: { tone: 'info', text: 'That lesson or material request is no longer open.' },
   link_not_allowed: {
     tone: 'warning',
     text: 'The parent hasn’t allowed your meeting links for this child, so the link wasn’t saved.',
@@ -68,6 +88,13 @@ export default async function TeacherSchedulePage({
   const tz = access.viewer.timeZone;
   const now = clockNow();
   const all = await lessonsForTeacher(db(), access.viewer.id, now);
+  // TL-2: material requests on these lessons that this teacher may see (checked again on the server).
+  const materials = await materialRequestsFor(
+    db(),
+    { id: access.viewer.id, role: 'teacher' },
+    all.map((l) => l.id),
+    now,
+  );
   const requests = all.filter((l) => l.canAnswer);
   const outcome = all.filter((l) => l.needsOutcome);
   const upcoming = all.filter((l) => l.status === 'confirmed' && l.endsAt > now);
@@ -79,7 +106,26 @@ export default async function TeacherSchedulePage({
     <ul className="m-0 flex list-none flex-col gap-4 p-0">
       {items.map((l) => (
         <li key={l.id}>
-          <LessonCard lesson={l} viewer="teacher" timeZone={tz} actions={actions(l)} />
+          <LessonCard lesson={l} viewer="teacher" timeZone={tz} actions={actions(l)}>
+            <MaterialRequestList
+              lessonId={l.id}
+              requests={materials.get(l.id) ?? []}
+              viewer="teacher"
+              actions={(r) =>
+                r.canWithdraw ? <WithdrawMaterialButton requestId={r.id} label={`${r.what}, ${describe(l)}`} /> : null
+              }
+            />
+            {/* TL2-2: requested or confirmed lessons that haven't ended; not lessons kept under OC-53. */}
+            {(l.status === 'requested' || l.status === 'confirmed') && !l.ended && !l.kept ? (
+              <AskForMaterialForm
+                // A new request changes the key, so the form starts again closed and empty.
+                key={`${l.id}:${(materials.get(l.id) ?? []).map((r) => r.id).join(',')}`}
+                lessonId={l.id}
+                label={describe(l)}
+                chapters={l.chapters}
+              />
+            ) : null}
+          </LessonCard>
         </li>
       ))}
     </ul>

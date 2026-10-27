@@ -16,7 +16,9 @@ import { greeting } from '@/lib/localTime';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { isDemoMode } from '@/server/demo';
+import { db } from '@/server/db/client';
 import { familyChildren } from '@/server/family';
+import { openMaterialRequestCount } from '@/server/materialRequests';
 
 export const metadata: Metadata = { title: 'Family home' };
 
@@ -58,6 +60,8 @@ export default async function ParentHomePage() {
         .flatMap((k) => k.lessons.map((l) => ({ ...l, childName: k.name })))
         .filter((l) => Date.parse(l.startIso) < now.getTime() + 7 * 24 * 60 * 60 * 1000)
         .sort((a, b) => a.startIso.localeCompare(b.startIso));
+  // TL-2 (owner direction 23:06 IST): teachers' open material requests waiting for this parent.
+  const materialsWaiting = isDemoMode() ? 0 : await openMaterialRequestCount(db(), parentId, now);
   const resources = familyResources(parentId);
   const notify = notificationSummary(parentId);
 
@@ -79,6 +83,23 @@ export default async function ParentHomePage() {
           </LinkButton>
         </div>
       </div>
+
+      {materialsWaiting ? (
+        <Card
+          className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5"
+          data-testid="materials-requested"
+        >
+          <p className="m-0 text-body-md">
+            <strong>
+              {materialsWaiting === 1
+                ? 'A teacher asked you for material for a lesson.'
+                : `Teachers asked you for material for lessons: ${materialsWaiting} requests are waiting.`}
+            </strong>{' '}
+            Share a book or chapter, or say it isn’t available.
+          </p>
+          <LinkButton href="/parent/calendar">Review requests</LinkButton>
+        </Card>
+      ) : null}
 
       <section aria-labelledby="kids" className="flex flex-col gap-3">
         <h2 id="kids" className="text-[22px] font-bold leading-7">

@@ -110,7 +110,13 @@ describe('TL-1 rollback (0032)', () => {
     const migrated = (await sql<{ name: string }[]>`SELECT name FROM schema_migrations ORDER BY name`).map(
       (r) => r.name,
     );
-    expect(migrated.at(-1)).toBe('0032_lesson_chapters.sql');
+    expect(migrated.slice(-2)).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
+    // TL-2 (0033) refers to lesson_chapters, so it is reverted first (and applied again below).
+    const revertTl2 = await readFile(
+      new URL('../../db/rollback/0033_revert_material_requests.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin((tx) => tx.unsafe(revertTl2));
 
     const revert = await readFile(
       new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url),
@@ -131,6 +137,11 @@ describe('TL-1 rollback (0032)', () => {
 
     const forward = await readFile(new URL('../../db/migrations/0032_lesson_chapters.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(forward));
+    const forward33 = await readFile(
+      new URL('../../db/migrations/0033_material_requests.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin((tx) => tx.unsafe(forward33));
     expect(await objects()).toEqual({
       table: 1,
       functions: ['lesson_chapters_before_delete', 'lesson_chapters_before_write'],
@@ -155,18 +166,23 @@ describe('TL-1 rollback (0032)', () => {
     }
   });
 
-  it('review F1: after a revert, deleting 0032s migration record lets the runner apply the same file again', async () => {
+  it('review F1: after reverting TL-2 then TL-1, deleting both migration records lets the runner apply both files again', async () => {
+    const revertTl2 = await readFile(
+      new URL('../../db/rollback/0033_revert_material_requests.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin(async (tx) => tx.unsafe(revertTl2));
     await sql.begin(async (tx) => tx.unsafe(await revertSql()));
     expect(await guards()).toEqual({ table: 0, triggers: [], functions: [] });
     const before = await counts();
-    await sql`DELETE FROM schema_migrations WHERE name = '0032_lesson_chapters.sql'`;
-    expect(await migrate(sql)).toEqual(['0032_lesson_chapters.sql']);
+    await sql`DELETE FROM schema_migrations WHERE name IN ('0032_lesson_chapters.sql', '0033_material_requests.sql')`;
+    expect(await migrate(sql)).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
     expect(await guards()).toEqual(GUARDS);
-    const file = await readFile(new URL('../../db/migrations/0032_lesson_chapters.sql', import.meta.url), 'utf8');
-    const [row] = await sql<
-      { checksum: string }[]
-    >`SELECT checksum FROM schema_migrations WHERE name = '0032_lesson_chapters.sql'`;
-    expect(row!.checksum).toBe(createHash('sha256').update(file).digest('hex'));
+    for (const name of ['0032_lesson_chapters.sql', '0033_material_requests.sql']) {
+      const file = await readFile(new URL(`../../db/migrations/${name}`, import.meta.url), 'utf8');
+      const [row] = await sql<{ checksum: string }[]>`SELECT checksum FROM schema_migrations WHERE name = ${name}`;
+      expect(row!.checksum).toBe(createHash('sha256').update(file).digest('hex'));
+    }
     expect(await counts()).toBe(before);
     // A second run applies nothing.
     expect(await migrate(sql)).toEqual([]);
@@ -188,7 +204,7 @@ describe('TL-1 rollback (0032)', () => {
     try {
       await migrate(a, { dir: upTo31 }); // the shared test database as it is today: 0001-0031
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
-      expect([...ra, ...rb]).toEqual(['0032_lesson_chapters.sql']);
+      expect([...ra, ...rb].sort()).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
     } finally {
       await a.end();
       await b.end();
