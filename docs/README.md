@@ -2,6 +2,8 @@
 
 ## Requirements
 - `requirements/AA_Pro_FRD_v1.1.pdf` is the baseline functional requirements. It is unchanged, and its SHA-256 is in `requirements/CHECKSUMS.sha256`.
+- Change requests are in `requirements/CR-*.md`.
+- **Child Dashboard and Learning Library (S1/S9, S17/S18):** see `requirements/CR-18_Student_Subject_Library.md`, on subject cards opening subject content in the Library. **Status: analysed; implementation not authorised; owner decisions SL-D1 to SL-D5 pending.**
 
 ## G1 design and documentation milestone (`g1/`)
 | File | Content |
