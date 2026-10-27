@@ -166,18 +166,23 @@ describe('TL-1 rollback (0032)', () => {
     }
   });
 
-  it('review F1: after a revert, deleting 0032s migration record lets the runner apply the same file again', async () => {
+  it('review F1: after reverting TL-2 then TL-1, deleting both migration records lets the runner apply both files again', async () => {
+    const revertTl2 = await readFile(
+      new URL('../../db/rollback/0033_revert_material_requests.sql', import.meta.url),
+      'utf8',
+    );
+    await sql.begin(async (tx) => tx.unsafe(revertTl2));
     await sql.begin(async (tx) => tx.unsafe(await revertSql()));
     expect(await guards()).toEqual({ table: 0, triggers: [], functions: [] });
     const before = await counts();
-    await sql`DELETE FROM schema_migrations WHERE name = '0032_lesson_chapters.sql'`;
-    expect(await migrate(sql)).toEqual(['0032_lesson_chapters.sql']);
+    await sql`DELETE FROM schema_migrations WHERE name IN ('0032_lesson_chapters.sql', '0033_material_requests.sql')`;
+    expect(await migrate(sql)).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
     expect(await guards()).toEqual(GUARDS);
-    const file = await readFile(new URL('../../db/migrations/0032_lesson_chapters.sql', import.meta.url), 'utf8');
-    const [row] = await sql<
-      { checksum: string }[]
-    >`SELECT checksum FROM schema_migrations WHERE name = '0032_lesson_chapters.sql'`;
-    expect(row!.checksum).toBe(createHash('sha256').update(file).digest('hex'));
+    for (const name of ['0032_lesson_chapters.sql', '0033_material_requests.sql']) {
+      const file = await readFile(new URL(`../../db/migrations/${name}`, import.meta.url), 'utf8');
+      const [row] = await sql<{ checksum: string }[]>`SELECT checksum FROM schema_migrations WHERE name = ${name}`;
+      expect(row!.checksum).toBe(createHash('sha256').update(file).digest('hex'));
+    }
     expect(await counts()).toBe(before);
     // A second run applies nothing.
     expect(await migrate(sql)).toEqual([]);

@@ -10,14 +10,25 @@
 -- 'material_request'), which must go before the notifications list returns to 0029's values.
 -- Lessons, lesson chapters, books, chapters, assignments, links, permissions and all other
 -- notifications are untouched.
--- LEAVES BEHIND, on purpose: 0033's row in schema_migrations (the runner never re-applies it).
+-- The application reads material_requests on the teacher's schedule, the family calendar and the
+-- family home page, and its notices link to them, so this SQL must ship together with the code
+-- change that removes those reads; on its own it breaks those pages.
+-- LEAVES BEHIND, on purpose: 0033's row in schema_migrations (the runner never re-applies it). To
+-- apply 0033 again later, that row is deleted in the same approved change.
+--
+-- Use: copy this file into db/migrations under the next free number, together with the code change
+-- that removes the TL-2 reads; it then runs in the migration runner's single transaction, so it
+-- applies completely or not at all. If it is ever run by hand, run it as one transaction that stops
+-- at the first error (psql --single-transaction -v ON_ERROR_STOP=1). Before using it on the shared
+-- test database, take a Neon restore point or branch.
 
+-- The lessons trigger goes first (it writes to material_requests, so it must never outlive the
+-- table); then the table, which also drops its two guard triggers, so the guards can never be
+-- removed while the table stays.
 DROP TRIGGER lessons_close_material_requests ON lessons;
+DROP TABLE material_requests;
 DROP FUNCTION lessons_close_material_requests();
 DROP FUNCTION material_requests_close_ended(int);
-DROP TRIGGER material_requests_before_delete ON material_requests;
-DROP TRIGGER material_requests_before_write ON material_requests;
-DROP TABLE material_requests;
 DROP FUNCTION material_requests_before_delete();
 DROP FUNCTION material_requests_before_write();
 DROP FUNCTION material_requests_teacher_can_view(uuid, uuid, text, uuid);

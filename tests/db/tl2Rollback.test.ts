@@ -41,6 +41,30 @@ const counts = async () =>
                        (SELECT count(*) FROM notifications WHERE entity_type <> 'material_request'),
                        (SELECT count(*) FROM schema_migrations)) AS c`
   )[0]!.c;
+/** Runs each top-level statement on its own (as plain `psql -f` does), carrying on after errors. */
+const runEachStatement = async (text: string) => {
+  const statements: string[] = [];
+  let current = '';
+  let inBody = false;
+  for (const line of text.split('\n')) {
+    if (line.trimStart().startsWith('--') && !inBody) continue;
+    current += line + '\n';
+    if ((line.match(/\$\$/g) ?? []).length % 2 === 1) inBody = !inBody;
+    if (!inBody && line.trimEnd().endsWith(';')) {
+      statements.push(current.trim());
+      current = '';
+    }
+  }
+  const errors: string[] = [];
+  for (const st of statements) {
+    try {
+      await sql.unsafe(st);
+    } catch (e) {
+      errors.push((e as Error).message);
+    }
+  }
+  return errors;
+};
 const LESSON_TRIGGERS_0032 = ['lessons_before_insert', 'lessons_before_update', 'lessons_drop_link_on_cancel'];
 
 beforeAll(async () => {
@@ -129,6 +153,36 @@ describe('TL-2 rollback (0033)', () => {
     const forward = await readFile(new URL('../../db/migrations/0033_material_requests.sql', import.meta.url), 'utf8');
     await sql.begin((tx) => tx.unsafe(forward));
     expect(await objects()).toEqual(before0);
+    expect(await counts()).toBe(before);
+  });
+
+  it('review F1: the 0032 rollback, run statement by statement while 0033 is applied, changes nothing', async () => {
+    // The reviewer's scenario: plain psql -f (no single transaction, carries on after errors).
+    const tl1Guards = async () =>
+      (
+        await sql<{ t: string }[]>`
+          SELECT tgname AS t FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+          WHERE c.relname = 'lesson_chapters' AND NOT t.tgisinternal
+          UNION ALL SELECT proname FROM pg_proc WHERE proname LIKE 'lesson_chapters%' ORDER BY 1`
+      ).map((r) => r.t);
+    const beforeTl1 = await tl1Guards();
+    expect(beforeTl1).toEqual([
+      'lesson_chapters_before_delete',
+      'lesson_chapters_before_delete',
+      'lesson_chapters_before_write',
+      'lesson_chapters_before_write',
+    ]);
+    const beforeTl2 = await objects();
+    const before = await counts();
+    const revert = await readFile(
+      new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url),
+      'utf8',
+    );
+    const errors = await runEachStatement(revert);
+    expect(errors[0]).toMatch(/revert 0033 \(TL-2\) first/);
+    expect(errors.length).toBe(4);
+    expect(await tl1Guards()).toEqual(beforeTl1);
+    expect(await objects()).toEqual(beforeTl2);
     expect(await counts()).toBe(before);
   });
 
