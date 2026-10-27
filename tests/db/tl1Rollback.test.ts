@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +22,44 @@ const objects = async () => ({
     await sql<{ p: string }[]>`SELECT proname AS p FROM pg_proc WHERE proname LIKE 'lesson_chapters%' ORDER BY 1`
   ).map((r) => r.p),
 });
+const GUARDS = {
+  table: 1,
+  triggers: ['lesson_chapters_before_delete', 'lesson_chapters_before_write'],
+  functions: ['lesson_chapters_before_delete', 'lesson_chapters_before_write'],
+};
+const guards = async () => ({
+  ...(await objects()),
+  triggers: (
+    await sql<{ t: string }[]>`
+      SELECT tgname AS t FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE c.relname = 'lesson_chapters' AND NOT t.tgisinternal ORDER BY 1`
+  ).map((r) => r.t),
+});
+const revertSql = () => readFile(new URL('../../db/rollback/0032_revert_lesson_chapters.sql', import.meta.url), 'utf8');
+/** Runs each top-level statement on its own (as plain `psql -f` does), carrying on after errors. */
+const runEachStatement = async (text: string) => {
+  const statements: string[] = [];
+  let current = '';
+  let inBody = false;
+  for (const line of text.split('\n')) {
+    if (line.trimStart().startsWith('--') && !inBody) continue;
+    current += line + '\n';
+    if ((line.match(/\$\$/g) ?? []).length % 2 === 1) inBody = !inBody;
+    if (!inBody && line.trimEnd().endsWith(';')) {
+      statements.push(current.trim());
+      current = '';
+    }
+  }
+  const errors: string[] = [];
+  for (const s of statements) {
+    try {
+      await sql.unsafe(s);
+    } catch (e) {
+      errors.push((e as Error).message);
+    }
+  }
+  return errors;
+};
 const counts = async () =>
   (
     await sql<{ c: string }[]>`
@@ -97,6 +136,40 @@ describe('TL-1 rollback (0032)', () => {
       functions: ['lesson_chapters_before_delete', 'lesson_chapters_before_write'],
     });
     expect(await counts()).toBe(before);
+  });
+
+  it('review F1: run statement by statement, ignoring errors, while another table refers to lesson_chapters, it changes nothing', async () => {
+    // The unsafe way to run it (plain psql -f: no single transaction, carries on after errors).
+    // Whatever happens, lesson_chapters must never be left without its two guard triggers.
+    await sql`CREATE TABLE tl1_dependent (lesson_id uuid, lesson_position smallint,
+                FOREIGN KEY (lesson_id, lesson_position) REFERENCES lesson_chapters (lesson_id, position))`;
+    try {
+      const errors = await runEachStatement(await revertSql());
+      expect(errors[0]).toMatch(/revert 0033 \(TL-2\) first/);
+      // The guard refuses; DROP TABLE refuses (another table depends on it); both DROP FUNCTIONs
+      // refuse (the table's triggers still use them).
+      expect(errors.length).toBe(4);
+      expect(await guards()).toEqual(GUARDS);
+    } finally {
+      await sql`DROP TABLE tl1_dependent`;
+    }
+  });
+
+  it('review F1: after a revert, deleting 0032s migration record lets the runner apply the same file again', async () => {
+    await sql.begin(async (tx) => tx.unsafe(await revertSql()));
+    expect(await guards()).toEqual({ table: 0, triggers: [], functions: [] });
+    const before = await counts();
+    await sql`DELETE FROM schema_migrations WHERE name = '0032_lesson_chapters.sql'`;
+    expect(await migrate(sql)).toEqual(['0032_lesson_chapters.sql']);
+    expect(await guards()).toEqual(GUARDS);
+    const file = await readFile(new URL('../../db/migrations/0032_lesson_chapters.sql', import.meta.url), 'utf8');
+    const [row] = await sql<
+      { checksum: string }[]
+    >`SELECT checksum FROM schema_migrations WHERE name = '0032_lesson_chapters.sql'`;
+    expect(row!.checksum).toBe(createHash('sha256').update(file).digest('hex'));
+    expect(await counts()).toBe(before);
+    // A second run applies nothing.
+    expect(await migrate(sql)).toEqual([]);
   });
 
   it('0032 is applied exactly once when two builds migrate at the same moment', async () => {
