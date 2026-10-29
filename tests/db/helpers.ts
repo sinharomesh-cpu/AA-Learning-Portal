@@ -54,3 +54,17 @@ export async function activeLink(
   await sql`UPDATE teacher_student_links SET status = 'active', answered_at = now() WHERE id = ${row!.id}`;
   return row!.id;
 }
+
+/**
+ * A temporary copy of db/migrations holding only the files before `prefix` (e.g. '0034'), for
+ * tests that need a database as it was before a later migration.
+ */
+export async function migrationsBefore(prefix: string): Promise<string> {
+  const { mkdtemp, readdir, copyFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const src = new URL('../../db/migrations/', import.meta.url).pathname;
+  const dir = await mkdtemp(join(tmpdir(), `before-${prefix}-`));
+  for (const f of await readdir(src)) if (f < prefix) await copyFile(join(src, f), join(dir, f));
+  return dir;
+}

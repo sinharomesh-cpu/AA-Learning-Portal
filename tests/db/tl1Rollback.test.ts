@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { migrate } from '../../scripts/db-migrate.mjs';
-import { createAdult, createChild, testDb, uniq } from './helpers';
+import { createAdult, createChild, migrationsBefore, testDb, uniq } from './helpers';
 
 /**
  * TL-1 (0032) migration and rollback on throw-away databases only: apply every migration, add a
@@ -15,6 +15,7 @@ import { createAdult, createChild, testDb, uniq } from './helpers';
 const admin = testDb();
 const name = `tl1rb_${uniq()}`;
 let sql: postgres.Sql;
+let before34: string;
 
 const objects = async () => ({
   table: (await sql`SELECT 1 FROM information_schema.tables WHERE table_name = 'lesson_chapters'`).length,
@@ -73,7 +74,10 @@ beforeAll(async () => {
   const url = new URL(process.env.DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5432/postgres');
   url.pathname = `/${name}`;
   sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
-  await migrate(sql);
+  // TL-3 (0034, TL3-6 Option D) ships no rollback and closes this chain: these revert scripts apply
+  // only to a database at 0033 or earlier (they refuse once 0034 is applied; see tl3Proposals.test).
+  before34 = await migrationsBefore('0034');
+  await migrate(sql, { dir: before34 });
 });
 afterAll(async () => {
   await sql.end();
@@ -176,7 +180,7 @@ describe('TL-1 rollback (0032)', () => {
     expect(await guards()).toEqual({ table: 0, triggers: [], functions: [] });
     const before = await counts();
     await sql`DELETE FROM schema_migrations WHERE name IN ('0032_lesson_chapters.sql', '0033_material_requests.sql')`;
-    expect(await migrate(sql)).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
+    expect(await migrate(sql, { dir: before34 })).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
     expect(await guards()).toEqual(GUARDS);
     for (const name of ['0032_lesson_chapters.sql', '0033_material_requests.sql']) {
       const file = await readFile(new URL(`../../db/migrations/${name}`, import.meta.url), 'utf8');
@@ -185,7 +189,7 @@ describe('TL-1 rollback (0032)', () => {
     }
     expect(await counts()).toBe(before);
     // A second run applies nothing.
-    expect(await migrate(sql)).toEqual([]);
+    expect(await migrate(sql, { dir: before34 })).toEqual([]);
   });
 
   it('0032 is applied exactly once when two builds migrate at the same moment', async () => {
@@ -204,7 +208,11 @@ describe('TL-1 rollback (0032)', () => {
     try {
       await migrate(a, { dir: upTo31 }); // the shared test database as it is today: 0001-0031
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
-      expect([...ra, ...rb].sort()).toEqual(['0032_lesson_chapters.sql', '0033_material_requests.sql']);
+      expect([...ra, ...rb].sort()).toEqual([
+        '0032_lesson_chapters.sql',
+        '0033_material_requests.sql',
+        '0034_teacher_proposals.sql',
+      ]);
     } finally {
       await a.end();
       await b.end();
