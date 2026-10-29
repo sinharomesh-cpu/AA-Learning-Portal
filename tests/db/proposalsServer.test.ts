@@ -18,6 +18,7 @@ import {
   proposalOptions,
   proposalStart,
   proposeLesson,
+  reviewProposal,
   withdrawProposal,
 } from '@/server/proposals';
 import { closeLessonsWithoutLink } from '@/server/lessons';
@@ -701,5 +702,100 @@ describe('TL-3 server: readiness §3.2 steps 2 and 4 (busy times; material with 
     expect(busy.map((b) => b.whose)).toEqual(['you', 'child']);
     expect(JSON.stringify(busy)).not.toContain('Other');
     expect(await proposalBusyTimes(sql, t, f.child, 'science')).toEqual([]); // not linked for science
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+describe('Review proposal (owner acceptance, 29 Oct): checked and priced, nothing written', () => {
+  const input = (f: Fam, start: Date, extra: Record<string, unknown> = {}) => ({
+    childId: f.child,
+    subject: 'maths',
+    date: ymd(start),
+    time: hm(start),
+    minutes: '25',
+    ...extra,
+  });
+  const lessonsOf = async (child: string) =>
+    (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM lessons WHERE student_id = ${child}`)[0]!.n;
+
+  it('shows the child, times, the database price, chapter labels and the material request; writes nothing', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const before = await lessonsOf(f.child);
+    const r = await reviewProposal(
+      sql,
+      f.t,
+      input(f, at(0), {
+        planned: [{ chapterId: b.chapters[0], intent: 'new' }, { chapterId: b.chapters[1] }],
+        material: { description: 'Workbook pages', note: 'Any edition' },
+      }),
+    );
+    expect(r).toEqual({
+      ok: true,
+      review: {
+        timeZone: 'UTC',
+        childName: 'Kiran',
+        subject: 'maths',
+        startsAt: at(0),
+        endsAt: at(25),
+        minutes: 25,
+        price: { basis: 'listed', currency: 'INR', rateMinor: 60000, priceMinor: 25000 },
+        planned: [
+          { label: 'Maths book · 1. Fractions', intent: 'new' },
+          { label: 'Maths book · 2. Decimals', intent: null },
+        ],
+        material: { description: 'Workbook pages', note: 'Any edition' },
+      },
+    });
+    expect(await lessonsOf(f.child)).toBe(before);
+    expect(
+      await sql`SELECT 1 FROM notifications WHERE recipient_id = ${f.parent} AND type = 'lesson_proposed'`,
+    ).toHaveLength(0);
+  });
+
+  it('refuses what sending would refuse: busy time, a chapter not shared, another teacher’s child, too soon', async () => {
+    const f = await family();
+    await confirmedRequest(f, at(60));
+    expect(await reviewProposal(sql, f.t, input(f, at(75)))).toEqual({ ok: false, reason: 'busy' });
+    const other = await book(f.parent, null); // not assigned to the child
+    expect(await reviewProposal(sql, f.t, input(f, at(0), { planned: [{ chapterId: other.chapters[0] }] }))).toEqual({
+      ok: false,
+      reason: 'chapters',
+    });
+    const stranger = await teacher();
+    expect(await reviewProposal(sql, stranger, input(f, at(0)))).toEqual({ ok: false, reason: 'not_linked' });
+    const soon = new Date(Math.ceil((Date.now() + 2 * HOUR) / (5 * MIN)) * 5 * MIN);
+    expect(await reviewProposal(sql, f.t, input(f, soon))).toEqual({ ok: false, reason: 'notice' });
+  });
+
+  it('sending with the reviewed price works; a price that changed since the review is refused, nothing written', async () => {
+    const f = await family();
+    const reviewed = await reviewProposal(sql, f.t, input(f, at(0)));
+    if (!reviewed.ok) throw new Error(reviewed.reason);
+    const shown = { basis: reviewed.review.price.basis, priceMinor: String(reviewed.review.price.priceMinor) };
+    const ok = await propose(f, at(0), { minutes: '25', shown });
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect((await row(ok.id)).price_minor).toBe('25000');
+    // The teacher raises the listed rate after a second review: the old review's price is refused.
+    const again = await reviewProposal(sql, f.t, input(f, at(120)));
+    if (!again.ok) throw new Error(again.reason);
+    await sql`UPDATE teacher_listings SET hourly_rate_minor = 90000 WHERE teacher_id = ${f.t}`;
+    const before = await lessonsOf(f.child);
+    expect(
+      await propose(f, at(120), {
+        minutes: '25',
+        shown: { basis: 'listed', priceMinor: String(again.review.price.priceMinor) },
+      }),
+    ).toEqual({ ok: false, reason: 'price_changed' });
+    // A malformed or half price is refused the same way, never ignored.
+    expect(await propose(f, at(120), { minutes: '25', shown: { basis: 'listed', priceMinor: '' } })).toEqual({
+      ok: false,
+      reason: 'price_changed',
+    });
+    expect(await propose(f, at(120), { minutes: '25', shown: { basis: 'listed', priceMinor: '1e5' } })).toEqual({
+      ok: false,
+      reason: 'price_changed',
+    });
+    expect(await lessonsOf(f.child)).toBe(before);
   });
 });
