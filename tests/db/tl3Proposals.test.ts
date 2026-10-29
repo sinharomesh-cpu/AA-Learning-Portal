@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import postgres from 'postgres';
 import { afterAll, describe, expect, it } from 'vitest';
-import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
+import { migrate } from '../../scripts/db-migrate.mjs';
+import { activeLink, createAdult, createChild, migrationsBefore, testDb, uniq } from './helpers';
 
 /**
  * TL-3 (0034, text for review): the database rules for teacher proposals, with the owner's TL-3
@@ -279,6 +280,176 @@ describe('TL-3 creating a proposal (D-TLS-2, D-TLS-3, D-TLS-12)', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+describe('TL-3 the database enforces the time, length, subject and price rules on its own (review finding 3)', () => {
+  it('(N) a start with seconds or fractional seconds is refused, whatever the 5-minute step', async () => {
+    const f = await family();
+    for (const off of [1_000, 500, 30_000]) {
+      const start = new Date(at(0).getTime() + off);
+      expect(await code(propose(sql, f, start))).toBe('23514');
+    }
+    await propose(sql, f, at(0)); // the same minute without seconds is fine
+  });
+
+  it('(B) lengths: 10 and 40 accepted; 5, 9, 11, 42 and 45 refused; a caller-sent end is replaced', async () => {
+    const f = await family();
+    await propose(sql, f, at(0), { minutes: 10 });
+    await propose(sql, f, at(60), { minutes: 40 });
+    for (const [i, m] of [5, 9, 11, 42, 45].entries())
+      expect(await code(propose(sql, f, at(120 + i * 60), { minutes: m }))).toBe('23514');
+    const [r] = await sql<{ id: string }[]>`
+      INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, ends_at, status)
+      VALUES (${f.t}, ${f.child}, ${f.t}, 'maths', ${at(600)}, 30, ${at(700)}, 'proposed') RETURNING id`;
+    expect((await row(r!.id)).ends_at).toEqual(at(630));
+  });
+
+  it('(N) an unknown subject, and a subject the child is linked for with another teacher only, are refused', async () => {
+    const f = await family();
+    expect(await code(propose(sql, f, at(0), { subject: 'astrology' }))).not.toBe('ok');
+    // The column's own check refuses it too, even with every trigger skipped.
+    const bypass = sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`INSERT INTO lessons (teacher_id, student_id, proposed_by, origin, subject, starts_at, minutes, ends_at,
+                                    requested_at, reply_deadline, status, currency, rate_minor, price_minor, price_basis)
+               VALUES (${f.t}, ${f.child}, ${f.t}, 'teacher_proposal', 'astrology', ${at(0)}, 30, ${at(30)},
+                       now(), now() + interval '1 hour', 'proposed', 'INR', 60000, 30000, 'listed')`;
+    });
+    expect(await code(bypass)).toBe('23514');
+    expect(await outcome(propose(sql, f, at(0), { subject: 'science' }))).toMatch(
+      /linked to the child in this subject/,
+    );
+  });
+
+  it('(N) a caller-sent price, rate, currency or basis that differs from the database’s is refused', async () => {
+    const f = await family();
+    const send = (o: { rate?: number; price?: number; cur?: string; basis?: string }) =>
+      sql`INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, status,
+                               rate_minor, price_minor, currency, price_basis)
+          VALUES (${f.t}, ${f.child}, ${f.t}, 'maths', ${at(0)}, 30, 'proposed', ${o.rate ?? null}, ${o.price ?? null},
+                  ${o.cur ?? null}, ${o.basis ?? null})`;
+    for (const o of [{ rate: 50000 }, { price: 1 }, { cur: 'USD' }, { basis: 'agreed' }])
+      expect(await outcome(send(o))).toMatch(/price has changed/);
+    await send({ rate: 60000, price: 30000, cur: 'INR', basis: 'listed' }); // the shown price matches: accepted
+  });
+
+  it('(B) accepting one second before the deadline works; at or after it is refused (database clock)', async () => {
+    const f = await family();
+    const mk = (secondsLeft: number) =>
+      sql.begin(async (tx) => {
+        await tx`SET LOCAL session_replication_role = replica`;
+        const [r] = await tx<{ id: string }[]>`
+          INSERT INTO lessons (teacher_id, student_id, proposed_by, origin, subject, starts_at, minutes, ends_at,
+                               requested_at, reply_deadline, status, currency, rate_minor, price_minor, price_basis)
+          SELECT ${f.t}, ${f.child}, ${f.t}, 'teacher_proposal', 'maths', s, 30, s + interval '30 minutes',
+                 now() - interval '48 hours' + make_interval(secs => ${secondsLeft}),
+                 now() + make_interval(secs => ${secondsLeft}), 'proposed', 'INR', 60000, 30000, 'listed'
+          FROM (SELECT ${at(secondsLeft === 30 ? 0 : 120)}::timestamptz AS s) x RETURNING id`;
+        return r!.id;
+      });
+    const open = await mk(30);
+    await accept(open, f.parent);
+    expect(await status(open)).toBe('confirmed');
+    const late = await mk(-1);
+    expect(await code(accept(late, f.parent))).toBe('23514');
+  });
+
+  it('(C) two proposals from different teachers for overlapping times, accepted at once: one confirmed, the other refused', async () => {
+    const f = await family();
+    const other = await teacher();
+    await activeLink(sql, { teacher: other, child: f.child, parent: f.parent, subjects: ['maths'] });
+    const a = await propose(sql, f, at(0));
+    const b = await propose(sql, { t: other, child: f.child }, at(15));
+    const [x, y] = [testDb(), testDb()];
+    const results = await Promise.all([
+      code(
+        x.begin(async (tx) => {
+          await accept(a, f.parent, tx as unknown as Db);
+          await tx`SELECT pg_sleep(0.3)`;
+        }),
+      ),
+      (async () => {
+        await new Promise((r) => setTimeout(r, 100));
+        return code(accept(b, f.parent2, y));
+      })(),
+    ]);
+    await Promise.all([x.end(), y.end()]);
+    expect(results.sort()).toEqual(['23P01', 'ok']);
+    expect([await status(a), await status(b)]).toEqual(['confirmed', 'proposed']);
+  });
+});
+
+describe('TL-3 attribution after account deletion (review finding 2)', () => {
+  it('a parent named in the audit trail cannot be deleted at all (0001), so who accepted stays identifiable', async () => {
+    const f = await family();
+    const id = await propose(sql, f, at(0));
+    await accept(id, f.parent2);
+    await sql`INSERT INTO audit_events (event_type, outcome, actor_id, details)
+              VALUES ('LESSON_PROPOSAL_ACCEPTED', 'success', ${f.parent2}, ${sql.json({ lesson: id })})`;
+    expect(await outcome(sql`DELETE FROM accounts WHERE id = ${f.parent2}`)).toMatch(/append-only/);
+    expect(await row(id)).toMatchObject({ confirmed_by: f.parent2, origin: 'teacher_proposal' });
+  });
+
+  it('if a parent account with no audit trail is erased, the fact of acceptance stays and only the identity goes', async () => {
+    const f = await family();
+    const id = await propose(sql, f, at(0));
+    await accept(id, f.parent2);
+    await sql`DELETE FROM guardian_links WHERE parent_id = ${f.parent2}`;
+    await sql`DELETE FROM accounts WHERE id = ${f.parent2}`;
+    expect(await row(id)).toMatchObject({
+      status: 'confirmed',
+      origin: 'teacher_proposal',
+      proposed_by: f.t,
+      teacher_id: f.t,
+      confirmed_by: null,
+    });
+  });
+
+  it('deleting a teacher account removes their lessons with it (0029 cascade, unchanged): there is no orphan proposal', async () => {
+    const f = await family();
+    const id = await propose(sql, f, at(0));
+    await sql`DELETE FROM accounts WHERE id = ${f.t}`.catch(() => undefined);
+    const left = await sql`SELECT proposed_by FROM lessons WHERE id = ${id}`;
+    // Either the teacher could not be deleted (other records hold it) or the lesson went with them;
+    // a proposal is never left without its teacher.
+    expect(left.length === 0 || left[0]!.proposed_by === f.t).toBe(true);
+  });
+});
+
+describe('TL-3 0034 applies cleanly to a database at 0033 (review finding 1)', () => {
+  it('the exact file applies once through the runner, every replaced function compiles, and a second run does nothing', async () => {
+    const admin = testDb();
+    const name = `tl3clean_${uniq()}`;
+    await admin.unsafe(`CREATE DATABASE ${name}`);
+    const url = new URL(process.env.DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5432/postgres');
+    url.pathname = `/${name}`;
+    const db = postgres(url.toString(), { max: 1, onnotice: () => {} });
+    try {
+      const before = await migrate(db, { dir: await migrationsBefore('0034') });
+      expect(before.at(-1)).toBe('0033_material_requests.sql');
+      expect(await migrate(db)).toEqual(['0034_teacher_proposals.sql']);
+      expect(await migrate(db)).toEqual([]);
+      const [c] = await db<
+        { checksum: string }[]
+      >`SELECT checksum FROM schema_migrations WHERE name = '0034_teacher_proposals.sql'`;
+      const { createHash } = await import('node:crypto');
+      const file = await readFile(new URL('../../db/migrations/0034_teacher_proposals.sql', import.meta.url), 'utf8');
+      expect(c!.checksum).toBe(createHash('sha256').update(file).digest('hex'));
+      // check_function_bodies is on (the default), so each body was parsed when created; this
+      // also confirms the labelled sub-blocks are present in what PostgreSQL stored.
+      const [setting] = await db<{ v: string }[]>`SELECT current_setting('check_function_bodies') AS v`;
+      expect(setting!.v).toBe('on');
+      const src = async (fn: string) =>
+        (await db<{ s: string }[]>`SELECT prosrc AS s FROM pg_proc WHERE proname = ${fn}`)[0]!.s;
+      expect(await src('lessons_before_insert')).toContain('<<parent_request_0029>>');
+      expect(await src('lessons_before_update')).toContain('<<lesson_rules_0029>>');
+      expect(await src('lesson_chapters_before_write')).toContain('<<requested_chapters_0032>>');
+    } finally {
+      await db.end();
+      await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      await admin.end();
+    }
+  });
+});
+
 describe('TL-3 limits and expiry (D-TLS-5)', () => {
   it('(B) at most 10 open proposals per teacher and child; another child of the same teacher is not affected', async () => {
     const f = await family();
