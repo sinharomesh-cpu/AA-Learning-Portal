@@ -449,10 +449,8 @@ $$;
 ALTER TABLE lesson_chapters DROP CONSTRAINT lesson_chapters_source_check;
 ALTER TABLE lesson_chapters ADD CONSTRAINT lesson_chapters_source_check CHECK (source IN ('requested', 'planned'));
 -- WF-10 (TLS 5.1-4): what the teacher intends for a planned chapter: new, a continuation or a
--- revision. Optional (empty = not stated); never on a parent-requested chapter. Fixed once written:
--- 0032's rules (kept below) refuse any direct change to a chapter row; their one allowed update,
--- the database clearing a deleted chapter, leaves this column as it was. Existing rows are all
--- parent-requested and stay empty.
+-- revision. Optional (empty = not stated); never on a parent-requested chapter; never changed once
+-- written (lesson_chapters_before_write). Existing rows are all parent-requested and stay empty.
 ALTER TABLE lesson_chapters
   ADD COLUMN intent text CONSTRAINT lesson_chapters_intent_check CHECK (intent IN ('new', 'continue', 'revise')),
   ADD CONSTRAINT lesson_chapters_intent_planned_only CHECK (intent IS NULL OR source = 'planned');
@@ -462,6 +460,12 @@ DECLARE
   tl3_l lessons%ROWTYPE;
   tl3_c record;
 BEGIN
+  -- WF-10: the intent never changes once written. 0032's rules below allow one update, the
+  -- database clearing a missing chapter, and compare every other column but this new one.
+  IF TG_OP = 'UPDATE' AND NEW.intent IS DISTINCT FROM OLD.intent THEN
+    RAISE EXCEPTION 'a lesson''s chapters cannot change' USING ERRCODE = 'check_violation';
+  END IF;
+
   -- TL-3: a chapter the TEACHER plans. Parent-requested chapters skip this block and run 0032's
   -- rules below (which also refuse any change or deletion afterwards, for both kinds).
   IF TG_OP = 'INSERT' AND NEW.source = 'planned' THEN

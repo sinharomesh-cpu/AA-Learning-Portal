@@ -1235,6 +1235,84 @@ describe('TL-3 planned-chapter intent (WF-10, TLS 5.1-4): new, continue or revis
       '23514',
     );
   });
+
+  it('(N) 0032’s one allowed update (clearing a missing chapter) can’t carry an intent change, even on a row left pointing at a missing chapter', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const id = await sql.begin(async (tx) => {
+      const lesson = await propose(tx as unknown as Db, f, at((slot += 60)));
+      await plan(tx as unknown as Db, lesson, 1, b.chapters[0]!, 'new');
+      return lesson;
+    });
+    // A row still pointing at a chapter that no longer exists: only possible with foreign keys skipped.
+    await sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`DELETE FROM book_chapters WHERE id = ${b.chapters[0]!}`;
+    });
+    const at1 = async () =>
+      (await sql`SELECT book_chapter_id, intent FROM lesson_chapters WHERE lesson_id = ${id} AND position = 1`)[0];
+    expect(await at1()).toEqual({ book_chapter_id: b.chapters[0], intent: 'new' });
+    // Exactly the shape 0032 allows (reference cleared, chapter gone), plus an intent change: refused.
+    expect(
+      await code(
+        sql`UPDATE lesson_chapters SET book_chapter_id = NULL, intent = 'revise' WHERE lesson_id = ${id} AND position = 1`,
+      ),
+    ).toBe('23514');
+    expect(
+      await code(
+        sql`UPDATE lesson_chapters SET book_chapter_id = NULL, intent = NULL WHERE lesson_id = ${id} AND position = 1`,
+      ),
+    ).toBe('23514');
+    // The allowed update itself still works and keeps the intent.
+    await sql`UPDATE lesson_chapters SET book_chapter_id = NULL WHERE lesson_id = ${id} AND position = 1`;
+    expect(await at1()).toEqual({ book_chapter_id: null, intent: 'new' });
+  });
+});
+
+describe('TL-3 wording points W-2 and W-3 (as the SQL reads them)', () => {
+  const plan = (db: Db, lesson: string, position: number, chapter: string) =>
+    db`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id, source, label)
+       VALUES (${lesson}, ${position}, ${chapter}, 'planned', 'Invented')`;
+
+  it('(C) W-2: one teacher may propose the same or an overlapping time to two children; the first accepted wins; the others can never be accepted', async () => {
+    const t = await teacher();
+    const a = await family(t);
+    const c = await family(t);
+    const pa = await propose(sql, a, at(0));
+    const pc = await propose(sql, c, at(0)); // same teacher, same start, another child: allowed
+    const pa2 = await propose(sql, a, at(15)); // same teacher and child, overlapping, another start: allowed
+    expect([await status(pa), await status(pc), await status(pa2)]).toEqual(['proposed', 'proposed', 'proposed']);
+    expect(await code(propose(sql, c, at(0)))).toBe('23505'); // but never twice for the same teacher, child and start
+    expect((await accept(pa, a.parent)).count).toBe(1); // first accepted wins
+    expect(await code(accept(pc, c.parent))).toBe('23P01'); // teacher no-overlap rule (0029)
+    expect(await code(accept(pa2, a.parent))).toBe('23P01');
+    // They stay open (not accepted) until the stage-3 closure, the teacher withdraws, or they expire.
+    expect([await status(pc), await status(pa2)]).toEqual(['proposed', 'proposed']);
+    // A new proposal over the now-confirmed time is refused at creation.
+    const d = await family(t);
+    expect(await code(propose(sql, d, at(0)))).toBe('23514');
+  });
+
+  it('(N) W-3: no planned chapters on a request whose parent gave a free-text topic (D-TLS-6 "or"); accepting without them still works', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const r = await sql.begin(async (tx) => {
+      const id = await request(tx as unknown as Db, f, at(6 * 60));
+      await tx`INSERT INTO lesson_chapters (lesson_id, position, topic) VALUES (${id}, 1, ${'Long division'})`;
+      return id;
+    });
+    const both = sql.begin(async (tx) => {
+      await tx`UPDATE lessons SET status = 'confirmed' WHERE id = ${r}`;
+      await plan(tx as unknown as Db, r, 2, b.chapters[0]!);
+    });
+    expect(await outcome(both)).toMatch(/^23514: either up to five chapters or one topic/);
+    expect(await status(r)).toBe('requested'); // the whole transaction, acceptance included, rolled back
+    await sql`UPDATE lessons SET status = 'confirmed' WHERE id = ${r}`;
+    expect(await status(r)).toBe('confirmed');
+    expect(await sql`SELECT source, topic FROM lesson_chapters WHERE lesson_id = ${r}`).toEqual([
+      { source: 'requested', topic: 'Long division' },
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
