@@ -355,7 +355,8 @@ function lessonChoices(chapterIds: unknown, topic: unknown): { chapterIds: strin
   if (ids.some((v) => !UUID.test(v)) || new Set(ids).size !== ids.length || ids.length > MAX_LESSON_CHAPTERS)
     return null;
   const t = typeof topic === 'string' ? topic.replace(/\s+/g, ' ').trim() : '';
-  if (t.length > MAX_TOPIC_LENGTH) return null;
+  // Characters as the database counts them (char_length), not UTF-16 units: an emoji is one (TL-F7).
+  if ([...t].length > MAX_TOPIC_LENGTH) return null;
   if (t && ids.length) return null;
   return { chapterIds: ids, topic: t || null };
 }

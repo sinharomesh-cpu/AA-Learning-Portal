@@ -228,6 +228,24 @@ describe('TL-1: requesting with chapters or a topic', () => {
     expect((await ask(f, at(0), { topic: 'y'.repeat(120) })).ok).toBe(true);
   });
 
+  it('TL-F7: characters are counted as the database counts them: 120 emoji or Devanagari fit, 121 do not', async () => {
+    const f = await family();
+    const emoji = '\u{1F600}'; // two UTF-16 units, one character
+    const devanagari = 'कि'; // two characters (letter and vowel sign)
+    expect(await ask(f, at(0), { topic: emoji.repeat(121) })).toEqual({ ok: false, reason: 'chapters' });
+    expect(await ask(f, at(0), { topic: devanagari.repeat(60) + 'क' })).toEqual({ ok: false, reason: 'chapters' });
+    const e = await asked(f, at(60), { topic: emoji.repeat(120) });
+    const d = await asked(f, at(120), { topic: devanagari.repeat(60) });
+    for (const [id, text] of [
+      [e, emoji.repeat(120)],
+      [d, devanagari.repeat(60)],
+    ] as const) {
+      const [row] = await rowsOf(id);
+      expect(row!.topic).toBe(text);
+      expect([...row!.topic!].length).toBe(120);
+    }
+  });
+
   it('refused, with no lesson created: chapters that are not shared with this child in this subject', async () => {
     const f = await family();
     const other = await family(f.t); // another family with the same teacher
