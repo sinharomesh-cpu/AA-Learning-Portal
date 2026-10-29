@@ -33,6 +33,13 @@ const DONE: Record<string, { tone: 'success' | 'info' | 'warning'; text: string 
   not_linked: { tone: 'info', text: 'This teacher is no longer linked to your child for this subject.' },
   closed: { tone: 'info', text: 'This proposal is no longer open: it was already answered, withdrawn or closed.' },
   not_found: { tone: 'info', text: 'This proposal is no longer open.' },
+  // Material answered here (TL3-1); the same wording as on the Family calendar.
+  material_shared: { tone: 'success', text: 'Shared. The teacher sees it in AA Pro, view only.' },
+  material_unavailable: {
+    tone: 'success',
+    text: 'Saved. The teacher sees that it isn’t available. The lesson doesn’t change.',
+  },
+  material_closed: { tone: 'info', text: 'That material request is no longer open.' },
 };
 
 /**
@@ -105,6 +112,7 @@ export default async function BookingDetailPage({
             r.canAnswer ? (
               <MaterialAnswerForm
                 requestId={r.id}
+                bookingId={lesson.id}
                 label={`${r.what}, ${summary}`}
                 choices={choices.get(r.id) ?? []}
                 noneText={`None of your published ${subject} books is shared with ${lesson.childName} yet.`}
