@@ -129,6 +129,50 @@ const dbNow = async () => (await sql<{ t: Date }[]>`SELECT now() AS t`)[0]!.t.ge
 
 // ---------------------------------------------------------------------------------------------
 describe('PR 2: who can be booked, and the request', () => {
+  it('PL-BO: booking options are exactly this parent’s active children and their bookable teachers, in order', async () => {
+    const f = await family(undefined, 'Zara');
+    const t2 = await teacher({ name: 'Mr Adams' }); // sorts before Ms Rao
+    const noListing = await teacher({ name: 'Ms Bose' });
+    await sql`DELETE FROM teacher_listings WHERE teacher_id = ${noListing}`;
+    const unapproved = await teacher({ name: 'Mr Chen' });
+    const suspended = await teacher({ name: 'Mr Das' });
+    const removed = await teacher({ name: 'Ms Eve' });
+    for (const t of [t2, noListing, unapproved, suspended, removed])
+      await activeLink(sql, { teacher: t, child: f.child, parent: f.parent, subjects: ['science'] });
+    await sql`UPDATE teacher_profiles SET approval_status = 'changes_requested' WHERE account_id = ${unapproved}`;
+    await sql`UPDATE accounts SET status = 'suspended' WHERE id = ${suspended}`;
+    await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
+              WHERE teacher_id = ${removed} AND student_id = ${f.child}`;
+    // A second child with no teachers sorts first; a third is no longer active; a fourth's guardian
+    // link was revoked; another family's child never appears.
+    const amy = await createChild(sql, f.parent);
+    await sql`UPDATE accounts SET display_name = 'Amy' WHERE id = ${amy}`;
+    const gone = await createChild(sql, f.parent);
+    await sql`UPDATE accounts SET status = 'deactivated' WHERE id = ${gone}`;
+    const revoked = await createChild(sql, f.parent);
+    await sql`UPDATE guardian_links SET status = 'revoked', revoked_at = now()
+              WHERE parent_id = ${f.parent} AND student_id = ${revoked}`;
+    await family(f.t, 'Other');
+
+    const options = await bookingOptions(sql, f.parent);
+    expect(options.map((c) => [c.name, c.teachers.map((t) => [t.name, t.subjects, t.hourly])])).toEqual([
+      ['Amy', []],
+      [
+        'Zara',
+        [
+          ['Mr Adams', ['science'], { currency: 'INR', rateMinor: 60000, minutes: 30 }],
+          ['Ms Bose', ['science'], null],
+          ['Ms Rao', ['maths'], { currency: 'INR', rateMinor: 60000, minutes: 30 }],
+        ],
+      ],
+    ]);
+    expect(options[1]!.grade).toBe(5);
+    // The second parent sees the shared child only; a stranger and a bad id see nothing.
+    expect((await bookingOptions(sql, f.parent2)).map((c) => c.name)).toEqual(['Zara']);
+    expect(await bookingOptions(sql, await createAdult(sql, 'parent'))).toEqual([]);
+    expect(await bookingOptions(sql, 'not-a-uuid')).toEqual([]);
+  });
+
   it('only an approved, active teacher linked to the child in a ticked subject is offered and accepted', async () => {
     const f = await family();
     const other = await teacher();
