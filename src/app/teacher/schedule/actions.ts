@@ -7,6 +7,7 @@ import { isDemoMode } from '@/server/demo';
 import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
 import { requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
 import { setMeetingLink } from '@/server/meetingLinks';
+import { type ProposeReason, proposeLesson, withdrawProposal } from '@/server/proposals';
 import { getRealSession } from '@/server/session';
 
 /**
@@ -41,14 +42,81 @@ const back = (done: string): never => {
   redirect(`/teacher/schedule?done=${done}`);
 };
 
-/** Accept or decline a lesson request (with an optional reason for a decline). */
+/**
+ * TL-3: planned chapters from a form: checkboxes named "planned" (chapter ids) and, for each, an
+ * optional select named "intent-<chapter id>" (new, continue, revise). The server checks them again.
+ */
+function plannedFrom(fd: FormData): Array<{ chapterId: string; intent: string }> {
+  return fd
+    .getAll('planned')
+    .filter((v): v is string => typeof v === 'string')
+    .map((chapterId) => ({ chapterId, intent: str(fd, `intent-${chapterId}`) }));
+}
+
+/**
+ * Accept or decline a lesson request (with an optional reason for a decline). TL-3 (D-E2E-3 (b)):
+ * when accepting, optionally with planned chapters; the parents are told.
+ */
 export async function answerLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
   const id = await teacherId();
   const answer = str(fd, 'answer') === 'accept' ? 'accept' : 'decline';
-  const r = await answerLesson(db(), id, str(fd, 'lessonId'), answer, str(fd, 'note'));
+  const r = await answerLesson(db(), id, str(fd, 'lessonId'), answer, str(fd, 'note'), new Date(), {
+    planned: answer === 'accept' ? plannedFrom(fd) : [],
+  });
   if (r.ok) return back(answer === 'accept' ? 'accepted' : 'declined');
+  if (r.reason === 'chapters') {
+    return {
+      error:
+        'The planned chapters couldn’t be saved, so nothing was changed. A chapter may no longer be shared with you; check the list, or accept without them.',
+    };
+  }
   if (r.reason === 'time_taken' || r.reason === 'expired' || r.reason === 'not_linked') return back(r.reason);
   return back('closed');
+}
+
+const PROPOSE_TEXT: Record<ProposeReason, string> = {
+  not_allowed: 'You can’t schedule lessons at the moment. Your teacher account must be approved and active.',
+  not_linked: 'You aren’t linked to this child for this subject any more. Check My students.',
+  invalid: 'Choose a length from 10 to 40 minutes.',
+  step: 'Choose a start time on a 5-minute step (for example 4:05 pm). That time may not exist on that day.',
+  notice: 'Lessons need at least 24 hours’ notice. Choose a later time.',
+  window: 'Lessons can be scheduled up to 4 weeks ahead. Choose an earlier day.',
+  busy: 'That time overlaps a confirmed lesson of yours or of this child. Choose another time.',
+  duplicate: 'You already proposed a lesson to this child at that time.',
+  limit: 'You already have 10 proposals waiting for this child’s parents. Wait for answers, or withdraw one.',
+  no_rate: 'Add your hourly rate to your listing first: a proposal shows the family its price.',
+  chapters:
+    'Choose up to 5 chapters from the list, each with an optional intent. A chapter may no longer be shared with you: check the list again.',
+};
+
+/**
+ * TL-3: "Schedule a class". The teacher proposes one lesson (OC-45: nothing is booked until a
+ * parent accepts). The server and the database check the link, the time, the limits and the
+ * chapters again.
+ */
+export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await proposeLesson(db(), id, {
+    childId: str(fd, 'childId'),
+    subject: str(fd, 'subject'),
+    date: str(fd, 'date'),
+    time: str(fd, 'time'),
+    minutes: str(fd, 'minutes'),
+    planned: plannedFrom(fd),
+  });
+  if (r.ok) {
+    revalidatePath('/teacher/propose');
+    return back('proposed');
+  }
+  return { error: PROPOSE_TEXT[r.reason] };
+}
+
+/** TL-3: withdraw an open proposal (the parents are told). */
+export async function withdrawProposalAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await withdrawProposal(db(), id, str(fd, 'lessonId'));
+  if (r.ok) return back('proposal_withdrawn');
+  return back(r.reason === 'expired' ? 'expired' : 'closed');
 }
 
 /** Cancel a confirmed lesson, up to 30 minutes before the start. */

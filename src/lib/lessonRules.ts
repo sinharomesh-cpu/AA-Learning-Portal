@@ -105,8 +105,7 @@ export const LESSON_RULES_TEXT = {
 /**
  * The same rules as worded for real accounts in Phase 3A (CR-17 PR 2; owner decisions B1 and B2,
  * 24 Oct 2026). Only what is available now: rescheduling a teacher lesson is cancel and request
- * again (D3A-6); teacher proposals (OC-45) are not offered yet, so they are not mentioned or
- * promised; lesson reminders are described as PR 7 really works (in-app, best-effort; no email). The demo keeps LESSON_RULES_TEXT unchanged.
+ * again (D3A-6); teacher proposals (OC-45) are available from TL-3 (29 Oct 2026); lesson reminders are described as PR 7 really works (in-app, best-effort; no email). The demo keeps LESSON_RULES_TEXT unchanged.
  */
 export const REAL_LESSON_RULES_TEXT = {
   parentTeacherChanges:
@@ -119,5 +118,10 @@ export const REAL_LESSON_RULES_TEXT = {
   teacherChanges:
     'You or the parent can cancel up to 30 minutes before the start; the family is told. To change the time, the parent cancels and requests a new one.',
   teacherJoin: LESSON_RULES_TEXT.join.replace('Join', 'Start'),
+  // TL-3 (OC-45): real teacher proposals; no Zoom wording (links are the teacher's own, CR-17 PR 3).
+  teacherProposal:
+    'A lesson you schedule is only booked when a parent accepts it. A meeting link can be added once it is booked.',
+  parentProposal:
+    'When a teacher schedules a lesson for your child, either parent can accept or decline it. Nothing is booked until one of you accepts.',
   oneToOne: LESSON_RULES_TEXT.oneToOne,
 } as const;

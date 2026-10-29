@@ -1557,6 +1557,24 @@ export async function lessonsForParent(sql: Db, parentId: string, now: Date = ne
 }
 
 /**
+ * TL3-5: one lesson for its booking-details page, for an active parent of the child (D3A-25), or
+ * null ("not found") for anyone else, whatever id is sent. No time limit, so an old link still opens.
+ */
+export async function lessonForParent(sql: Db, parentId: string, lessonId: string): Promise<LessonItem | null> {
+  if (!UUID.test(parentId) || !UUID.test(lessonId)) return null;
+  const [r] = await sql<ListRow[]>`
+    SELECT ${LIST_COLUMNS(sql)}
+    FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
+    LEFT JOIN accounts cb ON cb.id = l.closed_by_account
+    LEFT JOIN lesson_meeting_links ml ON ml.lesson_id = l.id
+    LEFT JOIN student_profiles sp ON sp.account_id = c.id
+    WHERE l.id = ${lessonId}
+      AND l.student_id IN (SELECT g.student_id FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
+                           WHERE g.parent_id = ${parentId} AND g.status = 'active' AND p.status = 'active')`;
+  return r ? toItem(r, 'parent', parentId) : null;
+}
+
+/**
  * The teacher's own lessons with students linked to them now in that subject (as homework, W-11),
  * and lessons kept after a parent removed them (OC-53).
  */

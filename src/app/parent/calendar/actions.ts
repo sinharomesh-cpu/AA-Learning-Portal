@@ -6,6 +6,7 @@ import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { cancelLesson, requestLesson, type RequestReason, withdrawLesson } from '@/server/lessons';
 import { markMaterialUnavailable, shareMaterial } from '@/server/materialRequests';
+import { answerProposal } from '@/server/proposals';
 import { getRealSession } from '@/server/session';
 
 /**
@@ -78,6 +79,24 @@ const back = (done: string): never => {
   revalidatePath('/parent');
   redirect(`/parent/calendar?done=${done}`);
 };
+
+/**
+ * TL-3 (OC-45, TL3-5): accept or decline a teacher's proposal on its booking-details page, with an
+ * optional reason (up to 200 characters) for a decline. Either active parent of the child; the
+ * server and the database check the deadline, the link and the time again. The result shows on the
+ * same page (?done=…).
+ */
+export async function answerProposalAction(_prev: LessonFormState, fd: FormData): Promise<LessonFormState> {
+  const id = await parentId();
+  const lessonId = str(fd, 'lessonId');
+  const answer = str(fd, 'answer') === 'accept' ? 'accept' : 'decline';
+  const r = await answerProposal(db(), id, lessonId, answer, str(fd, 'reason'));
+  if (!r.ok && r.reason === 'invalid') return { error: 'The reason can be up to 200 characters.' };
+  revalidatePath('/parent/calendar');
+  revalidatePath('/parent');
+  const done = r.ok ? (answer === 'accept' ? 'accepted' : 'declined') : r.reason;
+  redirect(`/parent/bookings/${encodeURIComponent(lessonId)}?done=${done}`);
+}
 
 /** Withdraw an open request (either parent of the child). */
 export async function withdrawLessonAction(_prev: LessonFormState, fd: FormData): Promise<LessonFormState> {
