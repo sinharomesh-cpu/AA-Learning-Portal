@@ -63,6 +63,13 @@ async function schedule(
     await form.getByRole('combobox', { name: /^Intent for/ }).selectOption(chapter.intent);
   }
   if (material) await form.getByLabel('What do you need?').fill(material);
+  // Owner acceptance (29 Oct): Send is offered only after the server-checked review.
+  await expect(form.getByRole('button', { name: 'Send proposal' })).toHaveCount(0);
+  await form.getByRole('button', { name: 'Review proposal' }).click();
+  const review = form.getByTestId('proposal-review');
+  await expect(review.getByRole('heading', { name: 'Check your proposal' })).toBeFocused();
+  await expect(review).toContainText('₹250 for 25 min · Listed rate ₹600 an hour');
+  if (material) await expect(review).toContainText(material);
   await form.getByRole('button', { name: 'Send proposal' }).click();
   await expect(t.getByText(/^Proposal sent\./)).toBeVisible();
 }

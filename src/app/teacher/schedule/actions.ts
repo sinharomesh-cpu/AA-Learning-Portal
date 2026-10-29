@@ -7,7 +7,9 @@ import { isDemoMode } from '@/server/demo';
 import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
 import { requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
 import { setMeetingLink } from '@/server/meetingLinks';
-import { type ProposeReason, proposeLesson, withdrawProposal } from '@/server/proposals';
+import { SUBJECTS } from '@/fixtures/subjects';
+import { formatClock, formatLessonTime, formatMoney, intentText } from '@/lib/lessonDisplay';
+import { type ProposeReason, proposeLesson, reviewProposal, withdrawProposal } from '@/server/proposals';
 import { getRealSession } from '@/server/session';
 
 /**
@@ -89,6 +91,7 @@ const PROPOSE_TEXT: Record<ProposeReason, string> = {
     'Choose up to 5 chapters from the list, each with an optional intent. A chapter may no longer be shared with you: check the list again.',
   material:
     'Describe the material you need (up to 200 characters); the note can be up to 300 characters. Nothing was sent.',
+  price_changed: 'The price has changed since you reviewed this proposal. Nothing was sent. Review it again.',
 };
 
 /**
@@ -96,16 +99,57 @@ const PROPOSE_TEXT: Record<ProposeReason, string> = {
  * parent accepts). The server and the database check the link, the time, the limits and the
  * chapters again.
  */
+const proposalInput = (fd: FormData) => ({
+  childId: str(fd, 'childId'),
+  subject: str(fd, 'subject'),
+  date: str(fd, 'date'),
+  time: str(fd, 'time'),
+  minutes: str(fd, 'minutes'),
+  planned: plannedFrom(fd),
+  material: { description: str(fd, 'materialDescription'), note: str(fd, 'materialNote') },
+});
+
+/** What the review step shows, already in words (the teacher's time zone). */
+export interface ProposalReviewView {
+  forWhom: string;
+  when: string;
+  price: string;
+  priceBasis: 'agreed' | 'listed';
+  priceMinor: string;
+  planned: string[];
+  material: { description: string; note: string } | null;
+}
+
+/**
+ * Owner acceptance (29 Oct 2026): "Review proposal". Everything about to be sent, checked and priced
+ * by the server; nothing is written. "Send proposal" then sends the price shown here.
+ */
+export async function reviewProposalAction(fd: FormData): Promise<{ review?: ProposalReviewView; error?: string }> {
+  const id = await teacherId();
+  const r = await reviewProposal(db(), id, proposalInput(fd));
+  if (!r.ok) return { error: PROPOSE_TEXT[r.reason] };
+  const v = r.review;
+  const rate = formatMoney(v.price.rateMinor, v.price.currency);
+  return {
+    review: {
+      forWhom: `${v.childName} · ${SUBJECTS[v.subject].name}`,
+      when: `${formatLessonTime(v.startsAt, v.timeZone)}–${formatClock(v.endsAt, v.timeZone)} · ${v.minutes} min`,
+      price: `${formatMoney(v.price.priceMinor, v.price.currency)} for ${v.minutes} min · ${
+        v.price.basis === 'agreed' ? 'Agreed rate' : 'Listed rate'
+      } ${rate} an hour`,
+      priceBasis: v.price.basis,
+      priceMinor: String(v.price.priceMinor),
+      planned: v.planned.map((p) => (p.intent ? `${p.label} · ${intentText(p.intent)}` : p.label)),
+      material: v.material,
+    },
+  };
+}
+
 export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
   const id = await teacherId();
   const r = await proposeLesson(db(), id, {
-    childId: str(fd, 'childId'),
-    subject: str(fd, 'subject'),
-    date: str(fd, 'date'),
-    time: str(fd, 'time'),
-    minutes: str(fd, 'minutes'),
-    planned: plannedFrom(fd),
-    material: { description: str(fd, 'materialDescription'), note: str(fd, 'materialNote') },
+    ...proposalInput(fd),
+    shown: { basis: str(fd, 'priceBasis'), priceMinor: str(fd, 'priceMinor') },
   });
   if (r.ok) {
     revalidatePath('/teacher/propose');
