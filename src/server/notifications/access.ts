@@ -246,7 +246,14 @@ export async function actionLabel(
         Array<{ status: string; overdue: boolean; closed_by: string | null; outcome: string | null }>
       >`
         SELECT status, reply_deadline <= ${now} AS overdue, closed_by, outcome FROM lessons WHERE id = ${id}`;
-      if (!l || v.role !== 'teacher') return 'No longer needed';
+      if (!l) return 'No longer needed';
+      // TL-3: a parent's "proposal waiting" notice needs a reply until it is answered or closes.
+      if (v.role === 'parent') {
+        if (l.status === 'proposed') return l.overdue ? 'No longer needed' : 'Needs your reply';
+        if (l.status === 'confirmed' || (l.status === 'declined' && l.closed_by === 'parent')) return 'Done';
+        return 'No longer needed';
+      }
+      if (v.role !== 'teacher') return 'No longer needed';
       if (l.status === 'requested') return l.overdue ? 'No longer needed' : 'Needs your reply';
       if (l.status === 'confirmed') return l.outcome ? 'Done' : 'Needs your reply';
       if (l.status === 'declined' && l.closed_by === 'teacher') return 'Done';
@@ -257,7 +264,8 @@ export async function actionLabel(
       // shared or unavailable = done; withdrawn, closed with its lesson, or the lesson ended = no longer needed.
       const [m] = await sql<Array<{ status: string; live: boolean }>>`
         SELECT m.status,
-               ((l.status = 'requested' AND l.reply_deadline > ${now}) OR (l.status = 'confirmed' AND l.ends_at > ${now})) AS live
+               ((l.status IN ('requested', 'proposed') AND l.reply_deadline > ${now})
+                OR (l.status = 'confirmed' AND l.ends_at > ${now})) AS live
         FROM material_requests m JOIN lessons l ON l.id = m.lesson_id WHERE m.id = ${id}`;
       if (!m || v.role !== 'parent') return 'No longer needed';
       if (m.status === 'open') return m.live ? 'Needs your reply' : 'No longer needed';

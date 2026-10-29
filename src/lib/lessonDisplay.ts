@@ -5,7 +5,8 @@ import type { ChipKind } from '@/components/StatusChip';
  * Times are formatted in the viewer's own time zone; a status is always shown in words.
  */
 
-export type LessonStatusName = 'requested' | 'confirmed' | 'declined' | 'withdrawn' | 'expired' | 'cancelled';
+export type LessonStatusName =
+  'requested' | 'proposed' | 'confirmed' | 'declined' | 'withdrawn' | 'expired' | 'cancelled';
 export type CloseReason = 'time_no_longer_free' | 'teacher_deactivated' | 'link_ended' | null;
 export type ClosedBy = 'parent' | 'teacher' | 'aa_pro' | null;
 
@@ -71,15 +72,27 @@ export function lessonStatusText(
   switch (l.status) {
     case 'requested':
       return { text: viewer === 'parent' ? 'Waiting for the teacher' : 'Waiting for your answer', kind: 'warning' };
+    // TL-3 (OC-45): a teacher's proposal waits for a parent; nothing is booked yet.
+    case 'proposed':
+      return { text: viewer === 'parent' ? 'Waiting for your answer' : 'Waiting for the parent', kind: 'warning' };
     case 'confirmed':
       return { text: 'Confirmed', kind: 'success' };
     case 'expired':
       return { text: viewer === 'parent' ? 'Expired: no answer in time' : 'Expired', kind: 'neutral' };
     case 'withdrawn':
+      // A teacher withdraws only their own proposal; a parent only their own request (0034).
+      if (l.closedBy === 'teacher')
+        return { text: viewer === 'parent' ? 'Withdrawn by the teacher' : 'Withdrawn', kind: 'neutral' };
       return { text: viewer === 'parent' ? 'Withdrawn' : 'Withdrawn by the parent', kind: 'neutral' };
     case 'declined':
       if (l.closedBy === 'teacher')
         return { text: viewer === 'parent' ? 'Declined by the teacher' : 'Declined', kind: 'neutral' };
+      // TL-3: a parent declined the teacher's proposal.
+      if (l.closedBy === 'parent') {
+        if (viewer === 'teacher') return { text: 'Declined by the parent', kind: 'neutral' };
+        if (l.closedByYou) return { text: 'Declined by you', kind: 'neutral' };
+        return { text: l.closedByName ? `Declined by ${l.closedByName}` : 'Declined by a parent', kind: 'neutral' };
+      }
       if (l.closeReason === 'time_no_longer_free') return { text: 'Time no longer free', kind: 'neutral' };
       return { text: 'Closed by AA Pro', kind: 'neutral' };
     case 'cancelled':
@@ -92,6 +105,14 @@ export function lessonStatusText(
       }
       return { text: viewer === 'parent' ? 'Cancelled by the teacher' : 'Cancelled by you', kind: 'error' };
   }
+}
+
+/** WF-10: a planned chapter's intent in words. */
+export function intentText(intent: 'new' | 'continue' | 'revise' | null): string | null {
+  if (intent === 'new') return 'New';
+  if (intent === 'continue') return 'Continue';
+  if (intent === 'revise') return 'Revise';
+  return null;
 }
 
 /** Why AA Pro closed or cancelled it, in words, or null. */
