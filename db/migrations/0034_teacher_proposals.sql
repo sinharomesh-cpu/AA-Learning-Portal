@@ -15,8 +15,9 @@
 --  * lessons_before_insert, lessons_before_update, lessons_expire_overdue (0029): replaced. The
 --    first two keep 0029's text for a parent's request BYTE FOR BYTE, as an inner block reached
 --    only when the row is not a proposal (a test compares the function bodies);
---  * lesson_chapters (0032): source may now be 'planned'; lesson_chapters_before_write replaced,
---    keeping 0032's text byte for byte for parent-requested chapters;
+--  * lesson_chapters (0032): source may now be 'planned'; one new optional column, intent
+--    ('new', 'continue' or 'revise'), for planned chapters only (WF-10); lesson_chapters_before_write
+--    replaced, keeping 0032's text byte for byte for parent-requested chapters;
 --  * material_requests_before_write (0033): replaced; three status lists gain 'proposed' (the
 --    only edits, also checked by a test).
 -- No existing row changes: every existing lesson becomes origin = 'parent_request', with
@@ -52,7 +53,9 @@
 --  * accepts teacher-planned chapters only from books the teacher can already view, never a
 --    free-text topic (TL3-2), only in the transaction that creates the proposal or in the one
 --    where the teacher accepts a parent's request (D-E2E-3 (b)), and at most five chapters in
---    total per lesson (D-E2E-2: 0032's positions 1 to 5);
+--    total per lesson (D-E2E-2: 0032's positions 1 to 5); a planned chapter may say whether it is
+--    new, a continuation or a revision (intent, optional, WF-10 / TLS 5.1-4), a parent-requested
+--    chapter never carries an intent, and the intent never changes once written;
 --  * accepts material requests on open proposals (TL3-1); 0033's close trigger already closes
 --    them when the proposal is declined, withdrawn or expires.
 -- Notifications stay in-app, written by application code; nothing here sends email or WhatsApp.
@@ -445,6 +448,14 @@ $$;
 -- ---------------------------------------------------------------- teacher-planned chapters
 ALTER TABLE lesson_chapters DROP CONSTRAINT lesson_chapters_source_check;
 ALTER TABLE lesson_chapters ADD CONSTRAINT lesson_chapters_source_check CHECK (source IN ('requested', 'planned'));
+-- WF-10 (TLS 5.1-4): what the teacher intends for a planned chapter: new, a continuation or a
+-- revision. Optional (empty = not stated); never on a parent-requested chapter. Fixed once written:
+-- 0032's rules (kept below) refuse any direct change to a chapter row; their one allowed update,
+-- the database clearing a deleted chapter, leaves this column as it was. Existing rows are all
+-- parent-requested and stay empty.
+ALTER TABLE lesson_chapters
+  ADD COLUMN intent text CONSTRAINT lesson_chapters_intent_check CHECK (intent IN ('new', 'continue', 'revise')),
+  ADD CONSTRAINT lesson_chapters_intent_planned_only CHECK (intent IS NULL OR source = 'planned');
 
 CREATE OR REPLACE FUNCTION lesson_chapters_before_write() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE

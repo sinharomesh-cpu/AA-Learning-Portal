@@ -773,7 +773,21 @@ describe('TL-3 0034 applies cleanly to a database at 0033 (review finding 1)', (
     try {
       const before = await migrate(db, { dir: await migrationsBefore('0034') });
       expect(before.at(-1)).toBe('0033_material_requests.sql');
+      // An existing parent-requested chapter row (its parents skipped for this fixture only).
+      await db.begin(async (tx) => {
+        await tx`SET LOCAL session_replication_role = replica`;
+        await tx`INSERT INTO lesson_chapters (lesson_id, position, topic, label) VALUES (gen_random_uuid(), 1, 'Old topic', 'Old topic')`;
+      });
       expect(await migrate(db)).toEqual(['0034_teacher_proposals.sql']);
+      // WF-10: existing rows keep their kind and get no intent; the new rules are validated against them.
+      expect(await db`SELECT source, intent FROM lesson_chapters`).toEqual([{ source: 'requested', intent: null }]);
+      expect(
+        await db`SELECT conname, convalidated FROM pg_constraint
+                 WHERE conrelid = 'lesson_chapters'::regclass AND conname LIKE 'lesson_chapters_intent%' ORDER BY conname`,
+      ).toEqual([
+        { conname: 'lesson_chapters_intent_check', convalidated: true },
+        { conname: 'lesson_chapters_intent_planned_only', convalidated: true },
+      ]);
       expect(await migrate(db)).toEqual([]);
       const [c] = await db<
         { checksum: string }[]
@@ -1109,6 +1123,117 @@ describe('TL-3 planned chapters (D-E2E-2, D-E2E-3 (b), TL3-2) and material reque
       status: 'no_longer_needed',
       close_reason: 'lesson_closed',
     });
+  });
+});
+
+describe('TL-3 planned-chapter intent (WF-10, TLS 5.1-4): new, continue or revise; optional; planned only; fixed', () => {
+  const plan = (db: Db, lesson: string, position: number, chapter: string, intent: string | null) =>
+    db`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id, source, label, intent)
+       VALUES (${lesson}, ${position}, ${chapter}, 'planned', 'Invented', ${intent})`;
+  const intents = async (lesson: string) =>
+    (
+      await sql<
+        { intent: string | null }[]
+      >`SELECT intent FROM lesson_chapters WHERE lesson_id = ${lesson} ORDER BY position`
+    ).map((r) => r.intent);
+  let slot = 3000;
+
+  it('(P) a planned chapter may carry new, continue or revise, or nothing (optional)', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const id = await sql.begin(async (tx) => {
+      const lesson = await propose(tx as unknown as Db, f, at((slot += 60)));
+      await plan(tx as unknown as Db, lesson, 1, b.chapters[0]!, 'new');
+      await plan(tx as unknown as Db, lesson, 2, b.chapters[1]!, 'continue');
+      await plan(tx as unknown as Db, lesson, 3, b.chapters[2]!, 'revise');
+      await plan(tx as unknown as Db, lesson, 4, b.chapters[3]!, null);
+      return lesson;
+    });
+    expect(await intents(id)).toEqual(['new', 'continue', 'revise', null]);
+  });
+
+  it('(P) D-E2E-3 (b): an intent may also be given when the teacher adds planned chapters on accepting a request', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const r = await request(sql, f, at(6 * 60));
+    await sql.begin(async (tx) => {
+      await tx`UPDATE lessons SET status = 'confirmed' WHERE id = ${r}`;
+      await plan(tx as unknown as Db, r, 1, b.chapters[0]!, 'revise');
+    });
+    expect(await intents(r)).toEqual(['revise']);
+  });
+
+  it('(N) any other value is refused, by the column check, also with every trigger skipped', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    for (const bad of ['New', 'review', '', 'continuation']) {
+      const attempt = sql.begin(async (tx) => {
+        const lesson = await propose(tx as unknown as Db, f, at((slot += 60)));
+        await plan(tx as unknown as Db, lesson, 1, b.chapters[0]!, bad);
+      });
+      expect(await outcome(attempt)).toMatch(/^23514: .*lesson_chapters_intent_check/);
+    }
+    const target = await sql.begin(async (tx) => {
+      const lesson = await propose(tx as unknown as Db, f, at((slot += 60)));
+      await plan(tx as unknown as Db, lesson, 1, b.chapters[0]!, 'new');
+      return lesson;
+    });
+    const bypass = sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`UPDATE lesson_chapters SET intent = 'later' WHERE lesson_id = ${target}`;
+    });
+    expect(await outcome(bypass)).toMatch(/^23514: .*lesson_chapters_intent_check/);
+  });
+
+  it('(N) a parent-requested chapter never carries an intent, also with every trigger skipped', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const withIntent = sql.begin(async (tx) => {
+      const id = await request(tx as unknown as Db, f, at(6 * 60 + 1440));
+      await tx`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id, intent) VALUES (${id}, 1, ${b.chapters[0]!}, 'new')`;
+    });
+    expect(await outcome(withIntent)).toMatch(/^23514: .*lesson_chapters_intent_planned_only/);
+    const [r] = await sql.begin(async (tx) => {
+      const id = await request(tx as unknown as Db, f, at(6 * 60 + 2880));
+      await tx`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id) VALUES (${id}, 1, ${b.chapters[0]!})`;
+      return [id];
+    });
+    expect(await intents(r!)).toEqual([null]);
+    const bypass = sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`UPDATE lesson_chapters SET intent = 'new' WHERE lesson_id = ${r!}`;
+    });
+    expect(await outcome(bypass)).toMatch(/^23514: .*lesson_chapters_intent_planned_only/);
+  });
+
+  it('(N) the intent never changes once written; clearing a deleted chapter keeps it', async () => {
+    const f = await family();
+    const b = await book(f.parent, f.child);
+    const id = await sql.begin(async (tx) => {
+      const lesson = await propose(tx as unknown as Db, f, at((slot += 60)));
+      await plan(tx as unknown as Db, lesson, 1, b.chapters[0]!, 'new');
+      await plan(tx as unknown as Db, lesson, 2, b.chapters[1]!, null);
+      return lesson;
+    });
+    expect(await code(sql`UPDATE lesson_chapters SET intent = 'revise' WHERE lesson_id = ${id} AND position = 1`)).toBe(
+      '23514',
+    );
+    expect(await code(sql`UPDATE lesson_chapters SET intent = NULL WHERE lesson_id = ${id} AND position = 1`)).toBe(
+      '23514',
+    );
+    expect(await code(sql`UPDATE lesson_chapters SET intent = 'new' WHERE lesson_id = ${id} AND position = 2`)).toBe(
+      '23514',
+    );
+    await sql`DELETE FROM book_chapters WHERE id = ${b.chapters[0]!}`; // ON DELETE SET NULL (0032's one allowed update)
+    const rows =
+      await sql`SELECT position, book_chapter_id, intent FROM lesson_chapters WHERE lesson_id = ${id} ORDER BY position`;
+    expect(rows).toEqual([
+      { position: 1, book_chapter_id: null, intent: 'new' },
+      { position: 2, book_chapter_id: b.chapters[1], intent: null },
+    ]);
+    expect(await code(sql`UPDATE lesson_chapters SET intent = 'revise' WHERE lesson_id = ${id} AND position = 1`)).toBe(
+      '23514',
+    );
   });
 });
 
