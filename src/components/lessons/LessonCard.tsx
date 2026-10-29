@@ -101,7 +101,7 @@ export function LessonCard({
         </span>
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 id={`lesson-${l.id}`} className="m-0 break-words text-[19px] font-bold leading-[26px]">
+            <h3 id={`lesson-${l.id}`} className="m-0 scroll-mt-24 break-words text-[19px] font-bold leading-[26px]">
               {title}
             </h3>
             <StatusChip kind={status.kind}>{status.text}</StatusChip>

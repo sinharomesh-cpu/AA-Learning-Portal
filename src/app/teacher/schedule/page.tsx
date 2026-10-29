@@ -5,11 +5,13 @@ import { joinRefusalText } from '@/components/lessons/joinMessages';
 import { LessonCard } from '@/components/lessons/LessonCard';
 import { LessonJoinStatus } from '@/components/lessons/LessonJoinStatus';
 import { MaterialRequestList } from '@/components/lessons/MaterialRequestList';
+import { TeacherWeekCalendar } from '@/components/lessons/TeacherWeekCalendar';
 import { AccessDenied } from '@/components/states/AccessDenied';
 import { EmptyState } from '@/components/states/States';
 import { SUBJECTS } from '@/fixtures/subjects';
 import { clockNow } from '@/lib/clock';
 import { formatLessonTime } from '@/lib/lessonDisplay';
+import { buildCalendarWeek, chooseWeek } from '@/lib/teacherCalendar';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
@@ -17,6 +19,7 @@ import { isDemoMode } from '@/server/demo';
 import { type LessonItem, lessonsForTeacher } from '@/server/lessons';
 import { materialRequestsFor } from '@/server/materialRequests';
 import { rolePlaceholder } from '@/server/placeholder';
+import { getUsualTimes } from '@/server/teacherUsualTimes';
 import {
   AnswerButtons,
   AskForMaterialForm,
@@ -87,7 +90,10 @@ export default async function TeacherSchedulePage({
   const refused = joinRefusalText(raw.join);
   const tz = access.viewer.timeZone;
   const now = clockNow();
-  const all = await lessonsForTeacher(db(), access.viewer.id, now);
+  const [all, usual] = await Promise.all([
+    lessonsForTeacher(db(), access.viewer.id, now),
+    getUsualTimes(db(), access.viewer.id),
+  ]);
   // TL-2: material requests on these lessons that this teacher may see (checked again on the server).
   const materials = await materialRequestsFor(
     db(),
@@ -99,12 +105,22 @@ export default async function TeacherSchedulePage({
   const outcome = all.filter((l) => l.needsOutcome);
   const upcoming = all.filter((l) => l.status === 'confirmed' && l.endsAt > now);
   const past = all.filter((l) => !requests.includes(l) && !outcome.includes(l) && !upcoming.includes(l)).reverse();
+  // The week calendar: Monday to Sunday in the teacher's zone, from the same lessons as the lists below.
+  const week = buildCalendarWeek({
+    weekStart: chooseWeek(raw.week, now, tz),
+    timeZone: tz,
+    now,
+    usual,
+    lessons: all.map((l) => ({ ...l, subjectName: SUBJECTS[l.subject].name })),
+  });
+  const zoneText = `${formatZoneName(now.toISOString(), { timeZone: tz })} (${tz})`;
   const describe = (l: LessonItem) =>
     `${SUBJECTS[l.subject].name} with ${l.childName}, ${formatLessonTime(l.startsAt, tz)}`;
 
   const list = (items: LessonItem[], actions: (l: LessonItem) => ReactNode) => (
     <ul className="m-0 flex list-none flex-col gap-4 p-0">
       {items.map((l) => (
+        // The calendar links to the card's heading (#lesson-…); the card keeps its actions.
         <li key={l.id}>
           <LessonCard lesson={l} viewer="teacher" timeZone={tz} actions={actions(l)}>
             <MaterialRequestList
@@ -136,13 +152,18 @@ export default async function TeacherSchedulePage({
       <div className="flex flex-col gap-2">
         <h1 className="text-headline-lg-mobile lg:text-headline-lg">My schedule</h1>
         <p className="m-0 text-body-md text-on-surface-variant">
-          Lesson requests and lessons with the children linked to you. Times are in your time zone (
-          {formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
+          Your week at a glance, then lesson requests and lessons with the children linked to you. Times are in your
+          time zone ({formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
         </p>
       </div>
 
       {done ? <FormMessage tone={done.tone}>{done.text}</FormMessage> : null}
       {refused ? <FormMessage tone="info">{refused}</FormMessage> : null}
+      <TeacherWeekCalendar
+        week={week}
+        zoneText={zoneText}
+        href={(w) => (w === week.current ? '/teacher/schedule#week' : `/teacher/schedule?week=${w}#week`)}
+      />
       <section aria-labelledby="requests" className="flex flex-col gap-3">
         <h2 id="requests" className="m-0 text-[22px] font-bold leading-7">
           Requests to answer

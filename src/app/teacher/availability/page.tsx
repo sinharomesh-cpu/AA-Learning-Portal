@@ -43,7 +43,8 @@ export default async function TeacherAvailabilityPage() {
       <div className="flex flex-col gap-1.5">
         <h1 className="text-headline-lg-mobile lg:text-headline-lg">Availability</h1>
         <p className="text-body-md text-on-surface-variant">
-          Tell families when you are usually free to teach. Booking lessons comes with scheduling in a later phase.
+          Tell families when you are usually free to teach. Linked families can request lessons inside these times; you
+          accept or decline each request in My schedule.
         </p>
       </div>
       <section aria-labelledby="usual-times" className={SHELL}>
@@ -53,8 +54,8 @@ export default async function TeacherAvailabilityPage() {
           intro={
             <>
               Add the same time to several days at once; on a computer you can also drag on the week calendar. Shown to
-              families as &quot;Usually free&quot;; nothing is booked or reserved from these times. Up to 14 times a
-              week.
+              families as &quot;Usually free&quot;; nothing is booked or reserved until you accept a request. Up to 14
+              times a week.
             </>
           }
           badge={
