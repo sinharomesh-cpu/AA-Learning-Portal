@@ -45,7 +45,13 @@ async function setUp() {
 }
 
 /** Schedule a class: the only child and subject, a day, a start time, a length, optional chapter. */
-async function schedule(t: Page, day: string, time: string, chapter?: { label: RegExp; intent: string }) {
+async function schedule(
+  t: Page,
+  day: string,
+  time: string,
+  chapter?: { label: RegExp; intent: string },
+  material?: string,
+) {
   await t.goto('/teacher/propose');
   await expect(t.getByRole('heading', { level: 1, name: 'Schedule a class' })).toBeVisible();
   const form = t.getByTestId('propose-form');
@@ -56,6 +62,7 @@ async function schedule(t: Page, day: string, time: string, chapter?: { label: R
     await form.getByRole('checkbox', { name: chapter.label }).check();
     await form.getByRole('combobox', { name: /^Intent for/ }).selectOption(chapter.intent);
   }
+  if (material) await form.getByLabel('What do you need?').fill(material);
   await form.getByRole('button', { name: 'Send proposal' }).click();
   await expect(t.getByText(/^Proposal sent\./)).toBeVisible();
 }
@@ -74,9 +81,16 @@ test('a teacher schedules a class; a parent accepts it on booking details; the c
   await expect(t.getByRole('link', { name: 'Schedule a class' })).toBeVisible();
   await t.goto('/teacher/propose');
   await expect(t.getByTestId('proposal-history')).toContainText('No past lessons with you yet.');
+  await expect(t.getByTestId('busy-times')).toContainText('No confirmed lessons for you or Kiran in the next 4 weeks.');
   await check(t, phone);
   await shot(t, `TL3-teacher-propose-${device}`);
-  await schedule(t, dayAhead(3), '17:05', { label: /Maths Practice · 1\. Fractions/, intent: 'new' });
+  await schedule(
+    t,
+    dayAhead(3),
+    '17:05',
+    { label: /Maths Practice · 1\. Fractions/, intent: 'new' },
+    'Workbook pages on fractions',
+  );
   const proposals = t.getByRole('region', { name: 'Proposals waiting for a parent' });
   await expect(proposals.getByText('Waiting for the parent')).toBeVisible();
   await expect(proposals.getByTestId('planned-chapters')).toContainText('Maths Practice · 1. Fractions · New');
@@ -109,6 +123,8 @@ test('a teacher schedules a class; a parent accepts it on booking details; the c
   await forYou.getByRole('link', { name: /^Review and answer:/ }).click();
   await expect(p.getByRole('heading', { level: 1, name: 'A teacher proposed a lesson' })).toBeVisible();
   await expect(p.getByTestId('planned-chapters')).toContainText('Planned by the teacher');
+  // Readiness §3.2 step 4: the material request sent with the proposal, answerable here.
+  await expect(p.getByTestId('material-request')).toContainText('Workbook pages on fractions');
   await expect(p.getByText('5:05 pm–5:30 pm · 25 min')).toBeVisible(); // the parent's time zone
   await expect(p.getByText(/^Answer by /)).toBeVisible();
   await check(p, phone);

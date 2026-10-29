@@ -10,10 +10,12 @@ import {
   isSubject,
   line,
   lockLesson,
+  lockLinkFirst,
   NOTICE_HOURS,
   parentOwns,
   type PlannedChapter,
   plannedChoices,
+  Refused,
   retrying,
   tellAbout,
   teacherOwns,
@@ -21,6 +23,7 @@ import {
   validMinutes,
   WINDOW_DAYS,
 } from './lessons';
+import { MAX_DESCRIPTION_LENGTH, MAX_NOTE_LENGTH, requestMaterial } from './materialRequests';
 import { askForMeetingPermission } from './meetingLinks';
 
 /**
@@ -196,6 +199,11 @@ export interface ProposeInput {
   minutes: unknown;
   /** Optional planned chapters: [{ chapterId, intent }] (at most five). */
   planned?: unknown;
+  /**
+   * Readiness pack §3.2 step 4 (TL3-1): an optional material request, created in the same
+   * transaction as the proposal: what is needed (up to 200 characters) and a note (up to 300).
+   */
+  material?: { description?: unknown; note?: unknown };
 }
 
 export type ProposeReason =
@@ -209,7 +217,8 @@ export type ProposeReason =
   | 'duplicate'
   | 'limit'
   | 'no_rate'
-  | 'chapters';
+  | 'chapters'
+  | 'material';
 
 export type ProposeResult = { ok: true; id: string } | { ok: false; reason: ProposeReason };
 
@@ -265,6 +274,11 @@ export async function proposeLesson(
   const minutes = typeof input.minutes === 'number' ? input.minutes : Number(line(input.minutes));
   const planned = plannedChoices(input.planned);
   if (!planned) return { ok: false, reason: 'chapters' };
+  const description = typeof input.material?.description === 'string' ? input.material.description.trim() : '';
+  const materialNote = typeof input.material?.note === 'string' ? input.material.note.trim() : '';
+  if ([...description].length > MAX_DESCRIPTION_LENGTH || [...materialNote].length > MAX_NOTE_LENGTH)
+    return { ok: false, reason: 'material' };
+  if (materialNote && !description) return { ok: false, reason: 'material' };
   if (!UUID.test(childId) || !isSubject(subject) || !validMinutes(minutes)) return { ok: false, reason: 'invalid' };
   const options = await proposalOptions(sql, teacherId);
   if (!options.allowed) return { ok: false, reason: 'not_allowed' };
@@ -297,14 +311,49 @@ export async function proposeLesson(
           now,
         );
         await tellAbout(tx, row!.id, 'proposed', { actorId: teacherId }, now);
+        if (description) {
+          // The same function and rules as on My schedule (TL-2); all or nothing with the proposal.
+          const m = await requestMaterial(tx, teacherId, { lessonId: row!.id, description, note: materialNote }, now);
+          if (!m.ok) throw new Refused('material');
+        }
         return { ok: true, id: row!.id };
       }),
     );
   } catch (error) {
+    if (error instanceof Refused) return { ok: false, reason: 'material' };
     const reason = proposeReasonFromDb(error);
     if (reason) return { ok: false, reason };
     throw error;
   }
+}
+
+export interface BusyTime {
+  startsAt: Date;
+  endsAt: Date;
+  /** 'you': the teacher's own confirmed lesson; 'child': the child's lesson with another teacher (no name). */
+  whose: 'you' | 'child';
+}
+
+/**
+ * Readiness pack §3.2 step 2: the teacher's and the child's confirmed lessons in the proposal
+ * window, shown as busy. A lesson of the child with another teacher shows only its time, never
+ * that teacher's name. Only while the teacher is linked to the child in that subject.
+ */
+export async function proposalBusyTimes(
+  sql: Db,
+  teacherId: string,
+  childId: string,
+  subject: string,
+  now: Date = new Date(),
+): Promise<BusyTime[]> {
+  if (!(await linked(sql, teacherId, childId, subject))) return [];
+  const rows = await sql<Array<{ s: Date; e: Date; mine: boolean }>>`
+    SELECT starts_at AS s, ends_at AS e, teacher_id = ${teacherId} AS mine FROM lessons
+    WHERE status = 'confirmed' AND (teacher_id = ${teacherId} OR student_id = ${childId})
+      AND ends_at > ${new Date(now.getTime() + NOTICE_HOURS * 60 * MIN)}
+      AND starts_at < ${new Date(now.getTime() + (WINDOW_DAYS + 1) * 24 * 60 * MIN)}
+    ORDER BY starts_at, ends_at`;
+  return rows.map((r) => ({ startsAt: r.s, endsAt: r.e, whose: r.mine ? 'you' : 'child' }));
 }
 
 // ======================================================================= answering and withdrawing
@@ -333,6 +382,7 @@ export async function answerProposal(
   if ([...note].length > 200) return { ok: false, reason: 'invalid' };
   return retrying(() =>
     sql.begin(async (tx): Promise<ProposalAnswerResult> => {
+      await lockLinkFirst(tx, lessonId); // the same lock order as link removal (see lessons.lockLinkFirst)
       const l = await lockLesson(tx, lessonId);
       if (!l || l.origin !== 'teacher_proposal' || !(await parentOwns(tx, parentId, l))) {
         return { ok: false, reason: 'not_found' };

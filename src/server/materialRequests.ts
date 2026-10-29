@@ -278,7 +278,7 @@ async function tellTeacher(
  * (`position`) or describes what is needed, with an optional note. Parents get an action notice.
  */
 export async function requestMaterial(
-  sql: Sql,
+  sql: Db,
   teacherId: string,
   input: { lessonId: unknown; position?: unknown; description?: unknown; note?: unknown },
   now: Date = new Date(),

@@ -500,6 +500,24 @@ export interface LockedLesson {
   outcome: string | null;
 }
 
+/**
+ * Lock order (TL-3 review): every path that ends a teacher-child link (removeTeacher,
+ * updateTeacherLinks, the admin and teacher paths) locks the link row FIRST and then the lessons it
+ * closes. Accepting a lesson re-checks that link in the database (0029 lessons_teacher_link_ok,
+ * FOR SHARE), which used to happen AFTER the lesson row was locked: the opposite order, so an
+ * acceptance and a link removal could deadlock. Taking the link row (FOR SHARE) before the lesson
+ * row gives both the same order. Called first in every acceptance transaction.
+ */
+export async function lockLinkFirst(tx: Db, lessonId: string): Promise<void> {
+  if (!UUID.test(lessonId)) return;
+  await tx`
+    SELECT k.id FROM teacher_student_links k
+    JOIN lessons l ON l.teacher_id = k.teacher_id AND l.student_id = k.student_id
+    WHERE l.id = ${lessonId}
+    ORDER BY k.id
+    FOR SHARE OF k`;
+}
+
 export async function lockLesson(tx: Db, id: string): Promise<LockedLesson | null> {
   if (!UUID.test(id)) return null;
   const [l] = await tx<LockedLesson[]>`
@@ -645,6 +663,7 @@ export async function answerLesson(
   if (!planned) return { ok: false, reason: 'chapters' };
   return retrying(() =>
     sql.begin(async (tx): Promise<AnswerResult> => {
+      await lockLinkFirst(tx, lessonId);
       const l = await lockLesson(tx, lessonId);
       if (!l || !(await teacherOwns(tx, teacherId, l))) return { ok: false, reason: 'not_found' };
       if (l.status !== 'requested') {
