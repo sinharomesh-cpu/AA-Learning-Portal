@@ -375,13 +375,14 @@ describe('M2 draft: two builds migrating at the same moment', () => {
     const b = postgres(u.toString(), { max: 1, onnotice: () => {} });
     try {
       await migrate(a, { dir: upTo29 }); // the test database as it is today: 0001-0029
-      // Both runs apply everything after 0029 exactly once between them (0030, 0031 since M3, 0032 since TL-1, and 0033 since TL-2).
+      // Both runs apply everything after 0029 exactly once between them (0030, 0031 since M3, 0032 since TL-1, 0033 since TL-2, and 0034 since TL-3).
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
       expect([...ra, ...rb].sort()).toEqual([
         '0030_meeting_links.sql',
         '0031_kept_lessons.sql',
         '0032_lesson_chapters.sql',
         '0033_material_requests.sql',
+        '0034_teacher_proposals.sql',
       ]);
       const rows = await a`SELECT name FROM schema_migrations WHERE name = '0030_meeting_links.sql'`;
       expect(rows).toHaveLength(1);
