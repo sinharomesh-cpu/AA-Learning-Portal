@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { LinkButton } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { joinRefusalText } from '@/components/lessons/joinMessages';
 import { LessonCard } from '@/components/lessons/LessonCard';
@@ -14,8 +15,9 @@ import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { type LessonItem, lessonsForTeacher } from '@/server/lessons';
+import { type LessonItem, lessonsForTeacher, MAX_LESSON_CHAPTERS } from '@/server/lessons';
 import { materialRequestsFor } from '@/server/materialRequests';
+import { plannableChapters } from '@/server/proposals';
 import { rolePlaceholder } from '@/server/placeholder';
 import {
   AnswerButtons,
@@ -24,6 +26,7 @@ import {
   OutcomeButtons,
   TeacherCancelButton,
   WithdrawMaterialButton,
+  WithdrawProposalButton,
 } from './ScheduleForms';
 
 export const metadata: Metadata = { title: 'My schedule' };
@@ -41,6 +44,12 @@ const DONE: Record<string, { tone: 'success' | 'info' | 'warning'; text: string 
   expired: { tone: 'info', text: 'That request is no longer open: it expired before it was answered.' },
   not_linked: { tone: 'info', text: 'You are no longer linked to this child for this subject.' },
   closed: { tone: 'info', text: 'That request or lesson is no longer open.' },
+  // TL-3: proposals (OC-45: nothing is booked until a parent accepts).
+  proposed: {
+    tone: 'success',
+    text: 'Proposal sent. The child’s parents see it in AA Pro; nothing is booked until one of them accepts.',
+  },
+  proposal_withdrawn: { tone: 'success', text: 'Proposal withdrawn. The family has been told.' },
   link_saved: {
     tone: 'success',
     text: 'Meeting link saved. The family has been told; the link itself is not shown to anyone.',
@@ -96,9 +105,30 @@ export default async function TeacherSchedulePage({
     now,
   );
   const requests = all.filter((l) => l.canAnswer);
+  const proposals = all.filter((l) => l.status === 'proposed');
   const outcome = all.filter((l) => l.needsOutcome);
   const upcoming = all.filter((l) => l.status === 'confirmed' && l.endsAt > now);
-  const past = all.filter((l) => !requests.includes(l) && !outcome.includes(l) && !upcoming.includes(l)).reverse();
+  const past = all
+    .filter((l) => !requests.includes(l) && !proposals.includes(l) && !outcome.includes(l) && !upcoming.includes(l))
+    .reverse();
+  // TL-3 (D-E2E-3 (b)): chapters this teacher may plan when accepting, per child and subject.
+  const plannable = new Map<string, Awaited<ReturnType<typeof plannableChapters>>>();
+  for (const l of requests) {
+    const key = `${l.childId}.${l.subject}`;
+    if (!plannable.has(key)) plannable.set(key, await plannableChapters(db(), access.viewer.id, l.childId, l.subject));
+  }
+  const planFor = (l: LessonItem) =>
+    // W-3 / D-TLS-6: never on a request whose parent gave a topic.
+    l.chapters.some((c) => c.topic)
+      ? undefined
+      : {
+          chapters: (plannable.get(`${l.childId}.${l.subject}`) ?? []).filter(
+            (c) => !l.chapters.some((x) => x.label === c.label),
+          ),
+          max: MAX_LESSON_CHAPTERS - l.chapters.length,
+          childName: l.childName,
+          subjectName: SUBJECTS[l.subject].name,
+        };
   const describe = (l: LessonItem) =>
     `${SUBJECTS[l.subject].name} with ${l.childName}, ${formatLessonTime(l.startsAt, tz)}`;
 
@@ -115,8 +145,10 @@ export default async function TeacherSchedulePage({
                 r.canWithdraw ? <WithdrawMaterialButton requestId={r.id} label={`${r.what}, ${describe(l)}`} /> : null
               }
             />
-            {/* TL2-2: requested or confirmed lessons that haven't ended; not lessons kept under OC-53. */}
-            {(l.status === 'requested' || l.status === 'confirmed') && !l.ended && !l.kept ? (
+            {/* TL2-2, TL3-1: requested, proposed or confirmed lessons that haven't ended; not lessons kept under OC-53. */}
+            {(l.status === 'requested' || l.status === 'proposed' || l.status === 'confirmed') &&
+            !l.ended &&
+            !l.kept ? (
               <AskForMaterialForm
                 // A new request changes the key, so the form starts again closed and empty.
                 key={`${l.id}:${(materials.get(l.id) ?? []).map((r) => r.id).join(',')}`}
@@ -133,12 +165,15 @@ export default async function TeacherSchedulePage({
 
   return (
     <div className="mx-auto flex max-w-[980px] flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-headline-lg-mobile lg:text-headline-lg">My schedule</h1>
-        <p className="m-0 text-body-md text-on-surface-variant">
-          Lesson requests and lessons with the children linked to you. Times are in your time zone (
-          {formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-headline-lg-mobile lg:text-headline-lg">My schedule</h1>
+          <p className="m-0 text-body-md text-on-surface-variant">
+            Lesson requests and lessons with the children linked to you. Times are in your time zone (
+            {formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
+          </p>
+        </div>
+        <LinkButton href="/teacher/propose">Schedule a class</LinkButton>
       </div>
 
       {done ? <FormMessage tone={done.tone}>{done.text}</FormMessage> : null}
@@ -148,7 +183,7 @@ export default async function TeacherSchedulePage({
           Requests to answer
         </h2>
         {requests.length ? (
-          list(requests, (l) => <AnswerButtons lessonId={l.id} label={describe(l)} />)
+          list(requests, (l) => <AnswerButtons lessonId={l.id} label={describe(l)} plan={planFor(l)} />)
         ) : (
           <p className="m-0 text-body-md text-on-surface-variant">No requests are waiting for you.</p>
         )}
@@ -157,6 +192,21 @@ export default async function TeacherSchedulePage({
           Accepting one closes any other request at an overlapping time.
         </p>
       </section>
+
+      {proposals.length ? (
+        <section aria-labelledby="proposals" className="flex flex-col gap-3">
+          <h2 id="proposals" className="m-0 text-[22px] font-bold leading-7">
+            Proposals waiting for a parent
+          </h2>
+          {list(proposals, (l) => (
+            <WithdrawProposalButton lessonId={l.id} label={describe(l)} />
+          ))}
+          <p className="m-0 text-sm leading-5 text-on-surface-variant">
+            A proposal holds no time: if another lesson is confirmed at an overlapping time first, it closes. It expires
+            if no parent answers within 48 hours, or 2 hours before the lesson if that is sooner.
+          </p>
+        </section>
+      ) : null}
 
       {outcome.length ? (
         <section aria-labelledby="outcome" className="flex flex-col gap-3">
