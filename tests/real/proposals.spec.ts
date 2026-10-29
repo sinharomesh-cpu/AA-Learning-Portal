@@ -92,7 +92,10 @@ test('a teacher schedules a class; a parent accepts it on booking details; the c
     'Workbook pages on fractions',
   );
   const proposals = t.getByRole('region', { name: 'Proposals waiting for a parent' });
-  await expect(proposals.getByText('Waiting for the parent')).toBeVisible();
+  // Two "Waiting for the parent" badges: the proposal's and the material request sent with it (§3.2 step 4).
+  await expect(proposals.getByText('Waiting for the parent', { exact: true })).toHaveCount(2);
+  await expect(proposals.getByTestId('material-request')).toContainText('Workbook pages on fractions');
+  await expect(proposals.getByTestId('material-request').getByText('Waiting for the parent')).toBeVisible();
   await expect(proposals.getByTestId('planned-chapters')).toContainText('Maths Practice · 1. Fractions · New');
   await expect(proposals.getByText('₹250 for 25 min · Listed rate ₹600 an hour')).toBeVisible();
   await check(t, phone);
@@ -119,7 +122,8 @@ test('a teacher schedules a class; a parent accepts it on booking details; the c
   await shot(p, `TL3-parent-home-${device}`);
   await p.goto('/parent/calendar');
   const forYou = p.getByRole('region', { name: 'Waiting for you' });
-  await expect(forYou.getByText('Waiting for your answer')).toBeVisible();
+  // The proposal and its material request each wait for the parent.
+  await expect(forYou.getByText('Waiting for your answer', { exact: true })).toHaveCount(2);
   await forYou.getByRole('link', { name: /^Review and answer:/ }).click();
   await expect(p.getByRole('heading', { level: 1, name: 'A teacher proposed a lesson' })).toBeVisible();
   await expect(p.getByTestId('planned-chapters')).toContainText('Planned by the teacher');
