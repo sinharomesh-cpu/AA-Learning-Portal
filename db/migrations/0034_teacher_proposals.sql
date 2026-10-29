@@ -57,9 +57,14 @@
 ALTER TABLE lessons
   ADD COLUMN origin       text NOT NULL DEFAULT 'parent_request'
                           CHECK (origin IN ('parent_request', 'teacher_proposal')),
-  -- History only: the teacher who proposed (equals teacher_id when written).
+  -- History only: the teacher who proposed. Always equals teacher_id when written; teacher_id
+  -- (0029, ON DELETE CASCADE) keeps the teacher's identity for as long as the lesson row exists.
   ADD COLUMN proposed_by  uuid REFERENCES accounts (id) ON DELETE SET NULL,
   -- History only: the parent who accepted a proposal. Empty for requests (the teacher accepts those).
+  -- ON DELETE SET NULL, like requested_by (0029): if a parent account were ever erased, the fact
+  -- that a parent accepted (status, confirmed_at, origin) stays and only the identity goes. AA Pro
+  -- has no account-deletion path today, and an account named in audit_events cannot be deleted
+  -- (0001's append-only guard), so in practice the identity is kept.
   ADD COLUMN confirmed_by uuid REFERENCES accounts (id) ON DELETE SET NULL;
 
 ALTER TABLE lessons ADD CONSTRAINT lessons_origin CHECK (
@@ -179,7 +184,10 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- A parent's request: 0029's rules, unchanged (byte for byte).
+  -- A parent's request: 0029's rules, unchanged (byte for byte), as a labelled sub-block. In
+  -- PL/pgSQL a sub-block (DECLARE ... BEGIN ... END;) is itself a statement, so its own DECLARE
+  -- section may follow other statements; its variables exist only inside it.
+  <<parent_request_0029>>
 
 DECLARE
   open_count int;
@@ -325,7 +333,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Anything else: 0029's rules, unchanged (byte for byte).
+  -- Anything else: 0029's rules, unchanged (byte for byte), as a labelled sub-block.
+  <<lesson_rules_0029>>
 
 BEGIN
   -- The request and its price snapshot never change. (requested_by and agreement_id may only be
@@ -447,7 +456,9 @@ BEGIN
     RETURN NEW;   -- D-E2E-2: at most five in total, by 0032's positions 1 to 5.
   END IF;
 
-  -- Parent-requested chapters and every change: 0032's rules, unchanged (byte for byte).
+  -- Parent-requested chapters and every change: 0032's rules, unchanged (byte for byte), as a
+  -- labelled sub-block.
+  <<requested_chapters_0032>>
 
 DECLARE
   l lessons%ROWTYPE;
