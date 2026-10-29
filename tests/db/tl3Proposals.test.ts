@@ -377,6 +377,143 @@ describe('TL-3 the database enforces the time, length, subject and price rules o
   });
 });
 
+describe('TL-3 decline reason (v1.1 review point 1): optional, trimmed, at most 200 characters, enforced by the database', () => {
+  const decline = (id: string, parent: string, note: string | null) =>
+    sql`UPDATE lessons SET status = 'declined', closed_by = 'parent', closed_by_account = ${parent}, close_note = ${note}
+        WHERE id = ${id}`;
+  const fresh = async (f: Fam) => propose(sql, f, at((slot += 60)));
+  let slot = 0;
+
+  it('(P) no reason: stored as none', async () => {
+    const f = await family();
+    const id = await fresh(f);
+    await decline(id, f.parent, null);
+    expect(await row(id)).toMatchObject({ status: 'declined', close_note: null });
+  });
+
+  it('(B) a whitespace-only reason is stored as none (never an empty string)', async () => {
+    const f = await family();
+    const id = await fresh(f);
+    await decline(id, f.parent, ' \t  \n ');
+    expect(await row(id)).toMatchObject({ status: 'declined', close_note: null });
+  });
+
+  it('(B) exactly 200 characters is accepted; 201 is refused by the column check and nothing changes', async () => {
+    const f = await family();
+    const ok = await fresh(f);
+    await decline(ok, f.parent, 'a'.repeat(200));
+    expect(((await row(ok)).close_note as string).length).toBe(200);
+    const bad = await fresh(f);
+    expect(await outcome(decline(bad, f.parent, 'b'.repeat(201)))).toMatch(/^23514: .*lessons_close_note_check/);
+    expect(await row(bad)).toMatchObject({ status: 'proposed', close_note: null });
+  });
+
+  it('(P) leading and trailing whitespace is trimmed before the length check; inner spacing is kept', async () => {
+    const f = await family();
+    const id = await fresh(f);
+    await decline(id, f.parent, `   Not that day,  thanks   `);
+    expect((await row(id)).close_note).toBe('Not that day,  thanks');
+    // 200 characters inside padding fits once trimmed.
+    const padded = await fresh(f);
+    await decline(padded, f.parent, `  ${'c'.repeat(200)}  `);
+    expect(((await row(padded)).close_note as string).length).toBe(200);
+  });
+
+  it('(N) the column check holds even with every trigger skipped; only a parent’s decline may carry a reason; it can’t be edited later', async () => {
+    const f = await family();
+    const target = await fresh(f);
+    await decline(target, f.parent, 'Fine');
+    const bypass = sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`UPDATE lessons SET close_note = ${'d'.repeat(201)} WHERE id = ${target}`;
+    });
+    expect(await outcome(bypass)).toMatch(/^23514: .*lessons_close_note_check/);
+    const w = await fresh(f);
+    expect(
+      await code(sql`UPDATE lessons SET status = 'withdrawn', closed_by = 'teacher', closed_by_account = ${f.t}, close_note = 'x'
+                     WHERE id = ${w}`),
+    ).toBe('23514'); // lessons_status_fields: a withdrawal carries no text
+    const d = await fresh(f);
+    await decline(d, f.parent, 'Too early');
+    expect(await code(sql`UPDATE lessons SET close_note = 'Changed' WHERE id = ${d}`)).toBe('23514');
+  });
+});
+
+describe('TL-3 proposal creation racing an overlapping confirmation (v1.1 review point 2)', () => {
+  /** The request path's teacher acceptance (0029), inside the usual times (16:00 UTC). */
+  const confirmRequest = (db: Db, id: string) => db`UPDATE lessons SET status = 'confirmed' WHERE id = ${id}`;
+  const blocked = async (marker: string) => {
+    for (let i = 0; i < 40; i++) {
+      const [b] = await sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE cardinality(pg_blocking_pids(pid)) > 0 AND query LIKE ${'%' + marker + '%'}`;
+      if (b!.n > 0) return true;
+      await new Promise((r) => setTimeout(r, 15));
+    }
+    return false;
+  };
+
+  it('(C) confirmation first, proposal during it (same teacher): the proposal waits, then is refused', async () => {
+    const f = await family();
+    const req = await request(sql, f, at(360)); // 16:00-16:30 UTC
+    const [x, y] = [testDb(), testDb()];
+    const b = x.begin(async (tx) => {
+      await confirmRequest(tx as unknown as Db, req);
+      await tx`SELECT pg_sleep(0.5)`;
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    const a = code(propose(y, f, at(375))); // 16:15, overlapping
+    const waited = await blocked("'proposed'");
+    const results = await Promise.all([code(b), a]);
+    await Promise.all([x.end(), y.end()]);
+    expect(results).toEqual(['ok', '23514']);
+    expect(waited).toBe(true);
+    expect(await status(req)).toBe('confirmed');
+    expect(await sql`SELECT 1 FROM lessons WHERE teacher_id = ${f.t} AND status = 'proposed'`).toHaveLength(0);
+  });
+
+  it('(C) confirmation first, proposal during it (same child, another teacher): refused the same way', async () => {
+    const f = await family();
+    const other = await teacher();
+    await activeLink(sql, { teacher: other, child: f.child, parent: f.parent, subjects: ['maths'] });
+    const req = await request(sql, f, at(360));
+    const [x, y] = [testDb(), testDb()];
+    const b = x.begin(async (tx) => {
+      await confirmRequest(tx as unknown as Db, req);
+      await tx`SELECT pg_sleep(0.5)`;
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    const a = code(propose(y, { t: other, child: f.child }, at(370)));
+    const waited = await blocked("'proposed'");
+    const results = await Promise.all([code(b), a]);
+    await Promise.all([x.end(), y.end()]);
+    expect(results).toEqual(['ok', '23514']);
+    expect(waited).toBe(true);
+  });
+
+  it('(C) proposal first, confirmation during it: the confirmation waits, then succeeds; the proposal can never be accepted', async () => {
+    const f = await family();
+    const req = await request(sql, f, at(360));
+    const [x, y] = [testDb(), testDb()];
+    let proposal = '';
+    const a = x.begin(async (tx) => {
+      proposal = await propose(tx as unknown as Db, f, at(375));
+      await tx`SELECT pg_sleep(0.5)`;
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    const b = code(confirmRequest(y, req));
+    const waited = await blocked("status = 'confirmed'");
+    const results = await Promise.all([code(a), b]);
+    await Promise.all([x.end(), y.end()]);
+    expect(results).toEqual(['ok', 'ok']);
+    expect(waited).toBe(true);
+    // TL3-4: an open proposal holds no time, so the confirmation proceeds; the stale proposal is
+    // protected at acceptance by 0029's exclusion constraint (and closed by the application).
+    expect(await status(proposal)).toBe('proposed');
+    expect(await code(accept(proposal, f.parent))).toBe('23P01');
+  });
+});
+
 describe('TL-3 attribution after account deletion (review finding 2)', () => {
   it('a parent named in the audit trail cannot be deleted at all (0001), so who accepted stays identifiable', async () => {
     const f = await family();
