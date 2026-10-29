@@ -514,6 +514,217 @@ describe('TL-3 proposal creation racing an overlapping confirmation (v1.1 review
   });
 });
 
+describe('TL-3 same-slot cleanup ordering (v1.2.1 review): expiry before the time locks', () => {
+  // lessons_before_insert expires an overdue proposal for the same teacher, child and start BEFORE
+  // taking lessons_lock_times. Every path that touches an existing lesson takes its row lock before
+  // any time lock (acceptance: row, then teacher, then child), so these tests prove each pairing
+  // waits on the row and ends in exactly one consistent state, with no deadlock (40P01).
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const blocked = async (marker: string) => {
+    for (let i = 0; i < 100; i++) {
+      const [b] = await sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE cardinality(pg_blocking_pids(pid)) > 0 AND query LIKE ${'%' + marker + '%'}`;
+      if (b!.n > 0) return true;
+      await sleep(15);
+    }
+    return false;
+  };
+  /** An open proposal whose deadline is `ms` from now by the database clock. */
+  const dueIn = async (f: Fam, ms: number) =>
+    raw({ ...f, start: at(0), requestedAt: new Date((await dbNow()) - 2 * DAY + ms), status: 'proposed' });
+  const openAtSlot = async (f: Fam) =>
+    (
+      await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM lessons
+      WHERE teacher_id = ${f.t} AND student_id = ${f.child} AND starts_at = ${at(0)} AND status = 'proposed'`
+    )[0]!.n;
+  const INSERT = 'INSERT INTO lessons (teacher_id, student_id, proposed_by';
+
+  it('(C) an acceptance in time holds the row; a same-slot proposal after the deadline waits, leaves it confirmed, and is refused', async () => {
+    const f = await family();
+    const l = await dueIn(f, 1500);
+    const [x, y] = [testDb(), testDb()];
+    const a = x.begin(async (tx) => {
+      const n = (await accept(l, f.parent, tx as unknown as Db)).count; // its clock is before the deadline
+      await tx`SELECT pg_sleep(3)`;
+      return n;
+    });
+    await sleep(2000); // the deadline has now passed
+    const p = code(propose(y, f, at(0))); // its clean-up matches the row, so it must wait for it
+    const waited = await blocked(INSERT);
+    const results = await Promise.all([a, p]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waited).toBe(true);
+    expect(results).toEqual([1, '23514']); // not expired by the clean-up; then the overlap rule refuses
+    const r = await row(l);
+    expect(r).toMatchObject({ status: 'confirmed', confirmed_by: f.parent });
+    expect((r.confirmed_at as Date).getTime()).toBeLessThan((r.reply_deadline as Date).getTime());
+    expect(await openAtSlot(f)).toBe(0);
+  });
+
+  it('(C) the clean-up holds the row first; an acceptance whose clock started before the deadline waits and changes nothing', async () => {
+    const f = await family();
+    const l = await dueIn(f, 1500);
+    const [x, y] = [testDb(), testDb()];
+    const a = x.begin(async (tx) => {
+      await tx`SELECT 1`; // the transaction's clock starts before the deadline
+      await sleep(2600);
+      return (await accept(l, f.parent, tx as unknown as Db)).count;
+    });
+    await sleep(2000);
+    let fresh = '';
+    const p = y.begin(async (tx) => {
+      fresh = await propose(tx as unknown as Db, f, at(0)); // expires the overdue row and holds it
+      await tx`SELECT pg_sleep(1.5)`;
+    });
+    const waited = await blocked('confirmed_by =');
+    const results = await Promise.all([a, code(p)]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waited).toBe(true);
+    expect(results).toEqual([0, 'ok']); // exactly one outcome: the expiry; the acceptance found nothing to change
+    expect(await row(l)).toMatchObject({ status: 'expired', closed_by: 'aa_pro', confirmed_by: null });
+    expect(await status(fresh)).toBe('proposed');
+    expect(await openAtSlot(f)).toBe(1);
+  });
+
+  it('(C) the shared sweep holds the row; a same-slot proposal waits, then is created; the row is expired once', async () => {
+    const f = await family();
+    const l = await raw({ ...f, start: at(0), requestedAt: new Date(Date.now() - 3 * DAY), status: 'proposed' });
+    const [x, y] = [testDb(), testDb()];
+    const s = x.begin(async (tx) => {
+      const ids = (await tx<{ id: string }[]>`SELECT lessons_expire_overdue() AS id`).map((r) => r.id);
+      await tx`SELECT pg_sleep(0.8)`;
+      return ids;
+    });
+    await sleep(200);
+    const p = code(propose(y, f, at(0)));
+    const waited = await blocked(INSERT);
+    const [ids, result] = await Promise.all([s, p]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waited).toBe(true);
+    expect(ids).toContain(l);
+    expect(result).toBe('ok');
+    expect(await row(l)).toMatchObject({ status: 'expired', closed_by: 'aa_pro' });
+    expect(await openAtSlot(f)).toBe(1);
+  });
+
+  it('(C) the clean-up holds the row; the shared sweep skips it without waiting', async () => {
+    const f = await family();
+    const l = await raw({ ...f, start: at(0), requestedAt: new Date(Date.now() - 3 * DAY), status: 'proposed' });
+    const [x, y] = [testDb(), testDb()];
+    const p = x.begin(async (tx) => {
+      await propose(tx as unknown as Db, f, at(0));
+      await tx`SELECT pg_sleep(0.8)`;
+    });
+    await sleep(200);
+    const t0 = Date.now();
+    const ids = (await y<{ id: string }[]>`SELECT lessons_expire_overdue() AS id`).map((r) => r.id);
+    const took = Date.now() - t0;
+    const result = await code(p);
+    await Promise.all([x.end(), y.end()]);
+    expect(ids).not.toContain(l); // SKIP LOCKED
+    expect(took).toBeLessThan(500); // did not wait for the 0.8 s transaction
+    expect(result).toBe('ok');
+    expect(await row(l)).toMatchObject({ status: 'expired', closed_by: 'aa_pro' });
+    expect(await openAtSlot(f)).toBe(1);
+  });
+
+  it('(C) two proposals for a slot held by an overdue one: the second waits on the row, then is refused; one open', async () => {
+    const f = await family();
+    const l = await raw({ ...f, start: at(0), requestedAt: new Date(Date.now() - 3 * DAY), status: 'proposed' });
+    const [x, y] = [testDb(), testDb()];
+    const first = x.begin(async (tx) => {
+      await propose(tx as unknown as Db, f, at(0));
+      await tx`SELECT pg_sleep(0.6)`;
+    });
+    await sleep(150);
+    const second = code(propose(y, f, at(0)));
+    const waited = await blocked(INSERT);
+    const results = await Promise.all([code(first), second]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waited).toBe(true);
+    expect(results).toEqual(['ok', '23505']);
+    expect(await status(l)).toBe('expired');
+    expect(await openAtSlot(f)).toBe(1);
+  });
+
+  // Multi-statement transactions. Inside single statements the order can't deadlock (above). The
+  // application's acceptance (answerLesson on main) first locks the row (SELECT ... FOR UPDATE),
+  // then confirms it (time locks), then closes overlapping requests: these three tests pin down how
+  // the clean-up's position behaves with that shape.
+  it('(C) guard: an acceptance that locks the row first, then confirms, never deadlocks with the same-slot clean-up', async () => {
+    const f = await family();
+    const l = await dueIn(f, 1500);
+    const [x, y] = [testDb(), testDb()];
+    const a = x.begin(async (tx) => {
+      await tx`SELECT id FROM lessons WHERE id = ${l} FOR UPDATE`; // row lock and clock before the deadline
+      await sleep(2600);
+      return (await accept(l, f.parent, tx as unknown as Db)).count; // now takes the time locks
+    });
+    await sleep(2000);
+    const p = code(propose(y, f, at(0))); // waits on the row while holding no time lock
+    const waited = await blocked(INSERT);
+    const results = await Promise.all([a, p]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waited).toBe(true);
+    expect(results).toEqual([1, '23514']);
+    expect(await status(l)).toBe('confirmed');
+  });
+
+  it('(C) stage-3 constraint: confirming, then closing an overlapping proposal by a plain UPDATE, can deadlock with that slot’s clean-up; one is aborted (40P01) and the state stays consistent', async () => {
+    const f = await family();
+    const req = await request(sql, f, at(360));
+    const l = await raw({ ...f, start: at(360), requestedAt: new Date(Date.now() - 3 * DAY), status: 'proposed' });
+    const [x, y] = [testDb(), testDb()];
+    const q = x.begin(async (tx) => {
+      await tx`UPDATE lessons SET status = 'confirmed' WHERE id = ${req}`; // takes the time locks
+      await tx`SELECT pg_sleep(0.5)`;
+      await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+               WHERE id = ${l} AND status = 'proposed'`; // wants the row the clean-up holds
+    });
+    await sleep(150);
+    const p = code(propose(y, f, at(360))); // clean-up locks l, then waits for the time locks
+    const [qr, pr] = await Promise.all([code(q), p]);
+    await Promise.all([x.end(), y.end()]);
+    expect([qr, pr]).toContain('40P01');
+    if (pr === '40P01') {
+      expect(qr).toBe('ok');
+      expect(await status(req)).toBe('confirmed');
+      expect(await row(l)).toMatchObject({ status: 'declined', close_reason: 'time_no_longer_free' });
+    } else {
+      expect(pr).toBe('ok'); // the confirmation was rolled back, so nothing overlapped
+      expect(await status(req)).toBe('requested');
+      expect(await status(l)).toBe('expired');
+    }
+  });
+
+  it('(C) stage-3 pattern: the same closure with FOR UPDATE SKIP LOCKED does not deadlock; the skipped proposal stays unacceptable', async () => {
+    const f = await family();
+    const req = await request(sql, f, at(360));
+    const l = await raw({ ...f, start: at(360), requestedAt: new Date(Date.now() - 3 * DAY), status: 'proposed' });
+    const [x, y] = [testDb(), testDb()];
+    const q = x.begin(async (tx) => {
+      await tx`UPDATE lessons SET status = 'confirmed' WHERE id = ${req}`;
+      await tx`SELECT pg_sleep(0.5)`;
+      await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+               WHERE id IN (SELECT id FROM lessons WHERE id = ${l} AND status = 'proposed' FOR UPDATE SKIP LOCKED)`;
+    });
+    await sleep(150);
+    const p = code(propose(y, f, at(360)));
+    const waited = await blocked(INSERT);
+    const results = await Promise.all([code(q), p]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waited).toBe(true);
+    expect(results).toEqual(['ok', '23514']); // no deadlock; the new proposal then overlaps the confirmed lesson
+    expect(await status(req)).toBe('confirmed');
+    // The clean-up was rolled back with the refused proposal, so l is still open but overdue: it can't
+    // be accepted, and the sweep expires it.
+    expect(await status(l)).toBe('proposed');
+    expect(await code(accept(l, f.parent))).toBe('23514');
+    expect((await sql<{ id: string }[]>`SELECT lessons_expire_overdue() AS id`).map((r) => r.id)).toContain(l);
+  });
+});
+
 describe('TL-3 attribution after account deletion (review finding 2)', () => {
   it('a parent named in the audit trail cannot be deleted at all (0001), so who accepted stays identifiable', async () => {
     const f = await family();
