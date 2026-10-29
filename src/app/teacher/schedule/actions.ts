@@ -87,6 +87,8 @@ const PROPOSE_TEXT: Record<ProposeReason, string> = {
   no_rate: 'Add your hourly rate to your listing first: a proposal shows the family its price.',
   chapters:
     'Choose up to 5 chapters from the list, each with an optional intent. A chapter may no longer be shared with you: check the list again.',
+  material:
+    'Describe the material you need (up to 200 characters); the note can be up to 300 characters. Nothing was sent.',
 };
 
 /**
@@ -103,6 +105,7 @@ export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): P
     time: str(fd, 'time'),
     minutes: str(fd, 'minutes'),
     planned: plannedFrom(fd),
+    material: { description: str(fd, 'materialDescription'), note: str(fd, 'materialNote') },
   });
   if (r.ok) {
     revalidatePath('/teacher/propose');

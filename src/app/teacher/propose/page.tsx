@@ -8,7 +8,7 @@ import { CHOICE_CARD, OVERLAY_INPUT, SHELL } from '@/components/ui/styles';
 import { SUBJECTS, type SubjectId } from '@/fixtures/subjects';
 import { clockNow } from '@/lib/clock';
 import { cx } from '@/lib/cx';
-import { formatLessonTime, localDate } from '@/lib/lessonDisplay';
+import { formatClock, formatLessonTime, localDate } from '@/lib/lessonDisplay';
 import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
@@ -21,7 +21,7 @@ import {
   WINDOW_DAYS,
 } from '@/server/lessons';
 import { rolePlaceholder } from '@/server/placeholder';
-import { plannableChapters, proposalHistory, proposalOptions } from '@/server/proposals';
+import { plannableChapters, proposalBusyTimes, proposalHistory, proposalOptions } from '@/server/proposals';
 import { ProposeForm } from './ProposeForm';
 
 export const metadata: Metadata = { title: 'Schedule a class' };
@@ -64,6 +64,7 @@ export default async function ProposePage({
     choices.find((x) => `${x.child.id}.${x.subject}` === pick) ?? (choices.length === 1 ? choices[0]! : null);
   const chapters = chosen ? await plannableChapters(sql, access.viewer.id, chosen.child.id, chosen.subject) : [];
   const history = chosen ? await proposalHistory(sql, access.viewer.id, chosen.child.id, chosen.subject, now) : [];
+  const busy = chosen ? await proposalBusyTimes(sql, access.viewer.id, chosen.child.id, chosen.subject, now) : [];
   const zone = `${formatZoneName(now.toISOString(), { timeZone: tz })}, ${tz}`;
 
   return (
@@ -156,6 +157,10 @@ export default async function ProposePage({
                   defaultMinutes={30}
                   chapters={chapters}
                   zone={zone}
+                  busy={busy.map((b) => ({
+                    when: `${formatLessonTime(b.startsAt, tz)}–${formatClock(b.endsAt, tz)}`,
+                    whose: b.whose,
+                  }))}
                 />
               </section>
               <section
