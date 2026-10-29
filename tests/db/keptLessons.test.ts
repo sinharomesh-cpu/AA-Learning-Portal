@@ -15,7 +15,7 @@ import { noteLessonReminders } from '@/server/lessonReminders';
 import { allowMeetingLinks, joinTarget, setMeetingLink, stopMeetingLinks } from '@/server/meetingLinks';
 import { loadViewer, mayStillSee, type StoredNotification } from '@/server/notifications/access';
 import { removeTeacher, updateTeacherLinks } from '@/server/teacherLinks';
-import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
+import { activeLink, createAdult, createChild, migrationsBefore, testDb, uniq } from './helpers';
 
 /**
  * OC-53 Option A (owner, 25 Oct 2026, 00:05 IST) and migration 0031 (M3, draft): when a parent
@@ -432,7 +432,8 @@ describe('M3 (0031) rollback, on a throw-away database (order: M3, then M2, then
     url.pathname = `/${name}`;
     const db = postgres(url.toString(), { max: 1, onnotice: () => {} });
     try {
-      await migrate(db);
+      // TL-3 (0034, TL3-6 Option D) ships no rollback: the older reverts run on a database at 0033.
+      await migrate(db, { dir: await migrationsBefore('0034') });
       const fnBefore = async () =>
         (
           await db<
@@ -504,11 +505,12 @@ describe('M3 (0031) rollback, on a throw-away database (order: M3, then M2, then
     try {
       await migrate(a, { dir: upTo30 }); // the shared test database as it is today: 0001-0030
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
-      // Both runs apply everything after 0030 exactly once between them (0031; 0032 since TL-1; 0033 since TL-2).
+      // Both runs apply everything after 0030 exactly once between them (0031; 0032 since TL-1; 0033 since TL-2; 0034 since TL-3).
       expect([...ra, ...rb].sort()).toEqual([
         '0031_kept_lessons.sql',
         '0032_lesson_chapters.sql',
         '0033_material_requests.sql',
+        '0034_teacher_proposals.sql',
       ]);
     } finally {
       await a.end();

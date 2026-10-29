@@ -26,6 +26,14 @@
 -- runner, with psql -1, or with plain psql -f. It either completes or changes nothing.
 DO $$
 BEGIN
+  -- TL-3 (0034) ships no rollback (TL3-6 Option D, owner 29 Oct 2026): once 0034 is applied this
+  -- file must not run, because it would delete proposal history (planned chapters and material
+  -- requests on proposals). Fix forward with a new reviewed migration, or use the before-TL3
+  -- restore point under the recovery procedure.
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = current_schema() AND table_name = 'lessons' AND column_name = 'origin') THEN
+    RAISE EXCEPTION 'TL-3 (0034) is applied: this rollback is closed; fix forward (TL3-6 Option D)';
+  END IF;
   -- Anything else that depends on material_requests (another table's foreign key, or a view)
   -- would make DROP TABLE fail; refuse with a clear message before anything is changed.
   IF EXISTS (SELECT 1 FROM pg_constraint

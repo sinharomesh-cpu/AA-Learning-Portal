@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { migrate } from '../../scripts/db-migrate.mjs';
-import { createAdult, createChild, testDb, uniq } from './helpers';
+import { createAdult, createChild, migrationsBefore, testDb, uniq } from './helpers';
 
 /**
  * TL-2 (0033) migration and rollback on throw-away databases only: apply every migration, add a
@@ -72,7 +72,9 @@ beforeAll(async () => {
   const url = new URL(process.env.DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5432/postgres');
   url.pathname = `/${name}`;
   sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
-  await migrate(sql);
+  // TL-3 (0034, TL3-6 Option D) ships no rollback and closes this chain: this revert script applies
+  // only to a database at 0033 or earlier (it refuses once 0034 is applied; see tl3Proposals.test).
+  await migrate(sql, { dir: await migrationsBefore('0034') });
 });
 afterAll(async () => {
   await sql.end();
@@ -242,7 +244,7 @@ describe('TL-2 rollback (0033)', () => {
     try {
       await migrate(a, { dir: upTo32 }); // 0001-0032: the shared test database once TL-1 is approved
       const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
-      expect([...ra, ...rb]).toEqual(['0033_material_requests.sql']);
+      expect([...ra, ...rb].sort()).toEqual(['0033_material_requests.sql', '0034_teacher_proposals.sql']);
     } finally {
       await a.end();
       await b.end();
