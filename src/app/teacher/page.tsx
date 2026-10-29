@@ -179,6 +179,12 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-on-surface-variant">
             Today: {today} {today === 1 ? 'lesson' : 'lessons'}
           </span>
+          {home.mode === 'real' ? (
+            <LinkButton href="/teacher/schedule#week" variant="secondary" data-testid="open-week-calendar">
+              <Icon name="calendar_view_week" size={18} />
+              Week calendar
+            </LinkButton>
+          ) : null}
           {home.mode === 'demo' ? (
             // B1: hidden for real accounts until teacher proposals (OC-45) are built.
             <LinkButton href="/teacher/propose" variant="secondary">
