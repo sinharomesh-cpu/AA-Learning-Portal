@@ -10,6 +10,8 @@
 --  * lessons: three new columns (origin, proposed_by, confirmed_by), one new status ('proposed'),
 --    the status check and the status-fields rule widened, one new rule (lessons_origin), two
 --    indexes;
+--  * lessons_lock_times (new): the teacher-then-child transaction locks shared by proposal
+--    creation and every confirmation;
 --  * lessons_before_insert, lessons_before_update, lessons_expire_overdue (0029): replaced. The
 --    first two keep 0029's text for a parent's request BYTE FOR BYTE, as an inner block reached
 --    only when the row is not a proposal (a test compares the function bodies);
@@ -27,7 +29,9 @@
 --    (D-TLS-2);
 --  * accepts a start 24 hours to 4 weeks ahead, on any 5-minute step, NOT limited to the teacher's
 --    usual times, for 10 to 40 minutes in 5-minute steps (D-TLS-3; the minutes rule is 0029's);
---  * refuses a proposal that overlaps a confirmed lesson of the teacher or of the child (D-TLS-3);
+--  * refuses a proposal that overlaps a confirmed lesson of the teacher or of the child (D-TLS-3),
+--    exactly even under concurrency: creating a proposal and confirming any lesson take the same
+--    teacher and child locks (lessons_lock_times), so neither can miss the other;
 --    an open proposal holds no time (TL3-4): requests and other proposals for the same time stay
 --    possible, and the first one confirmed wins through 0029's no-overlap rules;
 --  * sets the reply deadline itself: 48 hours after the proposal, or 2 hours before the start if
@@ -107,6 +111,18 @@ ALTER TABLE lessons ADD CONSTRAINT lessons_status_fields CHECK (
 CREATE UNIQUE INDEX lessons_one_open_proposal ON lessons (teacher_id, student_id, starts_at) WHERE status = 'proposed';
 CREATE INDEX lessons_open_proposal_deadline ON lessons (reply_deadline) WHERE status = 'proposed';
 
+-- ---------------------------------------------------------------- time locks
+-- A proposal is refused if it overlaps a confirmed lesson of the teacher or the child (D-TLS-3).
+-- To make that check exact under concurrency, creating a proposal and confirming any lesson take
+-- the same two transaction locks, always teacher first, then child, so a proposal can't be checked
+-- while an overlapping confirmation is still in flight (v1.1 review point 2). Nothing else uses
+-- these keys; they are released at commit or rollback.
+CREATE FUNCTION lessons_lock_times(p_teacher uuid, p_student uuid) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('aa_pro.lesson_times.teacher:' || p_teacher::text, 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('aa_pro.lesson_times.child:' || p_student::text, 0));
+END $$;
+
 -- ---------------------------------------------------------------- new proposals (and requests)
 CREATE OR REPLACE FUNCTION lessons_before_insert() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -142,14 +158,6 @@ BEGIN
       RAISE EXCEPTION 'the teacher must be approved, active and linked to the child in this subject'
         USING ERRCODE = 'insufficient_privilege';
     END IF;
-    -- D-TLS-3: never over a confirmed lesson of the teacher or of the child. (A proposal holds no
-    -- time, TL3-4: acceptance is protected by 0029's no-overlap rules.)
-    IF EXISTS (SELECT 1 FROM lessons x
-               WHERE x.status = 'confirmed' AND (x.teacher_id = NEW.teacher_id OR x.student_id = NEW.student_id)
-                 AND tstzrange(x.starts_at, x.ends_at, '[)') && tstzrange(NEW.starts_at, NEW.ends_at, '[)')) THEN
-      RAISE EXCEPTION 'the time overlaps a confirmed lesson' USING ERRCODE = 'check_violation';
-    END IF;
-
     -- D-TLS-12: the same price snapshot as for a request (0029); no hourly price, no proposal.
     tl3_p := lessons_price_for(NEW.teacher_id, NEW.student_id, NEW.subject, NEW.starts_at, NEW.minutes);
     IF (NEW.price_basis IS NOT NULL AND NEW.price_basis <> tl3_p.basis)
@@ -170,6 +178,17 @@ BEGIN
     UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
     WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND starts_at = NEW.starts_at
       AND status = 'proposed' AND reply_deadline <= now();
+
+    -- D-TLS-3: never over a confirmed lesson of the teacher or of the child, checked after taking
+    -- the time locks so an overlapping confirmation still in flight is waited for and then seen.
+    -- (After that, a proposal still holds no time, TL3-4: a later confirmation may overlap it, and
+    -- its acceptance is then refused by 0029's no-overlap rules.)
+    PERFORM lessons_lock_times(NEW.teacher_id, NEW.student_id);
+    IF EXISTS (SELECT 1 FROM lessons x
+               WHERE x.status = 'confirmed' AND (x.teacher_id = NEW.teacher_id OR x.student_id = NEW.student_id)
+                 AND tstzrange(x.starts_at, x.ends_at, '[)') && tstzrange(NEW.starts_at, NEW.ends_at, '[)')) THEN
+      RAISE EXCEPTION 'the time overlaps a confirmed lesson' USING ERRCODE = 'check_violation';
+    END IF;
 
     -- D-TLS-5: at most 10 open proposals per teacher and child. A per-pair transaction lock makes
     -- two proposals sent at the same moment count one after the other. Overdue ones don't count.
@@ -273,6 +292,12 @@ BEGIN
     RAISE EXCEPTION 'who started or accepted a lesson cannot be changed' USING ERRCODE = 'check_violation';
   END IF;
 
+  -- Any lesson becoming confirmed (a request or a proposal) takes the time locks first (see
+  -- lessons_lock_times). This only adds waiting; every rule below is unchanged.
+  IF NEW.status = 'confirmed' AND OLD.status IS DISTINCT FROM 'confirmed' THEN
+    PERFORM lessons_lock_times(NEW.teacher_id, NEW.student_id);
+  END IF;
+
   -- TL-3: an open proposal. Anything else runs 0029's rules below, unchanged; a proposal once
   -- confirmed is an ordinary confirmed lesson there (cancellation, outcome).
   IF OLD.status = 'proposed' THEN
@@ -319,7 +344,10 @@ BEGIN
       IF NOT lessons_parent_ok(NEW.closed_by_account, NEW.student_id) THEN
         RAISE EXCEPTION 'only a parent linked to the child can decline a proposal' USING ERRCODE = 'insufficient_privilege';
       END IF;
-      NEW.close_note := NULLIF(btrim(NEW.close_note), '');
+      -- Optional reason: leading and trailing whitespace of any kind (spaces, tabs, line breaks)
+      -- removed; nothing left means no reason. At most 200 characters: 0029's column check
+      -- lessons_close_note_check, applied to the trimmed value.
+      NEW.close_note := NULLIF(regexp_replace(NEW.close_note, '^[[:space:]]+|[[:space:]]+$', '', 'g'), '');
     ELSIF NEW.status = 'withdrawn' AND NEW.closed_by = 'teacher' THEN
       IF NEW.closed_by_account IS DISTINCT FROM NEW.teacher_id THEN
         RAISE EXCEPTION 'only the proposing teacher can withdraw a proposal' USING ERRCODE = 'insufficient_privilege';
