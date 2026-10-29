@@ -5,7 +5,14 @@ import { StatusChip } from '@/components/StatusChip';
 import { SUBJECT_ICONS } from '@/config/subjectIcons';
 import { SUBJECTS } from '@/fixtures/subjects';
 import { cx } from '@/lib/cx';
-import { closeReasonText, formatClock, formatLessonTime, formatMoney, lessonStatusText } from '@/lib/lessonDisplay';
+import {
+  closeReasonText,
+  formatClock,
+  formatLessonTime,
+  formatMoney,
+  intentText,
+  lessonStatusText,
+} from '@/lib/lessonDisplay';
 import type { LessonItem } from '@/server/lessons';
 
 /** CR-17 PR 3: where the teacher's own meeting link stands, in words (never the link itself). */
@@ -27,15 +34,28 @@ function meetingLine(l: LessonItem, viewer: 'parent' | 'teacher', timeZone: stri
 }
 
 /**
- * TL-1: the chapters or topic the parent asked for. A chapter the teacher can still view links to
- * the view-only reader (teacher only); one no longer shared says so and shows no content (D-TLS-19).
+ * TL-1: the chapters or topic the parent asked for; TL-3 (TL3-AC-10): the chapters the teacher
+ * planned, in their own list with the intent in words. A chapter the teacher can still view links
+ * to the view-only reader (teacher only); one no longer shared says so and shows no content.
  */
-function LessonChapters({ chapters, lessonId }: { chapters: LessonItem['chapters']; lessonId: string }) {
-  const id = `chapters-${lessonId}`;
+function LessonChapters({
+  chapters,
+  lessonId,
+  kind,
+}: {
+  chapters: LessonItem['chapters'];
+  lessonId: string;
+  kind: 'requested' | 'planned';
+}) {
+  const id = `chapters-${kind}-${lessonId}`;
   return (
-    <div className="flex flex-col gap-1" data-testid="lesson-chapters">
+    <div className="flex flex-col gap-1" data-testid={kind === 'planned' ? 'planned-chapters' : 'lesson-chapters'}>
       <p id={id} className="m-0 text-sm font-bold leading-5">
-        {chapters.length === 1 && chapters[0]!.topic ? 'Requested topic' : 'Requested chapters'}
+        {kind === 'planned'
+          ? 'Planned by the teacher'
+          : chapters.length === 1 && chapters[0]!.topic
+            ? 'Requested topic'
+            : 'Requested chapters'}
       </p>
       <ul aria-labelledby={id} className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-sm leading-5">
         {chapters.map((c, i) => (
@@ -47,6 +67,12 @@ function LessonChapters({ chapters, lessonId }: { chapters: LessonItem['chapters
             ) : (
               <span>{c.label}</span>
             )}
+            {intentText(c.intent) ? (
+              <span className="text-on-surface-variant" data-testid="chapter-intent">
+                {' '}
+                · {intentText(c.intent)}
+              </span>
+            ) : null}
             {!c.topic && !c.shared ? (
               <span className="text-on-surface-variant" data-testid="chapter-not-shared">
                 {' '}
@@ -86,6 +112,8 @@ export function LessonCard({
       ? `${subject} with ${l.teacherName}`
       : `${subject} with ${l.childName}${l.grade ? ` · Grade ${l.grade}` : ''}`;
   const reason = closeReasonText(l.closeReason);
+  const requested = l.chapters.filter((c) => c.source !== 'planned');
+  const planned = l.chapters.filter((c) => c.source === 'planned');
   return (
     <article
       aria-labelledby={`lesson-${l.id}`}
@@ -122,7 +150,16 @@ export function LessonCard({
               {formatMoney(l.price.rateMinor, l.price.currency)} an hour
             </p>
           ) : null}
-          {l.chapters.length ? <LessonChapters chapters={l.chapters} lessonId={l.id} /> : null}
+          {requested.length ? <LessonChapters chapters={requested} lessonId={l.id} kind="requested" /> : null}
+          {planned.length ? <LessonChapters chapters={planned} lessonId={l.id} kind="planned" /> : null}
+          {l.status === 'proposed' ? (
+            <p className="m-0 text-sm leading-5 text-on-surface-variant">
+              {viewer === 'parent' ? 'Answer by' : 'The family has until'} {formatLessonTime(l.replyDeadline, timeZone)}
+              {viewer === 'parent'
+                ? '. Nothing is booked until you accept.'
+                : ' to answer. Nothing is booked until a parent accepts.'}
+            </p>
+          ) : null}
           {l.status === 'requested' ? (
             <p className="m-0 text-sm leading-5 text-on-surface-variant">
               {viewer === 'teacher' ? 'Answer by' : 'The teacher has until'}{' '}
@@ -140,7 +177,13 @@ export function LessonCard({
           ) : null}
           {l.closeNote ? (
             <p className="m-0 text-sm leading-5">
-              {viewer === 'parent' ? 'The teacher’s reason: ' : 'Your reason: '}
+              {l.closedBy === 'parent'
+                ? viewer === 'teacher'
+                  ? 'The parent’s reason: '
+                  : 'Reason given: '
+                : viewer === 'parent'
+                  ? 'The teacher’s reason: '
+                  : 'Your reason: '}
               {l.closeNote}
             </p>
           ) : null}

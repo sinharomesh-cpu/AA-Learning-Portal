@@ -62,6 +62,10 @@ export default async function ParentHomePage() {
         .sort((a, b) => a.startIso.localeCompare(b.startIso));
   // TL-2 (owner direction 23:06 IST): teachers' open material requests waiting for this parent.
   const materialsWaiting = isDemoMode() ? 0 : await openMaterialRequestCount(db(), parentId, now);
+  // TL-3 (WF-31): teachers' proposals waiting for this parent, counted from the records.
+  const proposalsWaiting = isDemoMode()
+    ? 0
+    : kids.flatMap((k) => k.lessons).filter((l) => l.status === 'proposed').length;
   const resources = familyResources(parentId);
   const notify = notificationSummary(parentId);
 
@@ -83,6 +87,20 @@ export default async function ParentHomePage() {
           </LinkButton>
         </div>
       </div>
+
+      {proposalsWaiting ? (
+        <Card className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5" data-testid="proposals-waiting">
+          <p className="m-0 text-body-md">
+            <strong>
+              {proposalsWaiting === 1
+                ? 'A teacher proposed a lesson.'
+                : `Teachers proposed lessons: ${proposalsWaiting} proposals are waiting.`}
+            </strong>{' '}
+            Accept or decline before it expires. Nothing is booked until you accept.
+          </p>
+          <LinkButton href="/parent/calendar">Review proposals</LinkButton>
+        </Card>
+      ) : null}
 
       {materialsWaiting ? (
         <Card
@@ -249,7 +267,7 @@ export default async function ParentHomePage() {
                 <td className="px-2.5 py-3">{reminderText(l)}</td>
                 <td className="px-2.5 py-3">
                   <LinkButton
-                    href={isDemoMode() ? `/parent/bookings/${l.id}` : '/parent/calendar'}
+                    href={isDemoMode() || l.status === 'proposed' ? `/parent/bookings/${l.id}` : '/parent/calendar'}
                     variant="secondary"
                     aria-label={`${l.status === 'proposed' ? 'Review' : 'View'} ${l.subject} for ${l.childName}, ${l.dayLabel} ${l.timeLabel}`}
                   >
