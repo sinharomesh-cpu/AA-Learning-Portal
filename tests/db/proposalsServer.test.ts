@@ -13,12 +13,14 @@ import { actionLabel, loadViewer, type StoredNotification } from '@/server/notif
 import {
   answerProposal,
   plannableChapters,
+  proposalBusyTimes,
   proposalHistory,
   proposalOptions,
   proposalStart,
   proposeLesson,
   withdrawProposal,
 } from '@/server/proposals';
+import { closeLessonsWithoutLink } from '@/server/lessons';
 import { removeTeacher } from '@/server/teacherLinks';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
@@ -579,5 +581,125 @@ describe('TL-3 server: lists, history, material requests and notices', () => {
     expect(await actionLabel(sql, viewer, n!, new Date())).toBe('Needs your reply');
     await answerProposal(sql, f.parent2, id, 'accept');
     expect(await actionLabel(sql, viewer, n!, new Date())).toBe('Done');
+  });
+});
+
+describe('TL-3 server: acceptance vs link removal lock order (lesson rows and link rows)', () => {
+  // Link removal (removeTeacher, updateTeacherLinks, ...) locks the link row, then the lessons it
+  // closes. An acceptance must take the link row before the lesson row too, or the two can deadlock
+  // (the database aborts one after deadlock_timeout, 1 s). This mirrors removal step by step.
+  const blockedOn = async () => {
+    for (let i = 0; i < 100; i++) {
+      const rows = await sql<{ q: string }[]>`
+        SELECT query AS q FROM pg_stat_activity WHERE cardinality(pg_blocking_pids(pid)) > 0`;
+      if (rows.length) return rows.map((r) => r.q).join(' | ');
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    return '';
+  };
+  const removal = (db: ReturnType<typeof testDb>, f: Fam) =>
+    db.begin(async (tx) => {
+      const t0 = Date.now();
+      await tx`SELECT id FROM teacher_student_links WHERE teacher_id = ${f.t} AND student_id = ${f.child} FOR UPDATE`;
+      await tx`SELECT pg_sleep(0.3)`;
+      await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
+               WHERE teacher_id = ${f.t} AND student_id = ${f.child}`;
+      await closeLessonsWithoutLink(tx, { teacherId: f.t }, new Date());
+      return Date.now() - t0;
+    });
+
+  it('(C) a parent accepting while the link is being removed waits on the link first; no deadlock; the proposal closes', async () => {
+    const f = await family();
+    const id = await proposed(f, at(0));
+    const [x, y] = [testDb(), testDb()];
+    const r = removal(y, f);
+    await new Promise((res) => setTimeout(res, 100));
+    const a = answerProposal(x, f.parent, id, 'accept');
+    const waitingOn = await blockedOn();
+    const [took, answer] = await Promise.all([r, a]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waitingOn).toContain('teacher_student_links'); // the acceptance waits on the link, holding no lesson row
+    expect(took).toBeLessThan(900); // no deadlock: removal never waited the 1 s deadlock_timeout
+    expect(answer).toEqual({ ok: false, reason: 'closed' });
+    expect(await row(id)).toMatchObject({ status: 'declined', close_reason: 'link_ended' });
+  });
+
+  it('(C) the same for a teacher accepting a request while the parent removes them', async () => {
+    const f = await family();
+    const req = await requestLesson(sql, f.parent, {
+      childId: f.child,
+      teacherId: f.t,
+      subject: 'maths',
+      minutes: '30',
+      startsAt: at(6 * 60).toISOString(),
+      priceMinor: '30000',
+      currency: 'INR',
+      basis: 'listed',
+    });
+    if (!req.ok) throw new Error(req.reason);
+    const [x, y] = [testDb(), testDb()];
+    const r = removal(y, f);
+    await new Promise((res) => setTimeout(res, 100));
+    const a = answerLesson(x, f.t, req.id, 'accept');
+    const waitingOn = await blockedOn();
+    const [took, answer] = await Promise.all([r, a]);
+    await Promise.all([x.end(), y.end()]);
+    expect(waitingOn).toContain('teacher_student_links');
+    expect(took).toBeLessThan(900);
+    expect(answer.ok).toBe(false);
+    expect(await row(req.id)).toMatchObject({ status: 'declined', close_reason: 'link_ended' });
+  });
+});
+
+describe('TL-3 server: readiness §3.2 steps 2 and 4 (busy times; material with the proposal)', () => {
+  it('(P) a material request is sent with the proposal, in the same transaction; the parents get both notices', async () => {
+    const f = await family();
+    const id = await proposed(f, at(0), {
+      material: { description: 'Workbook pages on fractions', note: 'Any edition' },
+    });
+    const [m] = await sql<{ description: string; note: string; status: string }[]>`
+      SELECT description, note, status FROM material_requests WHERE lesson_id = ${id}`;
+    expect(m).toEqual({ description: 'Workbook pages on fractions', note: 'Any edition', status: 'open' });
+    const types = await sql<{ type: string }[]>`
+      SELECT type FROM notifications WHERE recipient_id = ${f.parent2} ORDER BY type`;
+    expect(types.map((t) => t.type)).toEqual(expect.arrayContaining(['lesson_proposed', 'material_requested']));
+  });
+
+  it('(N) a material description that is too long, or a note without one, refuses the whole proposal', async () => {
+    const f = await family();
+    expect(await propose(f, at(0), { material: { description: 'x'.repeat(201) } })).toEqual({
+      ok: false,
+      reason: 'material',
+    });
+    expect(await propose(f, at(0), { material: { description: '', note: 'Just a note' } })).toEqual({
+      ok: false,
+      reason: 'material',
+    });
+    expect(await sql`SELECT 1 FROM lessons WHERE student_id = ${f.child}`).toHaveLength(0);
+  });
+
+  it('(P) busy times: the teacher’s own lessons and the child’s lessons with another teacher, never that teacher’s name', async () => {
+    const t = await teacher();
+    const f = await family(t);
+    const other = await teacher({ name: 'Mr Other' });
+    await activeLink(sql, { teacher: other, child: f.child, parent: f.parent, subjects: ['science'] });
+    await confirmedRequest(f, at(6 * 60));
+    const g = { ...f, t: other };
+    const r = await requestLesson(sql, f.parent, {
+      childId: f.child,
+      teacherId: other,
+      subject: 'science',
+      minutes: '30',
+      startsAt: at(24 * 60 + 6 * 60).toISOString(),
+      priceMinor: '30000',
+      currency: 'INR',
+      basis: 'listed',
+    });
+    if (!r.ok) throw new Error(r.reason);
+    expect((await answerLesson(sql, g.t, r.id, 'accept')).ok).toBe(true);
+    const busy = await proposalBusyTimes(sql, t, f.child, 'maths');
+    expect(busy.map((b) => b.whose)).toEqual(['you', 'child']);
+    expect(JSON.stringify(busy)).not.toContain('Other');
+    expect(await proposalBusyTimes(sql, t, f.child, 'science')).toEqual([]); // not linked for science
   });
 });
