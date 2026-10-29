@@ -116,6 +116,20 @@ export async function cancelLessonAction(_prev: LessonFormState, fd: FormData): 
 }
 
 /**
+ * After a material answer: back to the booking-details page it came from (a proposal the parent may
+ * still be deciding on), otherwise to the Family calendar. Only ever a booking page path with a
+ * valid id; that page checks again that the lesson is this parent's child's.
+ */
+const afterMaterial = (fd: FormData, done: string): never => {
+  const bookingId = str(fd, 'bookingId');
+  if (!UUID_RE.test(bookingId)) return back(done);
+  revalidatePath('/parent/calendar');
+  revalidatePath('/parent');
+  redirect(`/parent/bookings/${bookingId}?done=${done}`);
+};
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
  * TL-2: share a book (or one chapter of it) for the teacher's material request. Only books the
  * lesson's teacher can already view are offered; the server and the database check that again, so
  * sharing never gives the teacher anything new (safeguard 1). The teacher gets an in-app notice.
@@ -125,21 +139,21 @@ export async function shareMaterialAction(_prev: LessonFormState, fd: FormData):
   const [bookId, chapterId] = str(fd, 'material').split('|');
   if (!bookId) return { error: 'Choose a book or chapter to share.' };
   const r = await shareMaterial(db(), id, { requestId: str(fd, 'requestId'), bookId, chapterId: chapterId ?? '' });
-  if (r.ok) return back('material_shared');
+  if (r.ok) return afterMaterial(fd, 'material_shared');
   if (r.reason === 'not_shareable') {
     return {
       error:
         'That book can’t be shared for this lesson any more. Check the list: only published books shared with your child in this subject can be used.',
     };
   }
-  return back('material_closed');
+  return afterMaterial(fd, 'material_closed');
 }
 
 /** TL-2: say the material isn't available, with an optional note for the teacher. */
 export async function unavailableMaterialAction(_prev: LessonFormState, fd: FormData): Promise<LessonFormState> {
   const id = await parentId();
   const r = await markMaterialUnavailable(db(), id, { requestId: str(fd, 'requestId'), note: str(fd, 'note') });
-  if (r.ok) return back('material_unavailable');
+  if (r.ok) return afterMaterial(fd, 'material_unavailable');
   if (r.reason === 'invalid') return { error: 'The note can be up to 300 characters.' };
-  return back('material_closed');
+  return afterMaterial(fd, 'material_closed');
 }
