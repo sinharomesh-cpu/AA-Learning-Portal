@@ -5,9 +5,11 @@ import { wallTimeToUtc } from './assignments';
 import { writeAudit } from './auth/audit';
 import type { Db, Sql } from './db/client';
 import {
+  type ChapterIntent,
   closeOverlapping,
   insertPlanned,
   isSubject,
+  lessonPrice,
   line,
   lockLesson,
   lockLinkFirst,
@@ -204,6 +206,11 @@ export interface ProposeInput {
    * transaction as the proposal: what is needed (up to 200 characters) and a note (up to 300).
    */
   material?: { description?: unknown; note?: unknown };
+  /**
+   * The price shown on the review step (owner acceptance, 29 Oct): sent with the proposal, and the
+   * database refuses the proposal if its own price snapshot differs (0034, as for a request).
+   */
+  shown?: { basis?: unknown; priceMinor?: unknown };
 }
 
 export type ProposeReason =
@@ -218,7 +225,8 @@ export type ProposeReason =
   | 'limit'
   | 'no_rate'
   | 'chapters'
-  | 'material';
+  | 'material'
+  | 'price_changed';
 
 export type ProposeResult = { ok: true; id: string } | { ok: false; reason: ProposeReason };
 
@@ -236,6 +244,7 @@ function proposeReasonFromDb(error: unknown): ProposeReason | null {
   if (m.includes('overlaps a confirmed lesson')) return 'busy';
   if (m.includes('at most 10')) return 'limit';
   if (m.includes('no hourly rate')) return 'no_rate';
+  if (m.includes('price has changed')) return 'price_changed';
   if (m.includes('active child account')) return 'not_allowed';
   return 'invalid';
 }
@@ -258,16 +267,28 @@ export function proposalStart(date: string, time: string, zone: string): Date | 
   return at;
 }
 
+interface Checked {
+  childId: string;
+  childName: string;
+  subject: SubjectId;
+  minutes: number;
+  startsAt: Date;
+  planned: PlannedChapter[];
+  description: string;
+  materialNote: string;
+  timeZone: string;
+}
+
 /**
- * The teacher proposes a lesson (OC-45). The proposal, its planned chapters and the parents' notice
- * are written in one transaction; the database checks every rule again. Retried on 40P01.
+ * The checks shared by the review step and by sending: the teacher, the link, the time, the
+ * length, the chapters' shape and the material request's lengths. The database checks again.
  */
-export async function proposeLesson(
-  sql: Sql,
+async function checkProposal(
+  sql: Db,
   teacherId: string,
   input: ProposeInput,
-  now: Date = new Date(),
-): Promise<ProposeResult> {
+  now: Date,
+): Promise<{ ok: true; c: Checked } | { ok: false; reason: ProposeReason }> {
   if (!UUID.test(teacherId)) return { ok: false, reason: 'not_allowed' };
   const childId = line(input.childId);
   const subject = line(input.subject);
@@ -282,21 +303,137 @@ export async function proposeLesson(
   if (!UUID.test(childId) || !isSubject(subject) || !validMinutes(minutes)) return { ok: false, reason: 'invalid' };
   const options = await proposalOptions(sql, teacherId);
   if (!options.allowed) return { ok: false, reason: 'not_allowed' };
-  if (!options.children.some((c) => c.id === childId && c.subjects.includes(subject))) {
-    return { ok: false, reason: 'not_linked' };
-  }
+  const child = options.children.find((c) => c.id === childId && c.subjects.includes(subject));
+  if (!child) return { ok: false, reason: 'not_linked' };
   if (!options.hasRate) return { ok: false, reason: 'no_rate' };
   const startsAt = proposalStart(line(input.date), line(input.time), options.timeZone);
   if (!startsAt) return { ok: false, reason: 'step' };
   // Friendly early answers; the database decides with its own clock.
   if (startsAt.getTime() < now.getTime() + NOTICE_HOURS * 60 * MIN) return { ok: false, reason: 'notice' };
   if (startsAt.getTime() > now.getTime() + WINDOW_DAYS * 24 * 60 * MIN) return { ok: false, reason: 'window' };
+  return {
+    ok: true,
+    c: {
+      childId,
+      childName: child.name,
+      subject: subject as SubjectId,
+      minutes,
+      startsAt,
+      planned,
+      description,
+      materialNote,
+      timeZone: options.timeZone,
+    },
+  };
+}
+
+export interface ProposalReview {
+  /** The teacher's time zone, in which the review shows the times. */
+  timeZone: string;
+  childName: string;
+  subject: SubjectId;
+  startsAt: Date;
+  endsAt: Date;
+  minutes: number;
+  /** The database's own price for this child, subject, time and length (lessons_price_for). */
+  price: { basis: 'agreed' | 'listed'; currency: string; rateMinor: number; priceMinor: number };
+  planned: Array<{ label: string; intent: ChapterIntent | null }>;
+  material: { description: string; note: string } | null;
+}
+
+export type ReviewResult = { ok: true; review: ProposalReview } | { ok: false; reason: ProposeReason };
+
+/**
+ * "Review proposal" (owner acceptance, 29 Oct 2026): everything the teacher is about to send,
+ * worked out by the server before anything is written. It writes nothing. The time must be free
+ * of confirmed lessons now, the chapters must still be plannable, and the price is the database's.
+ */
+export async function reviewProposal(
+  sql: Sql,
+  teacherId: string,
+  input: ProposeInput,
+  now: Date = new Date(),
+): Promise<ReviewResult> {
+  const checked = await checkProposal(sql, teacherId, input, now);
+  if (!checked.ok) return checked;
+  const c = checked.c;
+  const endsAt = new Date(c.startsAt.getTime() + c.minutes * MIN);
+  const options = new Map(
+    (await plannableChapters(sql, teacherId, c.childId, c.subject)).map((p) => [p.id, p.label] as const),
+  );
+  if (c.planned.some((p) => !options.has(p.chapterId))) return { ok: false, reason: 'chapters' };
+  const [busy] = await sql<Array<{ busy: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1 FROM lessons
+      WHERE status = 'confirmed' AND (teacher_id = ${teacherId} OR student_id = ${c.childId})
+        AND tstzrange(starts_at, starts_at + make_interval(mins => minutes)) && tstzrange(${c.startsAt}, ${endsAt})
+    ) AS busy`;
+  if (busy?.busy) return { ok: false, reason: 'busy' };
+  let price: ProposalReview['price'];
+  try {
+    const [p] = await sql<Array<{ basis: 'agreed' | 'listed'; rate: string; cur: string }>>`
+      SELECT basis, rate, cur FROM lessons_price_for(${teacherId}::uuid, ${c.childId}::uuid, ${c.subject},
+                                                     ${c.startsAt}::timestamptz, ${c.minutes}::int)`;
+    price = {
+      basis: p!.basis,
+      currency: p!.cur,
+      rateMinor: Number(p!.rate),
+      priceMinor: lessonPrice(Number(p!.rate), c.minutes),
+    };
+  } catch (error) {
+    const reason = proposeReasonFromDb(error);
+    if (reason) return { ok: false, reason };
+    throw error;
+  }
+  return {
+    ok: true,
+    review: {
+      timeZone: c.timeZone,
+      childName: c.childName,
+      subject: c.subject,
+      startsAt: c.startsAt,
+      endsAt,
+      minutes: c.minutes,
+      price,
+      planned: c.planned.map((p) => ({ label: options.get(p.chapterId)!, intent: p.intent })),
+      material: c.description ? { description: c.description, note: c.materialNote } : null,
+    },
+  };
+}
+
+/**
+ * The teacher proposes a lesson (OC-45). The proposal, its planned chapters and the parents' notice
+ * are written in one transaction; the database checks every rule again. Retried on 40P01.
+ */
+export async function proposeLesson(
+  sql: Sql,
+  teacherId: string,
+  input: ProposeInput,
+  now: Date = new Date(),
+): Promise<ProposeResult> {
+  const checked = await checkProposal(sql, teacherId, input, now);
+  if (!checked.ok) return checked;
+  const { childId, subject, minutes, startsAt, planned, description, materialNote } = checked.c;
+  // The price shown on the review step, if any: the database refuses the proposal if it differs.
+  const shownBasis = input.shown?.basis === 'agreed' || input.shown?.basis === 'listed' ? input.shown.basis : null;
+  const shownRaw =
+    typeof input.shown?.priceMinor === 'string' ? input.shown.priceMinor.trim() : input.shown?.priceMinor;
+  const shownPrice =
+    shownRaw === undefined || shownRaw === null || shownRaw === ''
+      ? null
+      : /^\d{1,12}$/.test(String(shownRaw))
+        ? String(shownRaw)
+        : undefined;
+  if (shownPrice === undefined || (shownBasis === null) !== (shownPrice === null))
+    return { ok: false, reason: 'price_changed' };
   try {
     return await retrying(() =>
       sql.begin(async (tx): Promise<ProposeResult> => {
         const [row] = await tx<Array<{ id: string }>>`
-          INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, status)
-          VALUES (${teacherId}, ${childId}, ${teacherId}, ${subject}, ${startsAt}, ${minutes}, 'proposed')
+          INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, status,
+                               price_basis, price_minor)
+          VALUES (${teacherId}, ${childId}, ${teacherId}, ${subject}, ${startsAt}, ${minutes}, 'proposed',
+                  ${shownBasis}, ${shownPrice})
           RETURNING id`;
         await insertPlanned(tx, row!.id, planned, 0);
         await writeAudit(

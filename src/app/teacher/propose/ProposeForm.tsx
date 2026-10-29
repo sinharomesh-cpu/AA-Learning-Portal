@@ -1,18 +1,25 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { type PlannableOption, PlannedChapterPicker } from '@/components/lessons/PlannedChapterPicker';
 import { INPUT } from '@/components/ui/styles';
 import { cx } from '@/lib/cx';
-import { proposeLessonAction, type ScheduleState } from '../schedule/actions';
+import {
+  type ProposalReviewView,
+  proposeLessonAction,
+  reviewProposalAction,
+  type ScheduleState,
+} from '../schedule/actions';
 
 /**
  * TL-3 "Schedule a class", step 2: the day and time in the teacher's own time zone (any 5-minute
  * start, 24 hours to 4 weeks ahead, not limited to usual times: D-TLS-3), the length (10-40 minutes
  * in 5-minute steps) and optional planned chapters (D-E2E-2, WF-10). No free-text message (TL3-2).
- * The server and the database check everything again.
+ * Then "Review proposal" (owner acceptance, 29 Oct 2026): the server checks and prices what is about
+ * to be sent, writing nothing; "Send proposal" is offered only on that review and sends the price
+ * shown, which the database checks again. Changing any field clears the review.
  */
 export function ProposeForm({
   childId,
@@ -43,8 +50,41 @@ export function ProposeForm({
   busy: Array<{ when: string; whose: 'you' | 'child' }>;
 }) {
   const [state, action, pending] = useActionState<ScheduleState, FormData>(proposeLessonAction, {});
+  const form = useRef<HTMLFormElement>(null);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  // The review belongs to the send state it was made under: a refused send (for example a changed
+  // price) needs a fresh review.
+  const [reviewed, setReviewed] = useState<{ view: ProposalReviewView; under: ScheduleState } | null>(null);
+  const review = reviewed && reviewed.under === state ? reviewed.view : null;
+  const setReview = (view: ProposalReviewView | null) => setReviewed(view ? { view, under: state } : null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [checking, startChecking] = useTransition();
+  useEffect(() => {
+    if (review) reviewHeading.current?.focus();
+  }, [review]);
+
+  function check() {
+    const f = form.current;
+    if (!f || !f.reportValidity()) return;
+    const fd = new FormData(f);
+    startChecking(async () => {
+      const r = await reviewProposalAction(fd);
+      setReviewError(r.error ?? null);
+      setReview(r.review ?? null);
+    });
+  }
+
   return (
-    <form action={action} className="flex flex-col gap-5" data-testid="propose-form">
+    <form
+      ref={form}
+      action={action}
+      onChange={() => {
+        setReview(null);
+        setReviewError(null);
+      }}
+      className="flex flex-col gap-5"
+      data-testid="propose-form"
+    >
       <input type="hidden" name="childId" value={childId} />
       <input type="hidden" name="subject" value={subject} />
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
@@ -144,11 +184,64 @@ export function ProposeForm({
         one of them accepts. They have 48 hours to answer (less when the lesson is sooner). The price is your listed or
         agreed rate, as for a request, shown to the family for information: AA Pro takes no payment.
       </p>
-      <div>
-        <Button type="submit" inactive={pending}>
-          {pending ? 'Sending…' : 'Send proposal'}
-        </Button>
-      </div>
+      {review ? (
+        <section
+          aria-labelledby="review-heading"
+          className="flex flex-col gap-4 rounded-[18px] border-2 border-primary p-4 sm:p-5"
+          data-testid="proposal-review"
+        >
+          <h3
+            id="review-heading"
+            ref={reviewHeading}
+            tabIndex={-1}
+            className="m-0 text-[19px] font-bold leading-[26px]"
+          >
+            Check your proposal
+          </h3>
+          <dl className="m-0 grid grid-cols-1 gap-x-4 gap-y-2 text-[15px] leading-[22px] sm:grid-cols-[max-content_1fr]">
+            <dt className="font-bold">For</dt>
+            <dd className="m-0">{review.forWhom}</dd>
+            <dt className="font-bold">When</dt>
+            <dd className="m-0">
+              {review.when} <span className="text-on-surface-variant">(your time zone)</span>
+            </dd>
+            <dt className="font-bold">Price</dt>
+            <dd className="m-0">
+              {review.price} <span className="text-on-surface-variant">(information only)</span>
+            </dd>
+            <dt className="font-bold">Planned chapters</dt>
+            <dd className="m-0 break-words">{review.planned.length ? review.planned.join('; ') : 'None'}</dd>
+            <dt className="font-bold">Material request</dt>
+            <dd className="m-0 break-words">
+              {review.material
+                ? `${review.material.description}${review.material.note ? ` (note: ${review.material.note})` : ''}`
+                : 'None'}
+            </dd>
+          </dl>
+          <p className="m-0 text-sm leading-5 text-on-surface-variant">
+            Nothing is booked until one of {childName}’s parents accepts.
+          </p>
+          <input type="hidden" name="priceBasis" value={review.priceBasis} />
+          <input type="hidden" name="priceMinor" value={review.priceMinor} />
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" inactive={pending}>
+              {pending ? 'Sending…' : 'Send proposal'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setReview(null)}>
+              Change details
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {reviewError ? <FormMessage tone="error">{reviewError}</FormMessage> : null}
+          <div>
+            <Button type="button" inactive={checking} onClick={check}>
+              {checking ? 'Checking…' : 'Review proposal'}
+            </Button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
