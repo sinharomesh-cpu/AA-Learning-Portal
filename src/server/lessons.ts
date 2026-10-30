@@ -487,12 +487,52 @@ async function parentOwns(tx: Db, parentId: string, l: LockedLesson | null): Pro
 
 /** Closes open requests that overlap a lesson just confirmed: "time no longer free" (§2.1). */
 async function closeOverlappingRequests(tx: Db, l: LockedLesson, now: Date): Promise<void> {
+  // TQ-4 (30 Oct 2026): skip rows another transaction holds. Waiting here deadlocked with a
+  // concurrent acceptance of an overlapping lesson, which holds its own row and waits for this
+  // one's uncommitted confirmation (0029's no-overlap rule). A skipped row's own acceptance then
+  // finds the time taken and closes itself; anything else left open is closed by lessonMaintenance.
   const closed = await tx<Array<{ id: string }>>`
     UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
-    WHERE status = 'requested' AND id <> ${l.id} AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
-      AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+    WHERE id IN (SELECT id FROM lessons
+                 WHERE status = 'requested' AND id <> ${l.id}
+                   AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
+                   AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+                 ORDER BY id
+                 FOR UPDATE SKIP LOCKED)
     RETURNING id`;
   for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId: l.teacher_id }, now);
+}
+
+/**
+ * TQ-4: the teacher-then-child transaction locks that confirmations share (released at commit or
+ * rollback). Identical keys and order to migration 0034's lessons_lock_times.
+ */
+export async function lockLessonTimes(tx: Db, teacherId: string, studentId: string): Promise<void> {
+  await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.teacher:${teacherId}`}, 0))`;
+  await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.child:${studentId}`}, 0))`;
+}
+
+/**
+ * TQ-4 safety net: an open request that overlaps a confirmed lesson of the same teacher or child
+ * closes as "time no longer free", as if closed at that confirmation. Normally the confirmation
+ * closes it itself; this catches one it skipped because another transaction held it at that moment
+ * and then left it open. Rows held right now are skipped again (next run).
+ */
+export async function closeLeftoverOverlaps(tx: Db, now: Date): Promise<number> {
+  const closed = await tx<Array<{ id: string }>>`
+    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+    WHERE id IN (SELECT r.id FROM lessons r
+                 WHERE r.status = 'requested'
+                   AND EXISTS (SELECT 1 FROM lessons c
+                               WHERE c.status = 'confirmed' AND c.id <> r.id
+                                 AND (c.teacher_id = r.teacher_id OR c.student_id = r.student_id)
+                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at)
+                 ORDER BY r.id
+                 LIMIT 200
+                 FOR UPDATE OF r SKIP LOCKED)
+    RETURNING id`;
+  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', {}, now);
+  return closed.length;
 }
 
 /** Retries a whole change when two accepts deadlock on each other's rows (the database picks one). */
@@ -521,7 +561,7 @@ export async function answerLesson(
 ): Promise<AnswerResult> {
   if (!UUID.test(teacherId) || !UUID.test(lessonId)) return { ok: false, reason: 'not_found' };
   const text = line(note).slice(0, 200);
-  return retrying(() =>
+  const result = await retrying(() =>
     sql.begin(async (tx): Promise<AnswerResult> => {
       const l = await lockLesson(tx, lessonId);
       if (!l || !(await teacherOwns(tx, teacherId, l))) return { ok: false, reason: 'not_found' };
@@ -540,6 +580,11 @@ export async function answerLesson(
         await tellAbout(tx, l.id, 'declined', { actorId: teacherId }, now);
         return { ok: true };
       }
+      // TQ-4: confirmations that could overlap (same teacher or same child) take turns. Without
+      // this, two of them writing at once can deadlock inside 0029's no-overlap rule instead of
+      // one getting "time no longer free". The same keys and order as 0034's lessons_lock_times,
+      // which takes them again in its trigger (these locks are re-entrant).
+      await lockLessonTimes(tx, l.teacher_id, l.student_id);
       try {
         await tx.savepoint((sp) => sp`UPDATE lessons SET status = 'confirmed' WHERE id = ${l.id}`);
       } catch (error) {
@@ -575,6 +620,9 @@ export async function answerLesson(
     }
     throw error;
   });
+  // Cleanup option A (owner, 30 Oct 2026): overlapping requests close at once.
+  if (result.ok && answer === 'accept') await closeOverlapsNow(sql, lessonId, teacherId, now);
+  return result;
 }
 
 export type CloseResult = { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'too_late' | 'expired' };
@@ -791,6 +839,50 @@ export async function closeLessonsWithoutLink(
  * lessons whose link ended, and asks the teacher for the outcome of lessons that have ended.
  * Idempotent; every run re-selects what is due.
  */
+/** The longest closeOverlapsNow waits for another transaction holding an overlapping row. */
+export const CLOSE_NOW_WAIT_MS = 2000;
+
+/**
+ * Owner decision (30 Oct 2026, cleanup option A): straight after an acceptance commits, close the
+ * open requests that overlap the newly confirmed lesson (same teacher or child) as "time no longer
+ * free", including any the acceptance had to skip because another transaction held it. This runs
+ * in its own transaction holding no other lock, and WAITS for such a holder (a few milliseconds; at
+ * most CLOSE_NOW_WAIT_MS), so it cannot recreate the TQ-4 deadlock; rows are locked in id order,
+ * so two of these never deadlock either. Each row is re-checked after the wait. Best effort: if it
+ * fails or times out, the shared sweep (closeLeftoverOverlaps) closes them within about a minute.
+ */
+export async function closeOverlapsNow(sql: Sql, lessonId: string, actorId: string, now: Date): Promise<number> {
+  if (!UUID.test(lessonId)) return 0;
+  try {
+    return await retrying(() =>
+      sql.begin(async (tx) => {
+        // A holder is normally a few milliseconds; never keep the teacher waiting longer than this.
+        await tx`SELECT set_config('lock_timeout', ${`${CLOSE_NOW_WAIT_MS}ms`}, true)`;
+        const closed = await tx<Array<{ id: string }>>`
+          UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+          WHERE status = 'requested'
+            AND id IN (SELECT r.id FROM lessons r
+                       JOIN lessons c ON c.id = ${lessonId} AND c.status = 'confirmed'
+                       WHERE r.status = 'requested' AND r.id <> c.id
+                         AND (r.teacher_id = c.teacher_id OR r.student_id = c.student_id)
+                         AND r.starts_at < c.ends_at AND r.ends_at > c.starts_at
+                       ORDER BY r.id
+                       FOR UPDATE OF r)
+          RETURNING id`;
+        for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId }, now);
+        return closed.length;
+      }),
+    );
+  } catch (error) {
+    // 55P03: a holder outlasted CLOSE_NOW_WAIT_MS (expected now and then); anything else is logged too.
+    console.error(
+      'Closing overlapping requests after an acceptance did not finish; the sweep will.',
+      (error as Error).message,
+    );
+    return 0;
+  }
+}
+
 export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promise<number> {
   let done = 0;
   done += await sql.begin(async (tx) => {
@@ -806,6 +898,7 @@ export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promi
     return ids.size;
   });
   done += await sql.begin((tx) => closeLessonsWithoutLink(tx, {}, now));
+  done += await sql.begin((tx) => closeLeftoverOverlaps(tx, now));
   done += await sql.begin(async (tx) => {
     const ended = await tx<Array<{ id: string }>>`
       SELECT l.id FROM lessons l
