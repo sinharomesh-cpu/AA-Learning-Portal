@@ -561,7 +561,7 @@ export async function answerLesson(
 ): Promise<AnswerResult> {
   if (!UUID.test(teacherId) || !UUID.test(lessonId)) return { ok: false, reason: 'not_found' };
   const text = line(note).slice(0, 200);
-  return retrying(() =>
+  const result = await retrying(() =>
     sql.begin(async (tx): Promise<AnswerResult> => {
       const l = await lockLesson(tx, lessonId);
       if (!l || !(await teacherOwns(tx, teacherId, l))) return { ok: false, reason: 'not_found' };
@@ -620,6 +620,9 @@ export async function answerLesson(
     }
     throw error;
   });
+  // Cleanup option A (owner, 30 Oct 2026): overlapping requests close at once.
+  if (result.ok && answer === 'accept') await closeOverlapsNow(sql, lessonId, teacherId, now);
+  return result;
 }
 
 export type CloseResult = { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'too_late' | 'expired' };
@@ -836,6 +839,50 @@ export async function closeLessonsWithoutLink(
  * lessons whose link ended, and asks the teacher for the outcome of lessons that have ended.
  * Idempotent; every run re-selects what is due.
  */
+/** The longest closeOverlapsNow waits for another transaction holding an overlapping row. */
+export const CLOSE_NOW_WAIT_MS = 2000;
+
+/**
+ * Owner decision (30 Oct 2026, cleanup option A): straight after an acceptance commits, close the
+ * open requests that overlap the newly confirmed lesson (same teacher or child) as "time no longer
+ * free", including any the acceptance had to skip because another transaction held it. This runs
+ * in its own transaction holding no other lock, and WAITS for such a holder (a few milliseconds; at
+ * most CLOSE_NOW_WAIT_MS), so it cannot recreate the TQ-4 deadlock; rows are locked in id order,
+ * so two of these never deadlock either. Each row is re-checked after the wait. Best effort: if it
+ * fails or times out, the shared sweep (closeLeftoverOverlaps) closes them within about a minute.
+ */
+export async function closeOverlapsNow(sql: Sql, lessonId: string, actorId: string, now: Date): Promise<number> {
+  if (!UUID.test(lessonId)) return 0;
+  try {
+    return await retrying(() =>
+      sql.begin(async (tx) => {
+        // A holder is normally a few milliseconds; never keep the teacher waiting longer than this.
+        await tx`SELECT set_config('lock_timeout', ${`${CLOSE_NOW_WAIT_MS}ms`}, true)`;
+        const closed = await tx<Array<{ id: string }>>`
+          UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+          WHERE status = 'requested'
+            AND id IN (SELECT r.id FROM lessons r
+                       JOIN lessons c ON c.id = ${lessonId} AND c.status = 'confirmed'
+                       WHERE r.status = 'requested' AND r.id <> c.id
+                         AND (r.teacher_id = c.teacher_id OR r.student_id = c.student_id)
+                         AND r.starts_at < c.ends_at AND r.ends_at > c.starts_at
+                       ORDER BY r.id
+                       FOR UPDATE OF r)
+          RETURNING id`;
+        for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId }, now);
+        return closed.length;
+      }),
+    );
+  } catch (error) {
+    // 55P03: a holder outlasted CLOSE_NOW_WAIT_MS (expected now and then); anything else is logged too.
+    console.error(
+      'Closing overlapping requests after an acceptance did not finish; the sweep will.',
+      (error as Error).message,
+    );
+    return 0;
+  }
+}
+
 export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promise<number> {
   let done = 0;
   done += await sql.begin(async (tx) => {

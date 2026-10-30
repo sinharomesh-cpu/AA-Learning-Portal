@@ -147,38 +147,148 @@ describe('TQ-4: overlapping acceptances, forced to overlap, never deadlock', () 
   }, 120_000);
 });
 
-describe('TQ-4 safety net: an overlapping request skipped at confirmation is closed by maintenance', () => {
-  it('a request held by another transaction at the confirmation stays open, then the sweep closes it, once', async () => {
-    const parent = await createAdult(sql, 'parent');
-    const [t1, t2] = [await teacher(), await teacher()];
-    const c = await child(parent, t1);
-    await activeLink(sql, { teacher: t2, child: c, parent, subjects: ['maths'] });
-    const a = await request(parent, c, t1, at(600), 30);
-    const b = await request(parent, c, t2, at(600), 30); // same child, same time
-    // Another transaction holds b (as a parent's or teacher's change would), then leaves it open.
+describe('Cleanup option A (owner, 30 Oct): overlapping open items close right after the acceptance commits', () => {
+  /** Holds a lesson row (as a material request or a refused action would) until released. */
+  async function hold(id: string, then: 'rollback' | 'withdraw' = 'rollback', parent = '') {
     const holder = testDb();
     let release: () => void = () => {};
     const released = new Promise<void>((r) => (release = r));
     let locked: () => void = () => {};
     const isLocked = new Promise<void>((r) => (locked = r));
-    const holding = holder.begin(async (tx) => {
-      await tx`SELECT id FROM lessons WHERE id = ${b} FOR UPDATE`;
-      locked();
-      await released;
-      throw new Error('rolled back on purpose');
-    });
+    const done = holder
+      .begin(async (tx) => {
+        await tx`SELECT id FROM lessons WHERE id = ${id} FOR NO KEY UPDATE`;
+        locked();
+        await released;
+        if (then === 'withdraw') {
+          await tx`UPDATE lessons SET status = 'withdrawn', closed_by = 'parent', closed_by_account = ${parent}
+                   WHERE id = ${id}`;
+          return;
+        }
+        throw new Error('rolled back on purpose');
+      })
+      .catch(() => undefined)
+      .finally(() => holder.end());
     await isLocked;
-    expect(await answerLesson(sql as never, t1, a, 'accept')).toEqual({ ok: true }); // did not wait for b
-    release();
-    await holding.catch(() => undefined);
-    await holder.end();
+    return { release, done };
+  }
+  const waitFor = async (check: () => Promise<boolean>) => {
+    for (let i = 0; i < 500; i += 1) {
+      if (await check()) return;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw new Error('timed out');
+  };
+
+  it('a held overlapping request: the acceptance commits, its cleanup waits, then closes it at once (no sweep)', async () => {
+    const parent = await createAdult(sql, 'parent');
+    const [t1, t2] = [await teacher(), await teacher()];
+    const c = await child(parent, t1);
+    await activeLink(sql, { teacher: t2, child: c, parent, subjects: ['maths'] });
+    const a = await request(parent, c, t1, at(600), 30);
+    const b = await request(parent, c, t2, at(600), 30);
+    const h = await hold(b);
+    const accepting = answerLesson(sql as never, t1, a, 'accept');
+    // The winning acceptance has committed; its cleanup is now waiting for b's holder.
+    await waitFor(async () => (await status(a)).status === 'confirmed');
     expect(await status(b)).toEqual({ status: 'requested', close_reason: null });
-    // The maintenance sweep closes it as if at that confirmation, with the usual notice; once.
-    await lessonMaintenance(sql);
+    h.release();
+    await h.done;
+    expect(await accepting).toEqual({ ok: true });
+    // Closed by the cleanup itself, not the sweep, with the usual reason and notice.
     expect(await status(b)).toEqual({ status: 'declined', close_reason: 'time_no_longer_free' });
     const notes = await sql`SELECT 1 FROM notifications WHERE entity_id = ${b} AND type = 'lesson_time_no_longer_free'`;
     expect(notes.length).toBeGreaterThan(0);
     expect(await sql.begin((tx) => closeLeftoverOverlaps(tx as never, new Date()))).toBe(0);
+  });
+
+  it('a new overlapping request made between the commit and the cleanup is refused; others are fine', async () => {
+    const parent = await createAdult(sql, 'parent');
+    const [t1, t2] = [await teacher(), await teacher()];
+    const c = await child(parent, t1);
+    await activeLink(sql, { teacher: t2, child: c, parent, subjects: ['maths'] });
+    const a = await request(parent, c, t1, at(720), 30);
+    const b = await request(parent, c, t2, at(720), 30);
+    const h = await hold(b);
+    const accepting = answerLesson(sql as never, t1, a, 'accept');
+    await waitFor(async () => (await status(a)).status === 'confirmed');
+    // In that gap: the time is already taken, so a new overlapping request or proposal is refused.
+    const lessonsBefore = (
+      await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM lessons WHERE student_id = ${c}`
+    )[0]!.n;
+    const r = await requestLesson(sql, parent, {
+      childId: c,
+      teacherId: t2,
+      subject: 'maths',
+      minutes: '30',
+      startsAt: at(720).toISOString(),
+      priceMinor: '30000',
+      currency: 'INR',
+      basis: 'listed',
+    });
+    expect(r).toEqual({ ok: false, reason: 'busy' });
+    // A request that doesn't overlap is still possible meanwhile.
+    expect(
+      (
+        await requestLesson(sql, parent, {
+          childId: c,
+          teacherId: t2,
+          subject: 'maths',
+          minutes: '30',
+          startsAt: at(780).toISOString(),
+          priceMinor: '30000',
+          currency: 'INR',
+          basis: 'listed',
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM lessons WHERE student_id = ${c}`)[0]!.n).toBe(
+      lessonsBefore + 1,
+    );
+    h.release();
+    await h.done;
+    expect(await accepting).toEqual({ ok: true });
+    expect((await status(b)).status).toBe('declined');
+  });
+
+  it('a held request that its holder closes meanwhile (withdrawn) is left as the holder left it, once', async () => {
+    const parent = await createAdult(sql, 'parent');
+    const [t1, t2] = [await teacher(), await teacher()];
+    const c = await child(parent, t1);
+    await activeLink(sql, { teacher: t2, child: c, parent, subjects: ['maths'] });
+    const a = await request(parent, c, t1, at(840), 30);
+    const b = await request(parent, c, t2, at(840), 30);
+    const h = await hold(b, 'withdraw', parent);
+    const accepting = answerLesson(sql as never, t1, a, 'accept');
+    await waitFor(async () => (await status(a)).status === 'confirmed');
+    h.release();
+    await h.done;
+    expect(await accepting).toEqual({ ok: true });
+    expect(await status(b)).toEqual({ status: 'withdrawn', close_reason: null });
+    const notes = await sql`SELECT 1 FROM notifications WHERE entity_id = ${b} AND type = 'lesson_time_no_longer_free'`;
+    expect(notes).toHaveLength(0);
+  });
+
+  it('the sweep (safety net) still closes an open request left overlapping a confirmed lesson', async () => {
+    const parent = await createAdult(sql, 'parent');
+    const [t1, t2] = [await teacher(), await teacher()];
+    const c = await child(parent, t1);
+    await activeLink(sql, { teacher: t2, child: c, parent, subjects: ['maths'] });
+    const a = await request(parent, c, t1, at(960), 30);
+    expect(await answerLesson(sql as never, t1, a, 'accept')).toEqual({ ok: true });
+    // As if the cleanup had not run (for example the server stopped between the two steps):
+    // an open request over the confirmed lesson, written with the rules skipped for this insert.
+    const [left] = await sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      return tx<{ id: string }[]>`
+        INSERT INTO lessons (teacher_id, student_id, requested_by, subject, starts_at, minutes, ends_at, requested_at,
+                             reply_deadline, status, currency, rate_minor, price_minor, price_basis)
+        SELECT ${t2}, ${c}, ${parent}, 'maths', starts_at, 30, ends_at, now(), now() + interval '48 hours',
+               'requested', 'INR', 60000, 30000, 'listed'
+        FROM lessons WHERE id = ${a} RETURNING id`;
+    });
+    await lessonMaintenance(sql);
+    expect(await status(left!.id)).toEqual({ status: 'declined', close_reason: 'time_no_longer_free' });
   });
 
   it('the sweep leaves alone open requests that overlap nothing confirmed, and back-to-back ones', async () => {
