@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.98 · 29 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.99 · 30 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,83 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v1.99 changes (owner, 29 Oct 2026, 19:11 IST to 30 Oct 2026, 20:25 IST — TL-3 delivery controls, TL-5, TL-6, TL-4 in principle, TU; documentation only):**
+- **Numbering** as in v1.98: recorded under their own decision IDs; OC numbers to be assigned in the separate catch-up entry (OC-143 onwards).
+- **Approving a decision approves no SQL, implementation, merge, shared-database migration, restore-point use or deployment.** Each needs its own approval.
+
+*TL-3 (teacher proposals):*
+- **Planned-chapter intent is optional (nullable)** (owner, 29 Oct 2026, 19:11 IST). Settled and not to be reopened (owner, 29 Oct 2026, 23:07 IST).
+- **Migration 0034 v1.4 SQL text** (sha256 `0f5a393b9728e4bc5bd0daf4e82f794a10a3028a1cd8c45e86347977344607a5`) and its two documented rollback guards were approved (owner, 29 Oct 2026, 19:52 IST) **only** for pushing the reviewed commit and opening a PR for CI (#133). Not approved:
+  - merging;
+  - applying it to the shared test database;
+  - creating or using the `before-TL3` restore point;
+  - deployment.
+- **TL-3 application development authorised** on a feature branch, with throw-away databases and CI on the development PR (#134) (owner, 29 Oct 2026, 20:33 IST).
+  - The approved 0034 SQL may not change without a new review and approval.
+  - PRs #126–#128 stay not approved for merge.
+  - PRs #131 and #132 keep their existing status.
+- **Independent human review: pending until full AA Pro portal delivery**, and it does not block authorised development. No reviewer may be invented. (Owner, 29 Oct 2026, 20:33 IST; reaffirmed 21:35, 23:07, and 30 Oct 10:11, 11:48 and 20:25.)
+- **Owner acceptance of the teacher-side journey** (29 Oct 2026, 23:31 IST, and 30 Oct 2026, 00:10 IST):
+  - the teacher **reviews** a proposal before sending it, with a server-checked price, and sends the price shown;
+  - the journey is verified through the real screens, desktop and phone.
+- **Merge order if approved:** #137 (TQ-4 fix for `main`) → #133 → #134. **#138 is a trial branch and is never merged.** After any approved rebase, the result is compared with trial tree `70a76f3` (owner, 30 Oct 2026, 11:48 and 20:14 IST).
+
+*Decisions of 30 Oct 2026, 20:25 IST (decision pack of 30 Oct 2026):*
+1. **Overlapping-request clean-up: option A.**
+   - Open requests and proposals overlapping a newly confirmed lesson close as "time no longer free" straight after the acceptance commits.
+   - The shared sweep stays as the safety net.
+   - Required test: a new overlapping request made between the commit and the clean-up.
+   - No business-rule change: "time no longer free" and first accepted wins are unchanged.
+2. **D-TLS-8 = option A**, with sub-points 1–6:
+   - The lesson's teacher records one state per chapter: Covered, Partly covered, Not covered (optional reason, up to 200 characters) or Revision needed.
+   - Requested, Planned and Scheduled are worked out from the lesson.
+   - Parents view the states and may ask for a correction.
+   - Sub-points:
+     1. States are prompted, not required; "Took place" is never blocked (D3A-7 unchanged).
+     2. No states when the lesson did not take place.
+     3. A chapter taught but not planned may be added at recording time, within five in total, only from chapters the teacher can view, labelled "Added after the lesson".
+     4. A free-text topic gets states like a chapter.
+     5. Booking, acceptance or Join never creates a state.
+     6. A suspended or cancelled lesson never gets states.
+3. **D-TLS-9 = option A.**
+   - States can be corrected for **7 days** after the lesson ends.
+   - Each correction is a new row superseding the earlier one, with an audit entry; then it is locked.
+   - The lesson-level outcome stays once-only (D3A-7).
+4. **D-TLS-14 = option A.** Structured chapter outcomes replace CR-10's "What we covered"; CR-10's other two texts stay for later.
+5. **D-TLS-15:** proceed with the append-only retention design (kept as long as the lesson record).
+   - **D-28 stays open** as a pre-launch decision.
+   - **The retention policy is not finally approved for real-family launch.**
+6. **TL-5 correction requests:**
+   - The owner asked for the status lifecycle and the no-response behaviour to be defined. They are proposed in `Clarification_Notes_2026-10-30.md` Part A and **await confirmation**.
+   - **Migration 0035** SQL and rollback may be prepared **for review only**: not pushed or applied until separately approved.
+7. **TL-6 (information-only chapter display) authorised ahead of the original sequence**, stacked on `tl3-app` as a separate draft PR.
+   - Scope: the three home pages (the child's today card, the parent's home, the teacher's home).
+   - Excluded: the material-request count and chapter-specific notices.
+   - No migration, permission change or new business rule.
+8. **Flaky tests (test-only):**
+   - **AC-44/74 fix approved**, provided the test reliably establishes the pre-expiry state first.
+   - **Missing page title:** synchronisation fix approved.
+   - **AC-39/60:** the broad failure simulation is not approved; a targeted approach was proposed (`Clarification_Notes_2026-10-30.md` Part C) and awaits approval.
+   - No application behaviour changes.
+9. **D-TLS-4 (TL-4) = option A, approved in principle.** An atomic change proposal; the original lesson stays confirmed until the change is accepted.
+   - **Before any implementation SQL**, three clarifications are pending (`Clarification_Notes_2026-10-30.md` Part B):
+     - the 24-hour rule when the original is less than 24 hours away;
+     - how a different price is presented and accepted;
+     - how a failed swap leaves the original confirmed.
+   - **D3A-6 (cancel and re-request) stays in force until TL-4 is approved and merged.**
+10. **TU-2 to TU-6 approved as recommended** (OC-154 detail):
+    - **TU-2:** a parent may cancel a suspended lesson at any time.
+    - **TU-3:** its meeting link is deleted immediately on suspension.
+    - **TU-4:** no automatic reinstatement.
+    - **TU-5:** a temporarily suspended teacher account counts as unavailable.
+    - **TU-6:** the child sees "This lesson won't happen. Your parent will arrange another."
+11. **TU-7 to TU-9 approved** (one-off time off):
+    - **TU-7:** teachers may block dates or times; those times leave new parent requests, and overlapping open requests and proposals close as "teacher unavailable".
+    - **TU-8:** confirmed lessons inside the time off have no automatic effect. They are resolved one by one by the existing cancellation and rebooking process **until TL-4 is delivered**.
+    - **TU-9:** families see only "not available", never the reason.
+12. **Preserved:** OC-154 and OC-53. **No automatic teacher reassignment** and **no automatic reinstatement** of suspended lessons.
+- **Unchanged and still open:** D-28 (retention); RS-1 to RS-6; CR-15 Phase B; OD-B (pre-launch blocker); the OC-143 onwards catch-up numbering; no production release.
 
 **v1.98 changes (owner, 29 Oct 2026, 14:25 IST — TL-3 teacher proposals: business decisions and rollback policy; documentation only):**
 - **Numbering note.** Owner decisions approved since v1.97 carry provisional numbers in the RTM (OC-143 to OC-154, 23–24 Oct) or only their decision IDs (CR-17 D3A-x, TL-1/TL-2 D-TLS-x and TL2-x, OD-A). They still need a separate catch-up entry. To avoid clashing numbers, the TL-3 decisions below are recorded under **their own decision IDs**, with OC numbers to be assigned in that catch-up.
