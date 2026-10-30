@@ -1,3 +1,4 @@
+import { HomeChapters } from '@/components/lessons/HomeChapters';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LinkButton } from '@/components/Button';
@@ -78,6 +79,11 @@ export default async function StudentHomePage() {
               Today · <TimeDisplay iso={nextHuman.startIso} timeZone={tz} />–
               <TimeDisplay iso={nextHuman.endIso} timeZone={tz} /> · on Zoom
             </p>
+            {nextHuman.chapters?.length ? (
+              <p className="text-[17px] text-on-primary-panel">
+                <HomeChapters chapters={nextHuman.chapters} />
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col items-stretch gap-2 lg:items-start">
             {isDemoMode() ? (

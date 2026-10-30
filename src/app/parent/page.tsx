@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { clockNow } from '@/lib/clock';
 import Link from 'next/link';
+import { HomeChapters } from '@/components/lessons/HomeChapters';
 import { LinkButton } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { LessonKindChip, LessonStatusChip } from '@/components/lessons/LessonStatus';
@@ -170,6 +171,7 @@ export default async function ParentHomePage() {
                             {l.status === 'proposed' || l.status === 'requested' ? (
                               <LessonStatusChip status={l.status} viewer="parent" />
                             ) : null}
+                            <HomeChapters chapters={l.chapters} className="w-full text-sm text-on-surface-variant" />
                           </li>
                         ))}
                       </ul>
@@ -256,6 +258,12 @@ export default async function ParentHomePage() {
                   <strong>{l.subject}</strong>
                   {l.kind === 'human' ? ` · ${l.teacherName}` : l.chapter ? ` · ${l.chapter}` : ''} ·{' '}
                   {l.durationMinutes} min
+                  {l.chapters?.length ? (
+                    <>
+                      <br />
+                      <HomeChapters chapters={l.chapters} className="text-on-surface-variant" />
+                    </>
+                  ) : null}
                 </td>
                 <td className="px-2.5 py-3">{l.childName}</td>
                 <td className="px-2.5 py-3">

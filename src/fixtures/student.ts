@@ -1,3 +1,4 @@
+import type { HomeChapter } from './schedule';
 import { isSameLocalDay } from '@/lib/time';
 import { clockNow } from '@/lib/clock';
 import type { SubjectId } from './subjects';
@@ -16,6 +17,8 @@ export interface DashboardSession {
   /** Real teacher lessons (CR-17 PR 3): the lesson, and whether Join Class can open in its window. */
   lessonId?: string;
   joinReady?: boolean;
+  /** TL-6 (D-TLS-10): chapter titles of a confirmed teacher lesson; real accounts only. */
+  chapters?: HomeChapter[];
 }
 
 export interface StudentDashboard {
