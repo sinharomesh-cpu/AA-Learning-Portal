@@ -806,10 +806,28 @@ test('AC-39, AC-60: load and refresh failures, a failed Mark as read and offline
   await page.clock.pauseAt(new Date(Date.now() + 5_000));
   await expect(bellCount(page)).toHaveText('1');
 
+  // Test-only (owner approval 30 Oct 2026, 22:07 IST, D): learn the bell refresh's own server action.
+  // It is the only call that sends no arguments (body "[]"); the panel sends [{"view":"panel"}] and
+  // Mark as read sends the notification's id. One minute on the clock runs one refresh.
+  let bellAction: string | undefined;
+  page.on('request', (r) => {
+    const id = r.headers()['next-action'];
+    if (!bellAction && id && r.method() === 'POST' && r.postData() === '[]') bellAction = id;
+  });
+  await page.clock.runFor(60_000);
+  await expect.poll(() => bellAction, { message: 'the bell refresh was seen' }).toBeTruthy();
+  await expect(bellCount(page)).toHaveText('1');
+
   // The panel's list fails once: an error with Try again; the page and menu still work.
   let failNext = true;
+  let failBell = false;
   await page.route('**/*', async (route) => {
     const r = route.request();
+    // The refresh step fails only the bell refresh, every time, until the bell has shown its failure.
+    if (failBell && r.method() === 'POST' && r.headers()['next-action'] === bellAction) {
+      await route.fulfill({ status: 500, body: 'error' });
+      return;
+    }
     if (failNext && r.method() === 'POST' && r.headers()['next-action']) {
       failNext = false;
       await route.fulfill({ status: 500, body: 'error' });
@@ -845,9 +863,10 @@ test('AC-39, AC-60: load and refresh failures, a failed Mark as read and offline
     entityType: 'enquiry',
     entityId: enquiry,
   });
-  failNext = true;
+  failBell = true;
   await page.clock.runFor(60_000);
   await expect(bell(page)).toHaveAccessibleName('Notifications');
+  failBell = false;
   await expect(bellCount(page)).toHaveCount(0);
   await expect(
     page.getByRole('navigation', { name: 'Parent menu' }).getByRole('link', { name: 'Children' }),
