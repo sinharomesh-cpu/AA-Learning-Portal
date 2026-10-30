@@ -502,7 +502,9 @@ test('AC-44, AC-74: an active user sees an expiry notification within 65 s while
   const teacher = await seedTeacher(sql);
   const otherParent = await seedParent(sql);
   const child = await seedChild(sql, parent.id);
-  const soon = new Date(Date.now() + 4_000);
+  // Owner approval (30 Oct 2026): the records expire 15 s from now, not 4 s, so both sign-ins and
+  // the pre-expiry checks below finish first even on a slow run; the test then proves it did.
+  const soon = new Date(Date.now() + 15_000);
   // The parent's own records: an enquiry, a link request and a rate proposal (with the teacher).
   const enquiry = await seedEnquiry(sql, parent.id, teacher.id, soon);
   const link = await seedLinkRequest(sql, teacher.id, child.id, parent.id, soon);
@@ -523,10 +525,13 @@ test('AC-44, AC-74: an active user sees an expiry notification within 65 s while
   const tMenu = t.getByRole('navigation', { name: 'Teacher menu' });
   await expect(tMenu.getByRole('link', { name: 'Students, 1 waiting for you' })).toBeVisible();
   await expect(tMenu.getByRole('link', { name: 'Enquiries, 3 waiting for you' })).toBeVisible();
+  // The pre-expiry state was really seen before the records expired (otherwise the rest proves
+  // nothing): fail here with a clear message rather than later at random.
+  expect(Date.now(), 'the pre-expiry checks finished before the records expired').toBeLessThan(soon.getTime());
 
   // No shared sweep may run: it is held inside its minute from just before the expiry E.
   const held = await holdSharedSweep(sql);
-  await expect.poll(() => Date.now() > soon.getTime() + 500, { timeout: 10_000 }).toBe(true);
+  await expect.poll(() => Date.now() > soon.getTime() + 500, { timeout: 20_000 }).toBe(true);
   // Badges never wait for any sweep (AC-74, §4.2): at the next refresh they are already 0.
 
   // The parent's first refresh at or after E runs the user-scoped check over the parent's own

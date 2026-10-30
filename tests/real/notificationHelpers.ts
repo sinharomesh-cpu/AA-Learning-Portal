@@ -103,6 +103,9 @@ export async function setHidden(page: Page, hidden: boolean) {
 }
 
 export async function noSeriousA11yIssues(page: Page, include?: string) {
+  // Next.js streams page metadata: the <title> arrives just after the first HTML. Wait for it, so
+  // the scan never sees that brief moment (test-only synchronisation; owner approval 30 Oct 2026).
+  await expect(page).toHaveTitle(/\S/);
   let builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']);
   if (include) builder = builder.include(include);
   const r = await builder.analyze();
