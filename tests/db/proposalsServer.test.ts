@@ -21,7 +21,7 @@ import {
   reviewProposal,
   withdrawProposal,
 } from '@/server/proposals';
-import { closeLessonsWithoutLink } from '@/server/lessons';
+import { CLOSE_NOW_WAIT_MS, closeLessonsWithoutLink } from '@/server/lessons';
 import { removeTeacher } from '@/server/teacherLinks';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
@@ -395,7 +395,7 @@ describe('TL-3 server: the parent answers (OC-45, TL3-4, TL3-5)', () => {
     expect(['confirmed', 'withdrawn']).toContain((await row(id)).status);
   });
 
-  it('(C) accepting skips an overlapping proposal another transaction holds (SKIP LOCKED); that one can never be accepted', async () => {
+  it('(C) accepting skips an overlapping proposal another transaction holds (SKIP LOCKED); it closes once released', async () => {
     const t = await teacher();
     const f = await family(t);
     const g = await family(t, 'Meera');
@@ -409,15 +409,43 @@ describe('TL-3 server: the parent answers (OC-45, TL3-4, TL3-5)', () => {
     });
     await new Promise((r) => setTimeout(r, 100));
     const t0 = Date.now();
-    expect(await answerProposal(sql, f.parent, mine, 'accept')).toEqual({ ok: true });
-    expect(Date.now() - t0).toBeLessThan(2000); // did not wait for the holder
+    const accepting = answerProposal(sql, f.parent, mine, 'accept');
+    // The acceptance itself never waits for the holder (TQ-4): it is confirmed promptly.
+    for (let i = 0; i < 200 && (await row(mine)).status !== 'confirmed'; i++)
+      await new Promise((r) => setTimeout(r, 10));
+    expect((await row(mine)).status).toBe('confirmed');
+    expect(Date.now() - t0).toBeLessThan(1500);
+    // Cleanup option A then closes the held one as soon as its holder finishes.
     release();
     await holding;
     await holder.end();
-    expect(await row(held)).toMatchObject({ status: 'proposed' }); // skipped, still open
-    // It can't be accepted: the database refuses the overlap, and it then closes "time no longer free".
-    expect(await answerProposal(sql, g.parent, held, 'accept')).toEqual({ ok: false, reason: 'time_taken' });
+    expect(await accepting).toEqual({ ok: true });
     expect(await row(held)).toMatchObject({ status: 'declined', close_reason: 'time_no_longer_free' });
+  });
+
+  it('(C) a holder that outlasts the cleanup’s wait: the acceptance still returns; the sweep closes it; it can never be accepted', async () => {
+    const t = await teacher();
+    const f = await family(t);
+    const g = await family(t, 'Meera');
+    const mine = await proposed(f, at(7 * 60));
+    const held = await proposed(g, at(7 * 60));
+    const holder = testDb();
+    let release!: () => void;
+    const holding = holder.begin(async (tx) => {
+      await tx`SELECT id FROM lessons WHERE id = ${held} FOR UPDATE`;
+      await new Promise<void>((r) => (release = r));
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    const t0 = Date.now();
+    expect(await answerProposal(sql, f.parent, mine, 'accept')).toEqual({ ok: true });
+    expect(Date.now() - t0).toBeLessThan(CLOSE_NOW_WAIT_MS + 1500); // bounded wait
+    release();
+    await holding;
+    await holder.end();
+    expect(await row(held)).toMatchObject({ status: 'proposed' }); // the cleanup gave up
+    await lessonMaintenance(sql); // the sweep (safety net)
+    expect(await row(held)).toMatchObject({ status: 'declined', close_reason: 'time_no_longer_free' });
+    expect(await answerProposal(sql, g.parent, held, 'accept')).toEqual({ ok: false, reason: 'time_taken' });
   });
 });
 
