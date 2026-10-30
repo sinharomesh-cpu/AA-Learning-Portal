@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v2.00 · 30 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v2.01 · 30 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,26 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v2.01 changes (owner, 30 Oct 2026, 23:22 IST — 0035 final review requests; documentation only):**
+- **Accepted from revision 2:** the chapter-addition concurrency, correction-request race, teacher-link removal and repeated-sweep evidence, and the general direction of the notice recipient safeguard. **The final 0035 SQL text is not yet approved.**
+- **Required before final SQL approval:**
+  - evidence that a TL-5 notice can't later be redirected by an UPDATE (recipient, entity or type), with negative tests;
+  - the reminder's transaction and retry behaviour: never marked as sent if the notice fails, and no duplicates on repeated runs.
+- **TL-5 application requirements** (carried into the implementation):
+  1. The parent's correction history shows the original and the corrected state.
+  2. Teacher dashboard counts include only **open** correction requests.
+  3. The child never sees chapter outcomes or correction requests.
+  4. **Both** active parents receive the correction result and lapse notices.
+  5. The teacher's action notice never reveals the child's name.
+  6. **D-28 (retention) remains open.**
+- **Gates unchanged:**
+  - no push or PR for 0035;
+  - no merge of #137, #133 or #134;
+  - no shared-database application;
+  - no restore point created or used;
+  - no production deployment.
+  - SQL approval, push, CI, shared-database application and merge stay separate.
 
 **v2.00 changes (owner, 30 Oct 2026, 22:07 IST — TL-5 clarifications, 0035 review, TL-4 conditions, AC-39/60; documentation only):**
 - **Numbering** as in v1.98: recorded under their own decision IDs; OC numbers to be assigned in the catch-up entry (OC-143 onwards).
