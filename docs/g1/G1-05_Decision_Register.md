@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v2.01 · 30 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v2.02 · 31 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,17 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v2.02 changes (owner, 30 Oct 2026, 23:57 IST — 0035 review conclusions; documentation only):**
+- **Notification redirection is resolved** by 0026's existing `notifications_check` (BEFORE INSERT OR UPDATE); the negative control and tests are accepted. No SQL change.
+- **The reminder transaction design is accepted, with one implementation condition:**
+  - claim due requests with a CTE (`SELECT … FOR UPDATE SKIP LOCKED`), then `UPDATE … RETURNING`;
+  - never `FOR UPDATE` on the UPDATE itself;
+  - the reminder mark and the notice commit in the same transaction, with rollback and retry if the notice fails.
+- **Confirmations given:** A6 will be implemented; A1–A6 will each be covered by implementation tests; D-28 stays open and is now pre-launch item **PL-06**; the 0035 checksums (`7ef01a91…e8f19a`, rollback `9c6bf5c5…cb47`) are preserved, and 0034 is unmodified.
+- **Recorded state:** 0035 is not pushed, has had no CI run, and hasn't been applied to any shared database. **The 0035 SQL text approval is pending.**
+- **Development continues** on already-authorised work. The deferred independent human review is not awaited (owner, reaffirmed).
+- **Gates unchanged:** SQL approval, push, CI, shared-database application, merge, restore point and deployment are each separate.
 
 **v2.01 changes (owner, 30 Oct 2026, 23:22 IST — 0035 final review requests; documentation only):**
 - **Accepted from revision 2:** the chapter-addition concurrency, correction-request race, teacher-link removal and repeated-sweep evidence, and the general direction of the notice recipient safeguard. **The final 0035 SQL text is not yet approved.**
