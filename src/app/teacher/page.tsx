@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { HomeChapters } from '@/components/lessons/HomeChapters';
 import type { ReactNode } from 'react';
 import { LinkButton } from '@/components/Button';
 import { Icon, type SymbolName } from '@/components/icons/Icon';
@@ -229,6 +230,7 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                         {l.subject} · Grade {l.studentGrade}
                       </span>
                     </div>
+                    <HomeChapters chapters={l.chapters} showSharing className="text-body-md" />
                     <p className="text-body-md text-on-surface-variant">
                       1-on-1 teacher lesson · {l.durationMinutes} min
                       {home.mode === 'real'

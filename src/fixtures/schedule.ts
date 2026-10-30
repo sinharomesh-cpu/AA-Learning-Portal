@@ -30,6 +30,19 @@ export interface Lesson {
   teacherName?: string;
   chapter?: string;
   topic?: string;
+  /**
+   * TL-6 (real teacher lessons only; demo data has none): the lesson's chapters or topic, as the
+   * calendars show them. Information only.
+   */
+  chapters?: HomeChapter[];
+}
+
+/** TL-6: one chapter (or the topic) of a teacher lesson, for the home pages. */
+export interface HomeChapter {
+  label: string;
+  topic: boolean;
+  /** D-TLS-19: the lesson's teacher can view it now (always false for a topic). */
+  shared: boolean;
 }
 
 const FAMILY_TZ = 'Asia/Kolkata';

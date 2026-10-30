@@ -1,5 +1,6 @@
 import 'server-only';
 import type { ParentLesson } from '@/fixtures/family';
+import type { HomeChapter } from '@/fixtures/schedule';
 import type { DashboardSession } from '@/fixtures/student';
 import { SUBJECTS } from '@/fixtures/subjects';
 import type { TeacherLesson } from '@/fixtures/teacher';
@@ -38,7 +39,13 @@ function base(l: LessonItem) {
           : ('requested' as const),
     teacherId: l.teacherId,
     teacherName: l.teacherName,
+    chapters: homeChapters(l),
   };
+}
+
+/** TL-6: the chapters (requested and planned) or topic, as the calendars list them. */
+function homeChapters(l: LessonItem): HomeChapter[] {
+  return l.chapters.map((c) => ({ label: c.label, topic: c.topic, shared: c.shared }));
 }
 
 /**
@@ -98,6 +105,8 @@ export async function studentTodayLessons(studentId: string, tz: string, now: Da
       teacherName: l.teacherName,
       lessonId: l.id,
       joinReady: l.meeting.allowed && l.meeting.added,
+      // D-TLS-10: lessonsForStudent lists confirmed lessons only, so titles of booked lessons only.
+      chapters: homeChapters(l),
     }));
 }
 
