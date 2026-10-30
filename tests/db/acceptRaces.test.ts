@@ -1,15 +1,23 @@
 import postgres from 'postgres';
 import { afterAll, describe, expect, inject, it } from 'vitest';
-import { answerLesson, closeLeftoverOverlaps, lessonMaintenance, requestLesson } from '@/server/lessons';
+import {
+  answerLesson,
+  closeLeftoverOverlaps,
+  lessonMaintenance,
+  lockLessonTimes,
+  requestLesson,
+} from '@/server/lessons';
+import { answerProposal, proposeLesson } from '@/server/proposals';
 import { activeLink, createAdult, createChild, testDb, type Sql, uniq } from './helpers';
 
 /**
  * TQ-4 (30 Oct 2026): overlapping acceptances must never deadlock. Two acceptances of lessons that
  * overlap for one teacher or one child used to deadlock: each held its own lesson row, the winner
  * then waited to close the other's row as "time no longer free", while the other waited for the
- * winner's uncommitted confirmation (0029's no-overlap rule). retrying() usually hid it after a
- * second; under load the error reached the user. Fixed by closing overlapping requests with
- * FOR UPDATE SKIP LOCKED (lessons.closeOverlappingRequests).
+ * winner's time locks (0034) or uncommitted confirmation (0029). retrying() usually hid it after a
+ * second; under load the error reached the user. Fixed by closing overlapping rows with
+ * FOR UPDATE SKIP LOCKED (lessons.closeOverlapping), as 0034's stage-3 design already did for
+ * proposals.
  *
  * These tests force the worst case: both acceptances are held right after locking their own
  * lesson rows (a brief lock on `accounts`, which both read next) and released together. Their
@@ -22,6 +30,8 @@ const MIN = 60_000;
 const DAY = 24 * 60 * MIN;
 const BASE = new Date(Math.ceil(Date.now() / DAY) * DAY + 3 * DAY + 10 * 60 * MIN);
 const at = (offsetMin: number) => new Date(BASE.getTime() + offsetMin * MIN);
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const hm = (d: Date) => d.toISOString().slice(11, 16);
 
 async function teacher() {
   const id = await createAdult(sql, 'teacher');
@@ -52,6 +62,11 @@ async function request(parent: string, c: string, t: string, start: Date, minute
     basis: 'listed',
   });
   if (!r.ok) throw new Error(`request refused: ${r.reason}`);
+  return r.id;
+}
+async function proposal(t: string, c: string, start: Date, minutes: number) {
+  const r = await proposeLesson(sql, t, { childId: c, subject: 'maths', date: ymd(start), time: hm(start), minutes });
+  if (!r.ok) throw new Error(`proposal refused: ${r.reason}`);
   return r.id;
 }
 const status = async (id: string) =>
@@ -145,6 +160,23 @@ describe('TQ-4: overlapping acceptances, forced to overlap, never deadlock', () 
       expect(ms).toBeLessThan(5_000);
     }
   }, 120_000);
+
+  it('a parent accepts a proposal while another teacher accepts an overlapping request: the same', async () => {
+    for (let round = 0; round < 3; round += 1) {
+      const parent = await createAdult(sql, 'parent');
+      const [t1, t2] = [await teacher(), await teacher()];
+      const c = await child(parent, t1);
+      await activeLink(sql, { teacher: t2, child: c, parent, subjects: ['maths'] });
+      const p = await proposal(t1, c, at(round * 120), 30);
+      const r = await request(parent, c, t2, at(round * 120), 30); // same child, same time
+      const { results, ms } = await race(
+        (x) => answerProposal(x as never, parent, p, 'accept'),
+        (y) => answerLesson(y as never, t2, r, 'accept'),
+      );
+      expect(results).toEqual(['ok', 'time_taken']);
+      expect(ms).toBeLessThan(5_000);
+    }
+  }, 120_000);
 });
 
 describe('TQ-4 safety net: an overlapping request skipped at confirmation is closed by maintenance', () => {
@@ -192,5 +224,84 @@ describe('TQ-4 safety net: an overlapping request skipped at confirmation is clo
     await lessonMaintenance(sql);
     expect((await status(b)).status).toBe('requested');
     expect((await status(d)).status).toBe('requested');
+  });
+});
+
+describe('TQ-4: the application’s time locks are 0034’s time locks (PR #137 with migration 0034)', () => {
+  const tryLock = (conn: Sql, kind: 'teacher' | 'child', id: string) =>
+    conn<{ got: boolean }[]>`
+      SELECT pg_try_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.${kind}:`} || ${id}::uuid::text, 0)) AS got`;
+
+  it('lockLessonTimes holds exactly the keys lessons_lock_times takes: another transaction can’t take either', async () => {
+    const t = await teacher();
+    const parent = await createAdult(sql, 'parent');
+    const c = await child(parent, t);
+    const other = testDb();
+    await sql.begin(async (tx) => {
+      await lockLessonTimes(tx as never, t, c);
+      // 0034's own function, from another connection, would wait: the try-lock forms say no.
+      await other.begin(async (o) => {
+        expect((await tryLock(o as never, 'teacher', t))[0]!.got).toBe(false);
+        expect((await tryLock(o as never, 'child', c))[0]!.got).toBe(false);
+      });
+      // ...and the same holds the other way round, from 0034's function.
+    });
+    await sql.begin(async (tx) => {
+      await tx`SELECT lessons_lock_times(${t}::uuid, ${c}::uuid)`;
+      await other.begin(async (o) => {
+        expect((await tryLock(o as never, 'teacher', t))[0]!.got).toBe(false);
+        expect((await tryLock(o as never, 'child', c))[0]!.got).toBe(false);
+      });
+    });
+    // Released at commit: free again.
+    await other.begin(async (o) => {
+      expect((await tryLock(o as never, 'teacher', t))[0]!.got).toBe(true);
+      expect((await tryLock(o as never, 'child', c))[0]!.got).toBe(true);
+    });
+    await other.end();
+  });
+
+  it('re-entrant: the application lock, then 0034’s function, then a confirmation, in one transaction, never waits on itself', async () => {
+    const t = await teacher();
+    const parent = await createAdult(sql, 'parent');
+    const c = await child(parent, t);
+    const r = await request(parent, c, t, at(1500), 30);
+    const started = Date.now();
+    // answerLesson takes lockLessonTimes, then the 0034 trigger takes lessons_lock_times again.
+    expect(await answerLesson(sql as never, t, r, 'accept')).toEqual({ ok: true });
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect((await status(r)).status).toBe('confirmed');
+  });
+
+  it('the same teacher-then-child order everywhere: a proposal waits for an overlapping confirmation, never deadlocks', async () => {
+    const t = await teacher();
+    const parent = await createAdult(sql, 'parent');
+    const c = await child(parent, t);
+    const holder = slowDeadlocks();
+    let release: () => void = () => {};
+    const released = new Promise<void>((ok) => (release = ok));
+    let held: () => void = () => {};
+    const isHeld = new Promise<void>((ok) => (held = ok));
+    const holding = holder.begin(async (tx) => {
+      await lockLessonTimes(tx as never, t, c); // as answerLesson does before confirming
+      held();
+      await released;
+    });
+    await isHeld;
+    const started = Date.now();
+    const p = proposeLesson(sql, t, {
+      childId: c,
+      subject: 'maths',
+      date: ymd(at(1620)),
+      time: hm(at(1620)),
+      minutes: 30,
+    });
+    await new Promise((ok) => setTimeout(ok, 300));
+    release();
+    await holding;
+    expect((await p).ok).toBe(true); // waited for the application lock (0034's trigger takes the same keys)
+    expect(Date.now() - started).toBeGreaterThanOrEqual(250);
+    expect(Date.now() - started).toBeLessThan(5_000);
+    await holder.end();
   });
 });
