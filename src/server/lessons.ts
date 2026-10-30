@@ -504,6 +504,15 @@ async function closeOverlappingRequests(tx: Db, l: LockedLesson, now: Date): Pro
 }
 
 /**
+ * TQ-4: the teacher-then-child transaction locks that confirmations share (released at commit or
+ * rollback). Identical keys and order to migration 0034's lessons_lock_times.
+ */
+export async function lockLessonTimes(tx: Db, teacherId: string, studentId: string): Promise<void> {
+  await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.teacher:${teacherId}`}, 0))`;
+  await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.child:${studentId}`}, 0))`;
+}
+
+/**
  * TQ-4 safety net: an open request that overlaps a confirmed lesson of the same teacher or child
  * closes as "time no longer free", as if closed at that confirmation. Normally the confirmation
  * closes it itself; this catches one it skipped because another transaction held it at that moment
@@ -571,6 +580,11 @@ export async function answerLesson(
         await tellAbout(tx, l.id, 'declined', { actorId: teacherId }, now);
         return { ok: true };
       }
+      // TQ-4: confirmations that could overlap (same teacher or same child) take turns. Without
+      // this, two of them writing at once can deadlock inside 0029's no-overlap rule instead of
+      // one getting "time no longer free". The same keys and order as 0034's lessons_lock_times,
+      // which takes them again in its trigger (these locks are re-entrant).
+      await lockLessonTimes(tx, l.teacher_id, l.student_id);
       try {
         await tx.savepoint((sp) => sp`UPDATE lessons SET status = 'confirmed' WHERE id = ${l.id}`);
       } catch (error) {
