@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.99 · 30 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v2.00 · 30 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,48 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v2.00 changes (owner, 30 Oct 2026, 22:07 IST — TL-5 clarifications, 0035 review, TL-4 conditions, AC-39/60; documentation only):**
+- **Numbering** as in v1.98: recorded under their own decision IDs; OC numbers to be assigned in the catch-up entry (OC-143 onwards).
+- **The 0035 design and business-rule direction are accepted.** This does **not** approve pushing 0035, opening a PR, CI, applying it to any shared database or merging.
+
+*TL-5 clarifications (approved; settles v1.99 item 6):*
+1. A chapter may be added after a **topic-only** lesson; the topic counts towards the five-item maximum.
+2. Only **book chapters** can be added after the lesson; teachers cannot add free-text topics.
+3. On an **OC-53 kept lesson**, the teacher may record chapter outcomes but cannot add chapters they can no longer view.
+4. **Link-ended** correction requests may close through the existing shared sweep.
+5. A correction must **change the state or its reason**; "Keep as recorded" is the response when no change is needed.
+6. The **seven-day correction window** starts from the lesson end, on the database clock.
+7. The **fixed correction reason list** is approved, with no free text.
+8. **One in-app reminder** 24 hours before the window closes.
+9. **No extension** of the seven-day window for late correction requests.
+- The correction-request statuses of `Clarification_Notes_2026-10-30.md` Part A (Open, Corrected, Kept, Withdrawn, Lapsed: no response, Closed: link ended) are accepted with these points.
+- **D-28 remains open.** Retention is not finally approved for real-family launch.
+
+*Migration 0035 — further evidence required before a push request (owner, 22:07 IST, B.1–B.6):*
+- concurrent chapter additions on the same lesson (graceful position collision, no partial data);
+- the forced correction/request races, all three scenarios of the owner's review;
+- link removal, subject removal and teacher deactivation while a request is open;
+- a parent cannot withdraw a request the system has already closed;
+- notification recipients and safeguarding: children never receive chapter-outcome or correction-request notifications;
+- repeated sweeps give no duplicate notices or inconsistent statuses.
+
+*TL-4 (D-TLS-4 option A) — clarifications B.1–B.3 approved in principle:*
+- **24-hour minimum notice** for the replacement time.
+- The **new price snapshot**, shown and accepted as proposed.
+- The **atomic swap** approach.
+- **Condition before any SQL:** the commit-time (deferred) rule must check the **reciprocal** link between the original and the replacement, including the "rescheduled" reason. An unrelated confirmed lesson must never satisfy it.
+- The fault-injection and concurrency tests are retained. **The original lesson must stay confirmed if any step of the swap fails.**
+- D3A-6 (cancel and re-request) stays in force until TL-4 is approved and merged.
+
+*AC-39/60 (test-only):* the targeted bell-refresh failure simulation is **approved** (`Clarification_Notes_2026-10-30.md` Part C). All existing assertions are kept; no application behaviour changes.
+
+*Gates unchanged:*
+- No push or PR for 0035; no CI or shared-database application of 0035.
+- No merge of #137, #133 or #134; merge order #137 → #133 → #134; #138 never merged.
+- All restore-point gates preserved; no production deployment.
+- Migration 0034 and its checksum (`0f5a393b…07a5`) unchanged.
+- SQL approval, push approval, CI, shared-database application and merge approval stay separate.
 
 **v1.99 changes (owner, 29 Oct 2026, 19:11 IST to 30 Oct 2026, 20:25 IST — TL-3 delivery controls, TL-5, TL-6, TL-4 in principle, TU; documentation only):**
 - **Numbering** as in v1.98: recorded under their own decision IDs; OC numbers to be assigned in the separate catch-up entry (OC-143 onwards).
