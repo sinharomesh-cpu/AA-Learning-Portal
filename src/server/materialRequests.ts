@@ -67,9 +67,12 @@ interface Row {
   teacher_can_view: boolean;
 }
 
-/** A lesson is "live" for material requests: requested and not overdue, or confirmed and not ended. */
+/**
+ * A lesson is "live" for material requests: a parent's request or a teacher's proposal (TL3-1)
+ * that is open and not overdue, or confirmed and not ended.
+ */
 const live = (sql: Db, now: Date) =>
-  sql`((l.status = 'requested' AND l.reply_deadline > ${now}) OR (l.status = 'confirmed' AND l.ends_at > ${now}))`;
+  sql`((l.status IN ('requested', 'proposed') AND l.reply_deadline > ${now}) OR (l.status = 'confirmed' AND l.ends_at > ${now}))`;
 
 /**
  * The lesson's own teacher, while active and approved, on a lesson they may still see on My
@@ -275,7 +278,7 @@ async function tellTeacher(
  * (`position`) or describes what is needed, with an optional note. Parents get an action notice.
  */
 export async function requestMaterial(
-  sql: Sql,
+  sql: Db,
   teacherId: string,
   input: { lessonId: unknown; position?: unknown; description?: unknown; note?: unknown },
   now: Date = new Date(),

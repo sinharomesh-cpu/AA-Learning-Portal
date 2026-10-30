@@ -311,10 +311,8 @@ describe('TL-1: the database is the second line of defence (0032)', () => {
           await tx`INSERT INTO lesson_chapters (lesson_id, position, topic, source) VALUES (${l!.id}, 1, 'planned?', 'planned')`;
         }),
       ),
-    ).toBe('ok'); // a caller's 'planned' is replaced by 'requested' (teacher planning is a later phase)
-    expect((await sql`SELECT source FROM lesson_chapters WHERE topic = 'planned?'`).map((r) => r.source)).toEqual([
-      'requested',
-    ]);
+    ).toBe('23514'); // TL-3 (0034): 'planned' is now the teacher's own kind, refused on a parent's request (and for a topic)
+    expect(await sql`SELECT source FROM lesson_chapters WHERE topic = 'planned?'`).toHaveLength(0);
     // A sixth row, and a duplicate chapter, are refused by the table itself.
     expect(
       await code(

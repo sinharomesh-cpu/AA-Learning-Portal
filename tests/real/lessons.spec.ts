@@ -113,14 +113,17 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   await shot(t, `PR2-teacher-schedule-${device}`);
   await t.goto('/teacher');
   await expect(t.getByRole('heading', { name: `Maths with ${child.name}` })).toBeVisible();
-  // B4: the linked child is on the roster; B1: no Propose button; real-account rules only.
+  // B4: the linked child is on the roster. B1 lifted by TL-3 (29 Oct 2026): real teachers get
+  // "Schedule a class" (OC-45 proposals), never the demo's "Propose a meeting"; real-account rules only.
   const roster = t.getByRole('region', { name: 'My students' });
   await expect(roster.getByRole('heading', { name: child.name })).toBeVisible();
   await expect(roster).not.toContainText('later phase');
   await expect(t.getByRole('link', { name: 'Propose a meeting' })).toHaveCount(0);
+  await expect(t.getByRole('link', { name: 'Schedule a class' })).toBeVisible();
   const teacherRules = t.getByRole('region', { name: 'Lesson rules' });
   await expect(teacherRules).toContainText('To change the time, the parent cancels and requests a new one.');
-  await expect(teacherRules).not.toContainText(/propose|move a lesson/i);
+  await expect(teacherRules).toContainText('A lesson you schedule is only booked when a parent accepts it.');
+  await expect(teacherRules).not.toContainText(/move a lesson/i);
   await check(t, phone);
   await shot(t, `PR2-teacher-home-${device}`);
 

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { migrate } from '../../scripts/db-migrate.mjs';
-import { testDb, uniq } from './helpers';
+import { migrationsBefore, testDb, uniq } from './helpers';
 
 /**
  * The M6 rollback plan works: on a throw-away database, apply every migration, add a sample book
@@ -35,7 +35,9 @@ beforeAll(async () => {
   const url = new URL(process.env.DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5432/postgres');
   url.pathname = `/${name}`;
   sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
-  await migrate(sql);
+  // TL-3 (0034, TL3-6 Option D) ships no rollback and closes the rollback chain: the older revert
+  // scripts are exercised on a database at 0033 (they refuse once 0034 is applied; tl3Proposals.test).
+  await migrate(sql, { dir: await migrationsBefore('0034') });
 });
 
 afterAll(async () => {

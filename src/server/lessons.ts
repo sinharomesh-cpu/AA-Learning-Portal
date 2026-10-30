@@ -47,12 +47,12 @@ export const WINDOW_DAYS = 28;
 export const CANCEL_CUTOFF_MINUTES = 30;
 export const OPEN_REQUESTS_MAX = 10;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
-const line = (s: unknown) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '');
-const isSubject = (s: string): s is SubjectId => (SUBJECT_IDS as readonly string[]).includes(s);
+export const line = (s: unknown) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '');
+export const isSubject = (s: string): s is SubjectId => (SUBJECT_IDS as readonly string[]).includes(s);
 const subjectName = (s: string) => SUBJECTS[s as SubjectId]?.name ?? s;
 const firstName = (name: string | null | undefined) => (name ?? '').trim().split(/\s+/)[0] ?? '';
 
@@ -360,6 +360,56 @@ function lessonChoices(chapterIds: unknown, topic: unknown): { chapterIds: strin
   return { chapterIds: ids, topic: t || null };
 }
 
+// ======================================================================= teacher-planned chapters (TL-3)
+
+/** WF-10 (TLS 5.1-4): what the teacher intends for a planned chapter (0034 lesson_chapters.intent). */
+export const CHAPTER_INTENTS = ['new', 'continue', 'revise'] as const;
+export type ChapterIntent = (typeof CHAPTER_INTENTS)[number];
+
+export interface PlannedChapter {
+  chapterId: string;
+  /** Optional (owner decision: nullable, 29 Oct 2026). */
+  intent: ChapterIntent | null;
+}
+
+/**
+ * TL-3 (D-E2E-2, D-E2E-3 (b), WF-10): the teacher's planned chapters, as sent by a form: a list of
+ * `{ chapterId, intent }`. Unique chapters, at most five, intent one of the three values or empty.
+ * Returns null when anything is malformed (never silently dropped); the database checks each
+ * chapter again (0034: only books the teacher can already view, never a topic).
+ */
+export function plannedChoices(raw: unknown): PlannedChapter[] | null {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) return null;
+  const out: PlannedChapter[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') return null;
+    const { chapterId, intent } = item as { chapterId?: unknown; intent?: unknown };
+    if (typeof chapterId !== 'string' || !UUID.test(chapterId.trim())) return null;
+    const i = typeof intent === 'string' ? intent.trim() : intent;
+    if (!(i === undefined || i === null || i === '' || (CHAPTER_INTENTS as readonly unknown[]).includes(i)))
+      return null;
+    out.push({ chapterId: chapterId.trim(), intent: i ? (i as ChapterIntent) : null });
+  }
+  if (out.length > MAX_LESSON_CHAPTERS || new Set(out.map((c) => c.chapterId)).size !== out.length) return null;
+  return out;
+}
+
+/** Inserts planned chapters after the lesson's existing ones (0034 writes the labels and checks them). */
+export async function insertPlanned(tx: Db, lessonId: string, planned: PlannedChapter[], after: number) {
+  for (const [i, c] of planned.entries()) {
+    await tx`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id, source, label, intent)
+             VALUES (${lessonId}, ${after + i + 1}, ${c.chapterId}, 'planned', '-', ${c.intent})`;
+  }
+}
+
+/** A refusal raised inside a transaction so that the whole change is rolled back. */
+export class Refused extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
+}
+
 /** The parent requests a lesson (§2.2). Refusals never reveal anything about other families. */
 export async function requestLesson(
   sql: Sql,
@@ -431,13 +481,15 @@ export async function requestLesson(
 // ======================================================================= answering and closing
 
 export type AnswerResult =
-  { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'expired' | 'time_taken' | 'not_linked' | 'invalid' };
+  | { ok: true }
+  | { ok: false; reason: 'not_found' | 'closed' | 'expired' | 'time_taken' | 'not_linked' | 'invalid' | 'chapters' };
 
-interface LockedLesson {
+export interface LockedLesson {
   id: string;
   teacher_id: string;
   student_id: string;
   subject: string;
+  origin: 'parent_request' | 'teacher_proposal';
   starts_at: Date;
   ends_at: Date;
   status: string;
@@ -448,10 +500,28 @@ interface LockedLesson {
   outcome: string | null;
 }
 
-async function lockLesson(tx: Db, id: string): Promise<LockedLesson | null> {
+/**
+ * Lock order (TL-3 review): every path that ends a teacher-child link (removeTeacher,
+ * updateTeacherLinks, the admin and teacher paths) locks the link row FIRST and then the lessons it
+ * closes. Accepting a lesson re-checks that link in the database (0029 lessons_teacher_link_ok,
+ * FOR SHARE), which used to happen AFTER the lesson row was locked: the opposite order, so an
+ * acceptance and a link removal could deadlock. Taking the link row (FOR SHARE) before the lesson
+ * row gives both the same order. Called first in every acceptance transaction.
+ */
+export async function lockLinkFirst(tx: Db, lessonId: string): Promise<void> {
+  if (!UUID.test(lessonId)) return;
+  await tx`
+    SELECT k.id FROM teacher_student_links k
+    JOIN lessons l ON l.teacher_id = k.teacher_id AND l.student_id = k.student_id
+    WHERE l.id = ${lessonId}
+    ORDER BY k.id
+    FOR SHARE OF k`;
+}
+
+export async function lockLesson(tx: Db, id: string): Promise<LockedLesson | null> {
   if (!UUID.test(id)) return null;
   const [l] = await tx<LockedLesson[]>`
-    SELECT id, teacher_id, student_id, subject, starts_at, ends_at, status, close_reason, outcome,
+    SELECT id, teacher_id, student_id, subject, origin, starts_at, ends_at, status, close_reason, outcome,
            reply_deadline <= now() AS overdue,
            starts_at - make_interval(mins => ${CANCEL_CUTOFF_MINUTES}) >= now() AS cancellable,
            ends_at <= now() AS ended
@@ -463,7 +533,7 @@ async function lockLesson(tx: Db, id: string): Promise<LockedLesson | null> {
  * A teacher may act on a lesson while approved and active, and either linked to the child in its
  * subject or teaching a lesson kept after the parent removed them (OC-53, 0031).
  */
-async function teacherOwns(tx: Db, teacherId: string, l: LockedLesson | null): Promise<boolean> {
+export async function teacherOwns(tx: Db, teacherId: string, l: LockedLesson | null): Promise<boolean> {
   if (!l || l.teacher_id !== teacherId) return false;
   const [ok] = await tx`
     SELECT 1 FROM accounts a
@@ -477,7 +547,7 @@ async function teacherOwns(tx: Db, teacherId: string, l: LockedLesson | null): P
 }
 
 /** A parent may act on a lesson while an active parent of the child (D3A-25). */
-async function parentOwns(tx: Db, parentId: string, l: LockedLesson | null): Promise<boolean> {
+export async function parentOwns(tx: Db, parentId: string, l: LockedLesson | null): Promise<boolean> {
   if (!l || !UUID.test(parentId)) return false;
   const [ok] = await tx`
     SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id AND p.status = 'active'
@@ -485,18 +555,52 @@ async function parentOwns(tx: Db, parentId: string, l: LockedLesson | null): Pro
   return !!ok;
 }
 
-/** Closes open requests that overlap a lesson just confirmed: "time no longer free" (§2.1). */
-async function closeOverlappingRequests(tx: Db, l: LockedLesson, now: Date): Promise<void> {
+/**
+ * Closes open requests and open teacher proposals that overlap a lesson just confirmed: "time no
+ * longer free" (§2.1; TL3-4). Proposals are taken with FOR UPDATE SKIP LOCKED (TL-3 review pack
+ * §9f): this transaction already holds the teacher and child time locks (0034, lessons_lock_times),
+ * and waiting here for a proposal row that another transaction holds could deadlock with that
+ * slot's clean-up. A skipped proposal is being changed by its holder, and can never be accepted
+ * over this lesson anyway (0029's no-overlap rules), so nothing is lost by skipping it.
+ * TQ-4 (30 Oct 2026): requests are skipped the same way; lessonMaintenance closes any left open.
+ */
+export async function closeOverlapping(
+  tx: Db,
+  l: Pick<LockedLesson, 'id' | 'teacher_id' | 'student_id' | 'starts_at' | 'ends_at'>,
+  actorId: string,
+  now: Date,
+): Promise<void> {
+  // TQ-4 (30 Oct 2026): requests and proposals alike skip rows another transaction holds. Waiting
+  // here deadlocked with a concurrent acceptance of an overlapping lesson: that acceptance holds its
+  // own row and waits for this one's time locks (0034) or its uncommitted confirmation (0029's
+  // no-overlap rule). A skipped row's own acceptance then finds the time taken and closes itself
+  // as "time no longer free"; anything else left open is closed by lessonMaintenance.
   const closed = await tx<Array<{ id: string }>>`
     UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
-    WHERE status = 'requested' AND id <> ${l.id} AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
-      AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+    WHERE id IN (SELECT id FROM lessons
+                 WHERE status IN ('requested', 'proposed') AND id <> ${l.id}
+                   AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
+                   AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+                 ORDER BY id
+                 FOR UPDATE SKIP LOCKED)
     RETURNING id`;
-  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId: l.teacher_id }, now);
+  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId }, now);
 }
 
-/** Retries a whole change when two accepts deadlock on each other's rows (the database picks one). */
-async function retrying<T>(fn: () => Promise<T>): Promise<T> {
+/**
+ * TQ-4: the teacher-then-child transaction locks that confirmations share (released at commit or
+ * rollback). Identical keys and order to migration 0034's lessons_lock_times.
+ */
+export async function lockLessonTimes(tx: Db, teacherId: string, studentId: string): Promise<void> {
+  await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.teacher:${teacherId}`}, 0))`;
+  await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.child:${studentId}`}, 0))`;
+}
+
+/**
+ * Retries a whole change when two transactions deadlock (40P01; the database aborts one). Used by
+ * every action that confirms a lesson or creates a proposal (TL-3 review pack §9f).
+ */
+export async function retrying<T>(fn: () => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await fn();
@@ -510,6 +614,12 @@ async function retrying<T>(fn: () => Promise<T>): Promise<T> {
  * The teacher accepts or declines a request (§2.1). Accepting re-checks, inside the same locked
  * step, the deadline, the link and the usual times (D3A-4); two accepts for overlapping times can
  * never both succeed (0029): the one that loses closes as "time no longer free".
+ *
+ * TL-3 (D-E2E-3 (b), owner decision 29 Oct 2026): when accepting, the teacher may add planned
+ * chapters (with an optional intent), in the same transaction, and the parents are told. Never on
+ * a request whose parent gave a free-text topic (D-TLS-6 "chapters or a topic"; W-3): that is
+ * refused before anything changes. If the database refuses a chapter, the acceptance is rolled
+ * back too, so it is all or nothing.
  */
 export async function answerLesson(
   sql: Sql,
@@ -518,17 +628,27 @@ export async function answerLesson(
   answer: 'accept' | 'decline',
   note: unknown = '',
   now: Date = new Date(),
+  opts: { planned?: unknown } = {},
 ): Promise<AnswerResult> {
   if (!UUID.test(teacherId) || !UUID.test(lessonId)) return { ok: false, reason: 'not_found' };
   const text = line(note).slice(0, 200);
-  return retrying(() =>
+  const planned = answer === 'accept' ? plannedChoices(opts.planned) : [];
+  if (!planned) return { ok: false, reason: 'chapters' };
+  const result = await retrying(() =>
     sql.begin(async (tx): Promise<AnswerResult> => {
+      await lockLinkFirst(tx, lessonId);
       const l = await lockLesson(tx, lessonId);
       if (!l || !(await teacherOwns(tx, teacherId, l))) return { ok: false, reason: 'not_found' };
       if (l.status !== 'requested') {
         return { ok: false, reason: l.close_reason === 'time_no_longer_free' ? 'time_taken' : 'closed' };
       }
       if (l.overdue) return { ok: false, reason: 'expired' };
+      // W-3 / D-TLS-6: a request with a parent's topic takes no planned chapters; checked first.
+      const [had] = await tx<Array<{ n: number; topic: boolean }>>`
+        SELECT count(*)::int AS n, bool_or(topic IS NOT NULL) AS topic FROM lesson_chapters WHERE lesson_id = ${l.id}`;
+      if (planned.length && (had?.topic || (had?.n ?? 0) + planned.length > MAX_LESSON_CHAPTERS)) {
+        return { ok: false, reason: 'chapters' };
+      }
       if (answer === 'decline') {
         await tx`UPDATE lessons SET status = 'declined', closed_by = 'teacher', closed_by_account = ${teacherId},
                  close_note = ${text || null} WHERE id = ${l.id}`;
@@ -540,6 +660,11 @@ export async function answerLesson(
         await tellAbout(tx, l.id, 'declined', { actorId: teacherId }, now);
         return { ok: true };
       }
+      // TQ-4: confirmations that could overlap (same teacher or same child) take turns. Without
+      // this, two of them writing at once can deadlock inside 0029's no-overlap rule instead of
+      // one getting "time no longer free". The same keys and order as 0034's lessons_lock_times,
+      // which takes them again in its trigger (these locks are re-entrant).
+      await lockLessonTimes(tx, l.teacher_id, l.student_id);
       try {
         await tx.savepoint((sp) => sp`UPDATE lessons SET status = 'confirmed' WHERE id = ${l.id}`);
       } catch (error) {
@@ -557,24 +682,45 @@ export async function answerLesson(
         await tellAbout(tx, l.id, 'time_taken', { actorId: teacherId }, now);
         return { ok: false, reason: 'time_taken' };
       }
-      await closeOverlappingRequests(tx, l, now);
+      await closeOverlapping(tx, l, teacherId, now);
+      if (planned.length) {
+        // All or nothing: a chapter the database refuses rolls the acceptance back as well.
+        try {
+          await tx.savepoint((sp) => insertPlanned(sp, l.id, planned, had?.n ?? 0));
+        } catch (error) {
+          const e = error as { code?: string };
+          if (e.code === '23514' || e.code === '42501' || e.code === '23505' || e.code === '23503')
+            throw new Refused('chapters');
+          throw error;
+        }
+      }
       await writeAudit(
         tx,
-        { type: 'LESSON_ACCEPTED', outcome: 'success', actorId: teacherId, details: { lesson: l.id } },
+        {
+          type: 'LESSON_ACCEPTED',
+          outcome: 'success',
+          actorId: teacherId,
+          details: { lesson: l.id, plannedChapters: planned.length },
+        },
         now,
       );
       await tellAbout(tx, l.id, 'accepted', { actorId: teacherId }, now);
+      // D-E2E-3 (b): the parents are told the teacher planned chapters (in-app; no free text).
+      if (planned.length) await tellAbout(tx, l.id, 'chapters_planned', { actorId: teacherId }, now);
       // CR-17 PR 3 (D3A-1): the parents are asked to allow the teacher's meeting links, if needed.
       await askForMeetingPermission(tx, l.id, now);
       return { ok: true };
     }),
   ).catch((error) => {
+    if (error instanceof Refused) return { ok: false, reason: 'chapters' } as const;
     // The deadline is checked by the database clock (lessons_confirm_in_time) at commit time too.
     if ((error as { constraint_name?: string }).constraint_name === 'lessons_confirm_in_time') {
       return { ok: false, reason: 'expired' } as const;
     }
     throw error;
   });
+  if (result.ok && answer === 'accept') await closeOverlapsNow(sql, lessonId, teacherId, now);
+  return result;
 }
 
 export type CloseResult = { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'too_late' | 'expired' };
@@ -741,7 +887,9 @@ export async function closeLessonsWithoutLink(
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id
     WHERE (${teacherId}::uuid IS NULL OR l.teacher_id = ${teacherId})
       AND (${studentId}::uuid IS NULL OR l.student_id = ${studentId})
-      AND ((l.status = 'requested' AND l.reply_deadline > now()) OR (l.status = 'confirmed' AND l.ends_at > now()))
+      -- TL-3 (D-TLS-13): open teacher proposals close the same way as open requests.
+      AND ((l.status IN ('requested', 'proposed') AND l.reply_deadline > now())
+           OR (l.status = 'confirmed' AND l.ends_at > now()))
       AND (t.status = 'deactivated' OR NOT EXISTS (
             SELECT 1 FROM teacher_student_links k
             WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
@@ -767,7 +915,7 @@ export async function closeLessonsWithoutLink(
       await tellAbout(tx, l.id, 'kept', {}, now);
       continue;
     }
-    if (l.status === 'requested') {
+    if (l.status === 'requested' || l.status === 'proposed') {
       await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
     } else {
       await tx`UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
@@ -779,7 +927,7 @@ export async function closeLessonsWithoutLink(
       { type: 'LESSON_CLOSED_BY_AA_PRO', outcome: 'success', details: { lesson: l.id, reason: l.reason } },
       now,
     );
-    await tellAbout(tx, l.id, l.status === 'requested' ? 'closed_by_aa_pro' : 'cancelled', {}, now);
+    await tellAbout(tx, l.id, l.status === 'confirmed' ? 'cancelled' : 'closed_by_aa_pro', {}, now);
     closed += 1;
   }
   return closed;
@@ -791,6 +939,75 @@ export async function closeLessonsWithoutLink(
  * lessons whose link ended, and asks the teacher for the outcome of lessons that have ended.
  * Idempotent; every run re-selects what is due.
  */
+/**
+ * TQ-4 safety net: an open request or proposal that overlaps a confirmed lesson of the same teacher
+ * or child closes as "time no longer free", as if closed at that confirmation. Normally the
+ * confirmation closes them itself; this catches one it skipped because another transaction held
+ * it at that moment and then left it open. Rows held right now are skipped again (next run).
+ */
+export async function closeLeftoverOverlaps(tx: Db, now: Date): Promise<number> {
+  const closed = await tx<Array<{ id: string }>>`
+    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+    WHERE id IN (SELECT r.id FROM lessons r
+                 WHERE r.status IN ('requested', 'proposed')
+                   AND EXISTS (SELECT 1 FROM lessons c
+                               WHERE c.status = 'confirmed' AND c.id <> r.id
+                                 AND (c.teacher_id = r.teacher_id OR c.student_id = r.student_id)
+                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at)
+                 ORDER BY r.id
+                 LIMIT 200
+                 FOR UPDATE OF r SKIP LOCKED)
+    RETURNING id`;
+  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', {}, now);
+  return closed.length;
+}
+
+/**
+ * Owner decision (30 Oct 2026, cleanup option A): straight after an acceptance commits, close the
+ * open requests and proposals that overlap the newly confirmed lesson (same teacher or child) as
+ * "time no longer free" — including any the acceptance had to skip because another transaction
+ * held it. This runs in its own transaction holding no other lock, and WAITS for such a holder (a
+ * few milliseconds; at most CLOSE_NOW_WAIT_MS), so it cannot recreate the TQ-4 deadlock; rows are locked in id order, so two
+ * of these never deadlock either. Each row is re-checked after the wait (closed meanwhile: left
+ * alone). Best effort: if it fails, the shared sweep (closeLeftoverOverlaps) closes them within
+ * about a minute. Returns how many it closed.
+ */
+/** The longest closeOverlapsNow waits for another transaction holding an overlapping row. */
+export const CLOSE_NOW_WAIT_MS = 2000;
+
+export async function closeOverlapsNow(sql: Sql, lessonId: string, actorId: string, now: Date): Promise<number> {
+  if (!UUID.test(lessonId)) return 0;
+  try {
+    return await retrying(() =>
+      sql.begin(async (tx) => {
+        // A holder is normally a few milliseconds; never keep the person accepting waiting longer
+        // than this. Past it, the sweep closes what is left (within about a minute).
+        await tx`SELECT set_config('lock_timeout', ${`${CLOSE_NOW_WAIT_MS}ms`}, true)`;
+        const closed = await tx<Array<{ id: string }>>`
+          UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+          WHERE status IN ('requested', 'proposed')
+            AND id IN (SELECT r.id FROM lessons r
+                       JOIN lessons c ON c.id = ${lessonId} AND c.status = 'confirmed'
+                       WHERE r.status IN ('requested', 'proposed') AND r.id <> c.id
+                         AND (r.teacher_id = c.teacher_id OR r.student_id = c.student_id)
+                         AND r.starts_at < c.ends_at AND r.ends_at > c.starts_at
+                       ORDER BY r.id
+                       FOR UPDATE OF r)
+          RETURNING id`;
+        for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId }, now);
+        return closed.length;
+      }),
+    );
+  } catch (error) {
+    // 55P03: a holder outlasted CLOSE_NOW_WAIT_MS (expected now and then); anything else is logged too.
+    console.error(
+      'Closing overlapping requests after an acceptance did not finish; the sweep will.',
+      (error as Error).message,
+    );
+    return 0;
+  }
+}
+
 export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promise<number> {
   let done = 0;
   done += await sql.begin(async (tx) => {
@@ -799,13 +1016,14 @@ export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promi
       SELECT l.id FROM lessons l
       WHERE l.status = 'expired' AND l.closed_at > now() - interval '7 days'
         AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.entity_type = 'lesson' AND n.entity_id = l.id
-                        AND n.type = 'lesson_expired')
+                        AND n.type IN ('lesson_expired', 'lesson_proposal_expired'))
       LIMIT 200`;
     const ids = new Set([...expired.map((r) => r.id), ...missed.map((r) => r.id)]);
     for (const id of ids) await tellAbout(tx, id, 'expired', {}, now);
     return ids.size;
   });
   done += await sql.begin((tx) => closeLessonsWithoutLink(tx, {}, now));
+  done += await sql.begin((tx) => closeLeftoverOverlaps(tx, now));
   done += await sql.begin(async (tx) => {
     const ended = await tx<Array<{ id: string }>>`
       SELECT l.id FROM lessons l
@@ -823,7 +1041,7 @@ export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promi
 
 // ======================================================================= notifications (in-app)
 
-type LessonEvent =
+export type LessonEvent =
   | 'requested'
   | 'accepted'
   | 'declined'
@@ -833,7 +1051,13 @@ type LessonEvent =
   | 'cancelled'
   | 'closed_by_aa_pro'
   | 'outcome_needed'
-  | 'kept';
+  | 'kept'
+  // TL-3: teacher proposals and planned chapters.
+  | 'proposed'
+  | 'proposal_accepted'
+  | 'proposal_declined'
+  | 'proposal_withdrawn'
+  | 'chapters_planned';
 
 interface LessonFacts {
   id: string;
@@ -843,6 +1067,7 @@ interface LessonFacts {
   starts_at: Date;
   minutes: number;
   status: string;
+  origin: 'parent_request' | 'teacher_proposal';
   closed_by: string | null;
   closed_by_account: string | null;
   close_reason: string | null;
@@ -873,17 +1098,27 @@ export const LESSON_NOTIFICATION_TYPES = [
   'lesson_reminder',
   // OC-53 Option A (0031): a lesson kept when a parent removed the teacher.
   'lesson_kept',
+  // TL-3 (0034): teacher proposals (in-app only; never a free-text note) and planned chapters.
+  'lesson_proposed',
+  'lesson_proposal_accepted',
+  'lesson_proposal_declined',
+  'lesson_proposal_withdrawn',
+  'lesson_proposal_expired',
+  'lesson_proposal_closed',
+  'lesson_chapters_planned',
 ] as const;
 
 const TEACHER_HREF = '/teacher/schedule';
 const PARENT_HREF = '/parent/calendar';
+/** TL3-5: a parent's notices about a teacher's proposal open its booking-details page. */
+const bookingHref = (id: string) => `/parent/bookings/${id.toLowerCase()}`;
 
 /**
  * Who is told what (CR-16 rules): never the person who acted; parents only while active parents
  * of the child; the teacher only while approved and active. A teacher's text names the subject,
  * grade and time, never the child (CR-16 §3). No free-text notes are copied into notifications.
  */
-async function tellAbout(
+export async function tellAbout(
   tx: Db,
   lessonId: string,
   event: LessonEvent,
@@ -891,7 +1126,7 @@ async function tellAbout(
   now: Date,
 ): Promise<void> {
   const [f] = await tx<LessonFacts[]>`
-    SELECT l.id, l.teacher_id, l.student_id, l.subject, l.starts_at, l.minutes, l.status, l.closed_by,
+    SELECT l.id, l.teacher_id, l.student_id, l.subject, l.starts_at, l.minutes, l.status, l.origin, l.closed_by,
            l.closed_by_account, l.close_reason, l.requested_by,
            t.display_name AS teacher_name, t.time_zone AS teacher_zone,
            (t.status = 'active' AND tp.approval_status = 'approved') AS teacher_active,
@@ -927,16 +1162,22 @@ async function tellAbout(
       now,
     });
   };
-  const parentNotes = async (type: string, title: (zone: string) => string, body = '') => {
+  const proposal = f.origin === 'teacher_proposal';
+  const parentNotes = async (
+    type: string,
+    title: (zone: string) => string,
+    body = '',
+    kind: 'action' | 'update' = 'update',
+  ) => {
     for (const p of parents) {
       if (p.id === opts.actorId) continue;
       await notify(tx, {
         recipientId: p.id,
-        kind: 'update',
+        kind,
         type,
         title: title(p.zone),
         body,
-        href: PARENT_HREF,
+        href: proposal ? bookingHref(f.id) : PARENT_HREF,
         entityType: 'lesson',
         entityId: f.id,
         dedupeKey: `${type}:${f.id}:${p.id}`,
@@ -974,6 +1215,19 @@ async function tellAbout(
       );
       return;
     case 'time_taken':
+      if (proposal) {
+        await parentNotes(
+          'lesson_time_no_longer_free',
+          (z) =>
+            `The ${subject} lesson ${f.teacher_name} proposed for ${f.child_name}, ${when(z)}, is closed: the time is no longer free`,
+        );
+        await teacherNote(
+          'lesson_time_no_longer_free',
+          'update',
+          `Lesson proposal closed, the time is no longer free: ${forTeacher}`,
+        );
+        return;
+      }
       await parentNotes(
         'lesson_time_no_longer_free',
         (z) => `${f.child_name}'s ${subject} lesson request for ${when(z)} is closed: the time is no longer free`,
@@ -996,6 +1250,19 @@ async function tellAbout(
       return;
     }
     case 'expired':
+      if (proposal) {
+        await teacherNote(
+          'lesson_proposal_expired',
+          'update',
+          `Your lesson proposal expired without an answer: ${forTeacher}`,
+        );
+        await parentNotes(
+          'lesson_proposal_expired',
+          (z) =>
+            `No answer in time: the ${subject} lesson ${f.teacher_name} proposed for ${f.child_name}, ${when(z)}, has expired`,
+        );
+        return;
+      }
       await teacherNote('lesson_expired', 'update', `A lesson request expired without an answer: ${forTeacher}`);
       await parentNotes(
         'lesson_expired',
@@ -1031,6 +1298,14 @@ async function tellAbout(
     case 'closed_by_aa_pro': {
       const why =
         f.close_reason === 'teacher_deactivated' ? 'the teacher is no longer available' : 'the teacher link ended';
+      if (proposal) {
+        await parentNotes(
+          'lesson_proposal_closed',
+          (z) => `The ${subject} lesson ${f.teacher_name} proposed for ${f.child_name}, ${when(z)}, is closed: ${why}`,
+        );
+        await teacherNote('lesson_proposal_closed', 'update', `Lesson proposal closed by AA Pro: ${forTeacher}`);
+        return;
+      }
       await parentNotes(
         'lesson_declined',
         (z) => `${f.child_name}'s ${subject} lesson request for ${when(z)} is closed: ${why}`,
@@ -1060,12 +1335,58 @@ async function tellAbout(
         'Taught, or did not take place.',
       );
       return;
+    // ------------------------------------------------------------------ TL-3
+    case 'proposed':
+      // OC-45: every active parent of the child may accept or decline (D-TLS-2).
+      await parentNotes(
+        'lesson_proposed',
+        (z) =>
+          `${f.teacher_name} proposed a ${subject} lesson for ${f.child_name}, ${when(z)} (${Number(f.minutes)} min)`,
+        'Accept or decline it before it expires. Nothing is booked until you accept.',
+        'action',
+      );
+      return;
+    case 'proposal_accepted': {
+      const who = await actorFirst();
+      await teacherNote('lesson_proposal_accepted', 'update', `Lesson proposal accepted: ${forTeacher}`);
+      await parentNotes(
+        'lesson_proposal_accepted',
+        (z) =>
+          `${who || 'A parent'} accepted the ${subject} lesson ${f.teacher_name} proposed for ${f.child_name}, ${when(z)}`,
+      );
+      return;
+    }
+    case 'proposal_declined': {
+      // TL3-5: the parent's optional reason is never copied into a notice.
+      const who = await actorFirst();
+      await teacherNote('lesson_proposal_declined', 'update', `Lesson proposal declined: ${forTeacher}`);
+      await parentNotes(
+        'lesson_proposal_declined',
+        (z) =>
+          `${who || 'A parent'} declined the ${subject} lesson ${f.teacher_name} proposed for ${f.child_name}, ${when(z)}`,
+      );
+      return;
+    }
+    case 'proposal_withdrawn':
+      await parentNotes(
+        'lesson_proposal_withdrawn',
+        (z) => `${f.teacher_name} withdrew the ${subject} lesson proposed for ${f.child_name}, ${when(z)}`,
+      );
+      return;
+    case 'chapters_planned':
+      // D-E2E-3 (b): the teacher planned chapters when accepting a parent's request.
+      await parentNotes(
+        'lesson_chapters_planned',
+        (z) => `${f.teacher_name} planned chapters for ${f.child_name}'s ${subject} lesson, ${when(z)}`,
+        'See them on the lesson in Family calendar.',
+      );
+      return;
   }
 }
 
 // ======================================================================= lists
 
-export type LessonStatus = 'requested' | 'confirmed' | 'declined' | 'withdrawn' | 'expired' | 'cancelled';
+export type LessonStatus = 'requested' | 'proposed' | 'confirmed' | 'declined' | 'withdrawn' | 'expired' | 'cancelled';
 
 export interface LessonItem {
   id: string;
@@ -1078,7 +1399,9 @@ export interface LessonItem {
   startsAt: Date;
   endsAt: Date;
   minutes: number;
-  /** An open request past its deadline shows as expired at once, before the sweep records it. */
+  /** TL-3: who started it, a parent's request or a teacher's proposal (0034, immutable). */
+  origin: 'parent_request' | 'teacher_proposal';
+  /** An open request or proposal past its deadline shows as expired at once, before the sweep records it. */
   status: LessonStatus;
   replyDeadline: Date;
   closedBy: 'parent' | 'teacher' | 'aa_pro' | null;
@@ -1091,7 +1414,11 @@ export interface LessonItem {
   outcome: 'taught' | 'not_taken_place' | null;
   /** Shown to parents and teachers only, never to children (D3A-23). */
   price: { currency: string; priceMinor: number; rateMinor: number; basis: 'agreed' | 'listed' } | null;
-  /** Actions the viewer may take now (the server checks again). */
+  /**
+   * Actions the viewer may take now (the server checks again). canAnswer: the teacher on a parent's
+   * open request, or a parent on a teacher's open proposal (OC-45). canWithdraw: the parent on their
+   * open request, or the teacher on their open proposal.
+   */
   canWithdraw: boolean;
   canCancel: boolean;
   canAnswer: boolean;
@@ -1129,6 +1456,10 @@ export interface LessonChapter {
   /** Set by the database from the parent's own titles, or the topic; kept as history (D-TLS-15). */
   label: string;
   topic: boolean;
+  /** TL-3: asked for by the parent, or planned by the teacher (shown apart, TL3-AC-10). */
+  source: 'requested' | 'planned';
+  /** TL-3 (WF-10): the teacher's intent for a planned chapter, if stated. */
+  intent: ChapterIntent | null;
   /**
    * D-TLS-19: the lesson's teacher can view this chapter now under the existing book sharing
    * (OC-41). False for a topic, or when the book or chapter is no longer shared ("No longer shared").
@@ -1150,6 +1481,7 @@ interface ListRow {
   ends_at: Date;
   minutes: number;
   status: string;
+  origin: 'parent_request' | 'teacher_proposal';
   reply_deadline: Date;
   closed_by: string | null;
   close_reason: string | null;
@@ -1171,6 +1503,8 @@ interface ListRow {
   chapters: Array<{
     label: string;
     topic: boolean;
+    source: 'requested' | 'planned';
+    intent: ChapterIntent | null;
     shared: boolean;
     book_id: string | null;
     chapter_id: string | null;
@@ -1179,7 +1513,8 @@ interface ListRow {
 
 const LIST_COLUMNS = (sql: Db) => sql`
   l.id, l.teacher_id, t.display_name AS teacher_name, l.student_id, c.display_name AS child_name, sp.grade,
-  l.subject, l.starts_at, l.ends_at, l.minutes, l.status, l.reply_deadline, l.closed_by, l.close_reason, l.close_note,
+  l.subject, l.starts_at, l.ends_at, l.minutes, l.status, l.origin, l.reply_deadline, l.closed_by, l.close_reason,
+  l.close_note,
   l.outcome, l.currency, l.price_minor, l.rate_minor, l.price_basis, l.closed_by_account, cb.display_name AS closer_name,
   l.reply_deadline <= now() AS overdue,
   l.starts_at - make_interval(mins => ${CANCEL_CUTOFF_MINUTES}) >= now() AS cancellable,
@@ -1194,7 +1529,8 @@ const LIST_COLUMNS = (sql: Db) => sql`
   -- under exactly the rule of listBooksForTeacher (OC-41): published live book assigned to the
   -- child, live complete chapter, active link in the book's subject, approved teacher.
   (SELECT coalesce(json_agg(json_build_object(
-            'label', lc.label, 'topic', lc.topic IS NOT NULL, 'book_id', ch.book_id, 'chapter_id', ch.id,
+            'label', lc.label, 'topic', lc.topic IS NOT NULL, 'source', lc.source, 'intent', lc.intent,
+            'book_id', ch.book_id, 'chapter_id', ch.id,
             'shared', ch.id IS NOT NULL AND ch.archived_at IS NULL AND ch.complete
                       AND bk.status = 'published' AND bk.archived_at IS NULL
                       AND EXISTS (SELECT 1 FROM book_children bc WHERE bc.book_id = bk.id AND bc.student_id = l.student_id)
@@ -1209,7 +1545,8 @@ const LIST_COLUMNS = (sql: Db) => sql`
    WHERE lc.lesson_id = l.id) AS chapters`;
 
 function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: string): LessonItem {
-  const status: LessonStatus = r.status === 'requested' && r.overdue ? 'expired' : (r.status as LessonStatus);
+  const open = r.status === 'requested' || r.status === 'proposed';
+  const status: LessonStatus = open && r.overdue ? 'expired' : (r.status as LessonStatus);
   return {
     id: r.id,
     teacherId: r.teacher_id,
@@ -1221,6 +1558,7 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: 
     startsAt: r.starts_at,
     endsAt: r.ends_at,
     minutes: Number(r.minutes),
+    origin: r.origin,
     status,
     replyDeadline: r.reply_deadline,
     closedBy: r.closed_by as LessonItem['closedBy'],
@@ -1239,15 +1577,17 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: 
             rateMinor: Number(r.rate_minor),
             basis: r.price_basis as 'agreed' | 'listed',
           },
-    canWithdraw: viewer === 'parent' && status === 'requested',
+    canWithdraw: (viewer === 'parent' && status === 'requested') || (viewer === 'teacher' && status === 'proposed'),
     canCancel: viewer !== 'student' && status === 'confirmed' && r.cancellable,
-    canAnswer: viewer === 'teacher' && status === 'requested',
+    canAnswer: (viewer === 'teacher' && status === 'requested') || (viewer === 'parent' && status === 'proposed'),
     needsOutcome: viewer === 'teacher' && status === 'confirmed' && r.ended && !r.outcome,
     ended: r.ended,
     kept: r.kept,
     chapters: r.chapters.map((c) => ({
       label: c.label,
       topic: c.topic,
+      source: c.source,
+      intent: c.intent,
       shared: c.shared,
       href:
         viewer === 'teacher' && c.shared && c.book_id && c.chapter_id
@@ -1277,6 +1617,24 @@ export async function lessonsForParent(sql: Db, parentId: string, now: Date = ne
       AND l.ends_at > ${new Date(now.getTime() - 30 * DAY)}
     ORDER BY l.starts_at, l.id`;
   return rows.map((r) => toItem(r, 'parent', parentId));
+}
+
+/**
+ * TL3-5: one lesson for its booking-details page, for an active parent of the child (D3A-25), or
+ * null ("not found") for anyone else, whatever id is sent. No time limit, so an old link still opens.
+ */
+export async function lessonForParent(sql: Db, parentId: string, lessonId: string): Promise<LessonItem | null> {
+  if (!UUID.test(parentId) || !UUID.test(lessonId)) return null;
+  const [r] = await sql<ListRow[]>`
+    SELECT ${LIST_COLUMNS(sql)}
+    FROM lessons l JOIN accounts t ON t.id = l.teacher_id JOIN accounts c ON c.id = l.student_id
+    LEFT JOIN accounts cb ON cb.id = l.closed_by_account
+    LEFT JOIN lesson_meeting_links ml ON ml.lesson_id = l.id
+    LEFT JOIN student_profiles sp ON sp.account_id = c.id
+    WHERE l.id = ${lessonId}
+      AND l.student_id IN (SELECT g.student_id FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
+                           WHERE g.parent_id = ${parentId} AND g.status = 'active' AND p.status = 'active')`;
+  return r ? toItem(r, 'parent', parentId) : null;
 }
 
 /**

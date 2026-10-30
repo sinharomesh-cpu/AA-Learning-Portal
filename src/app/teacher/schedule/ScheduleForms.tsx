@@ -4,6 +4,7 @@ import { useActionState, useId, useRef, useState } from 'react';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormMessage } from '@/components/forms/FormMessage';
+import { type PlannableOption, PlannedChapterPicker } from '@/components/lessons/PlannedChapterPicker';
 import { INPUT } from '@/components/ui/styles';
 import { cx } from '@/lib/cx';
 import {
@@ -14,6 +15,7 @@ import {
   requestMaterialAction,
   type ScheduleState,
   withdrawMaterialAction,
+  withdrawProposalAction,
 } from './actions';
 
 function Result({ state }: { state: ScheduleState }) {
@@ -22,8 +24,20 @@ function Result({ state }: { state: ScheduleState }) {
   return null;
 }
 
-/** Accept, or decline with an optional reason (CR-17 PR 2). */
-export function AnswerButtons({ lessonId, label }: { lessonId: string; label: string }) {
+/**
+ * Accept, or decline with an optional reason (CR-17 PR 2). TL-3 (D-E2E-3 (b)): when `plan` is
+ * given, the teacher may add planned chapters with the acceptance; never on a request whose parent
+ * gave a topic (W-3; the page doesn't pass `plan` then).
+ */
+export function AnswerButtons({
+  lessonId,
+  label,
+  plan,
+}: {
+  lessonId: string;
+  label: string;
+  plan?: { chapters: PlannableOption[]; max: number; childName: string; subjectName: string };
+}) {
   const [state, action, pending] = useActionState<ScheduleState, FormData>(answerLessonAction, {});
   const [open, setOpen] = useState(false);
   const form = useRef<HTMLFormElement>(null);
@@ -36,6 +50,16 @@ export function AnswerButtons({ lessonId, label }: { lessonId: string; label: st
       <input type="hidden" name="lessonId" value={lessonId} />
       <input ref={answer} type="hidden" name="answer" value="accept" />
       <Result state={state} />
+      {plan && plan.max > 0 && plan.chapters.length > 0 ? (
+        <details className="rounded-[16px] border border-card-border px-4 py-2" data-testid="plan-on-accept">
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold">
+            Add planned chapters when accepting (optional)
+          </summary>
+          <div className="pb-2 pt-1">
+            <PlannedChapterPicker {...plan} />
+          </div>
+        </details>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           type="submit"
@@ -76,6 +100,41 @@ export function AnswerButtons({ lessonId, label }: { lessonId: string; label: st
           </label>
           <textarea id={noteId} form={formId} name="note" maxLength={200} rows={2} className={cx(INPUT, 'py-2')} />
         </span>
+      </ConfirmDialog>
+    </form>
+  );
+}
+
+/** TL-3: withdraw an open proposal, after a confirmation (the parents are told). */
+export function WithdrawProposalButton({ lessonId, label }: { lessonId: string; label: string }) {
+  const [state, action, pending] = useActionState<ScheduleState, FormData>(withdrawProposalAction, {});
+  const [open, setOpen] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  return (
+    <form ref={form} action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="lessonId" value={lessonId} />
+      <Result state={state} />
+      <Button
+        type="button"
+        variant="secondary"
+        inactive={pending}
+        onClick={() => setOpen(true)}
+        aria-label={`Withdraw proposal: ${label}`}
+      >
+        Withdraw proposal
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title="Withdraw this proposal?"
+        confirmLabel="Withdraw"
+        cancelLabel="Keep it"
+        onCancel={() => setOpen(false)}
+        onConfirm={() => {
+          setOpen(false);
+          form.current?.requestSubmit();
+        }}
+      >
+        {label}. The family is told, and it can’t be accepted afterwards.
       </ConfirmDialog>
     </form>
   );
