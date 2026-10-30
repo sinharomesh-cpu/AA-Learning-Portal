@@ -487,12 +487,43 @@ async function parentOwns(tx: Db, parentId: string, l: LockedLesson | null): Pro
 
 /** Closes open requests that overlap a lesson just confirmed: "time no longer free" (§2.1). */
 async function closeOverlappingRequests(tx: Db, l: LockedLesson, now: Date): Promise<void> {
+  // TQ-4 (30 Oct 2026): skip rows another transaction holds. Waiting here deadlocked with a
+  // concurrent acceptance of an overlapping lesson, which holds its own row and waits for this
+  // one's uncommitted confirmation (0029's no-overlap rule). A skipped row's own acceptance then
+  // finds the time taken and closes itself; anything else left open is closed by lessonMaintenance.
   const closed = await tx<Array<{ id: string }>>`
     UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
-    WHERE status = 'requested' AND id <> ${l.id} AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
-      AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+    WHERE id IN (SELECT id FROM lessons
+                 WHERE status = 'requested' AND id <> ${l.id}
+                   AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
+                   AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+                 ORDER BY id
+                 FOR UPDATE SKIP LOCKED)
     RETURNING id`;
   for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId: l.teacher_id }, now);
+}
+
+/**
+ * TQ-4 safety net: an open request that overlaps a confirmed lesson of the same teacher or child
+ * closes as "time no longer free", as if closed at that confirmation. Normally the confirmation
+ * closes it itself; this catches one it skipped because another transaction held it at that moment
+ * and then left it open. Rows held right now are skipped again (next run).
+ */
+export async function closeLeftoverOverlaps(tx: Db, now: Date): Promise<number> {
+  const closed = await tx<Array<{ id: string }>>`
+    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+    WHERE id IN (SELECT r.id FROM lessons r
+                 WHERE r.status = 'requested'
+                   AND EXISTS (SELECT 1 FROM lessons c
+                               WHERE c.status = 'confirmed' AND c.id <> r.id
+                                 AND (c.teacher_id = r.teacher_id OR c.student_id = r.student_id)
+                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at)
+                 ORDER BY r.id
+                 LIMIT 200
+                 FOR UPDATE OF r SKIP LOCKED)
+    RETURNING id`;
+  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', {}, now);
+  return closed.length;
 }
 
 /** Retries a whole change when two accepts deadlock on each other's rows (the database picks one). */
@@ -806,6 +837,7 @@ export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promi
     return ids.size;
   });
   done += await sql.begin((tx) => closeLessonsWithoutLink(tx, {}, now));
+  done += await sql.begin((tx) => closeLeftoverOverlaps(tx, now));
   done += await sql.begin(async (tx) => {
     const ended = await tx<Array<{ id: string }>>`
       SELECT l.id FROM lessons l
