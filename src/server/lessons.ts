@@ -570,25 +570,21 @@ export async function closeOverlapping(
   actorId: string,
   now: Date,
 ): Promise<void> {
+  // TQ-4 (30 Oct 2026): requests and proposals alike skip rows another transaction holds. Waiting
+  // here deadlocked with a concurrent acceptance of an overlapping lesson: that acceptance holds its
+  // own row and waits for this one's time locks (0034) or its uncommitted confirmation (0029's
+  // no-overlap rule). A skipped row's own acceptance then finds the time taken and closes itself
+  // as "time no longer free"; anything else left open is closed by lessonMaintenance.
   const closed = await tx<Array<{ id: string }>>`
     UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
     WHERE id IN (SELECT id FROM lessons
-                 WHERE status = 'requested' AND id <> ${l.id}
+                 WHERE status IN ('requested', 'proposed') AND id <> ${l.id}
                    AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
                    AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
                  ORDER BY id
                  FOR UPDATE SKIP LOCKED)
     RETURNING id`;
-  const proposals = await tx<Array<{ id: string }>>`
-    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
-    WHERE id IN (SELECT id FROM lessons
-                 WHERE status = 'proposed' AND id <> ${l.id}
-                   AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
-                   AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
-                 ORDER BY id
-                 FOR UPDATE SKIP LOCKED)
-    RETURNING id`;
-  for (const c of [...closed, ...proposals]) await tellAbout(tx, c.id, 'time_taken', { actorId }, now);
+  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', { actorId }, now);
 }
 
 /**
@@ -598,29 +594,6 @@ export async function closeOverlapping(
 export async function lockLessonTimes(tx: Db, teacherId: string, studentId: string): Promise<void> {
   await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.teacher:${teacherId}`}, 0))`;
   await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.child:${studentId}`}, 0))`;
-}
-
-/**
- * TQ-4 safety net: an open request that overlaps a confirmed lesson of the same teacher or child
- * closes as "time no longer free", as if closed at that confirmation. Normally the confirmation
- * closes it itself; this catches one it skipped because another transaction held it at that moment
- * and then left it open. Rows held right now are skipped again (next run).
- */
-export async function closeLeftoverOverlaps(tx: Db, now: Date): Promise<number> {
-  const closed = await tx<Array<{ id: string }>>`
-    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
-    WHERE id IN (SELECT r.id FROM lessons r
-                 WHERE r.status = 'requested'
-                   AND EXISTS (SELECT 1 FROM lessons c
-                               WHERE c.status = 'confirmed' AND c.id <> r.id
-                                 AND (c.teacher_id = r.teacher_id OR c.student_id = r.student_id)
-                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at)
-                 ORDER BY r.id
-                 LIMIT 200
-                 FOR UPDATE OF r SKIP LOCKED)
-    RETURNING id`;
-  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', {}, now);
-  return closed.length;
 }
 
 /**
@@ -964,6 +937,29 @@ export async function closeLessonsWithoutLink(
  * lessons whose link ended, and asks the teacher for the outcome of lessons that have ended.
  * Idempotent; every run re-selects what is due.
  */
+/**
+ * TQ-4 safety net: an open request or proposal that overlaps a confirmed lesson of the same teacher
+ * or child closes as "time no longer free", as if closed at that confirmation. Normally the
+ * confirmation closes them itself; this catches one it skipped because another transaction held
+ * it at that moment and then left it open. Rows held right now are skipped again (next run).
+ */
+export async function closeLeftoverOverlaps(tx: Db, now: Date): Promise<number> {
+  const closed = await tx<Array<{ id: string }>>`
+    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
+    WHERE id IN (SELECT r.id FROM lessons r
+                 WHERE r.status IN ('requested', 'proposed')
+                   AND EXISTS (SELECT 1 FROM lessons c
+                               WHERE c.status = 'confirmed' AND c.id <> r.id
+                                 AND (c.teacher_id = r.teacher_id OR c.student_id = r.student_id)
+                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at)
+                 ORDER BY r.id
+                 LIMIT 200
+                 FOR UPDATE OF r SKIP LOCKED)
+    RETURNING id`;
+  for (const c of closed) await tellAbout(tx, c.id, 'time_taken', {}, now);
+  return closed.length;
+}
+
 export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promise<number> {
   let done = 0;
   done += await sql.begin(async (tx) => {
