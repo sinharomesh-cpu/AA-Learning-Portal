@@ -7,6 +7,7 @@ import type { Db, Sql } from './db/client';
 import {
   type ChapterIntent,
   closeOverlapping,
+  closeOverlapsNow,
   insertPlanned,
   isSubject,
   lessonPrice,
@@ -517,7 +518,7 @@ export async function answerProposal(
   // TL3-5: optional, at most 200 characters; trimmed here and again by the database (0034).
   const note = typeof reason === 'string' ? reason.trim() : '';
   if ([...note].length > 200) return { ok: false, reason: 'invalid' };
-  return retrying(() =>
+  const result = await retrying(() =>
     sql.begin(async (tx): Promise<ProposalAnswerResult> => {
       await lockLinkFirst(tx, lessonId); // the same lock order as link removal (see lessons.lockLinkFirst)
       const l = await lockLesson(tx, lessonId);
@@ -583,6 +584,9 @@ export async function answerProposal(
     }
     throw error;
   });
+  // Cleanup option A (owner, 30 Oct 2026): overlapping requests and proposals close at once.
+  if (result.ok && answer === 'accept') await closeOverlapsNow(sql, lessonId, parentId, now);
+  return result;
 }
 
 export type WithdrawProposalResult = { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'expired' };
