@@ -70,9 +70,11 @@ The requirements:
    - updates the original to `cancelled` / `aa_pro` / `rescheduled`;
    - inserts **one** `lesson_reschedules` row with `swap_xid := pg_current_xact_id()`.
 2. **`lesson_reschedules` refuses every write except this path.** Its BEFORE INSERT trigger checks that, inside the current transaction:
-   - the replacement row is being confirmed (it is read from a transaction-local setting written by the same trigger, so a caller can't fake it);
-   - `replacement.replaces_lesson_id = original_lesson_id`;
-   - teacher, child and subject match.
+   - `replacement.replaces_lesson_id = original_lesson_id`, and teacher, child and subject match;
+   - the original is **already** `cancelled` / `rescheduled` (the trigger closes it just before writing the record);
+   - the replacement is still open (`requested` or `proposed`), the state it has while its own BEFORE UPDATE runs.
+   
+   The check uses **database state only, never a session setting**, because a caller can set any session setting (`set_config`). A record written any other way still has to pass the deferred two-way check (point 3). The real swap path also writes a record, so a forged one would make the real swap fail on `UNIQUE`; there's nothing to gain.
    
    UPDATE and DELETE are refused, except when the lesson itself is deleted (ON DELETE CASCADE), as for 0032–0035.
 3. **The deferred two-way rule.** A `CONSTRAINT TRIGGER … AFTER UPDATE ON lessons DEFERRABLE INITIALLY DEFERRED FOR EACH ROW` fires at commit for every lesson row updated in the transaction. It **re-reads the row's committed-to-be state** (not `NEW`, which may be stale if the row changed twice).
@@ -150,7 +152,7 @@ The trigger **also** locks the original `FOR UPDATE` itself, so a caller that sk
   - same `position`, `source` (`requested` or `planned`), `book_chapter_id`, `topic`, `label` and `intent`;
   - `created_at` = now.
 - **The original's rows stay unchanged** as history.
-- **New narrow path:** a chapter row is accepted only when the transaction-local swap marker names this replacement. 0032 and 0034's rules stay byte for byte, as sub-blocks, as done in 0034.
+- **New narrow path:** a copied chapter row is accepted only when a `lesson_reschedules` record exists for this replacement with **`swap_xid = pg_current_xact_id()`** (that is, inside the swap's own transaction), and the row matches one of the original's chapter rows exactly. It uses database state only, not a session setting. 0032 and 0034's rules stay byte for byte, as sub-blocks, as done in 0034.
 - **Labels are copied unchanged** (sub-point 5). The teacher's view of whether a chapter is still shared is computed when shown, as today.
 - **If the change itself carried chapters** (a teacher's change with planned chapters, or a parent's change with requested chapters), those already belong to the replacement, so the original's are **not** copied: no mixing. **[PROPOSED]**; this sits under decision 1's wider question of what to carry over. I'll confirm it with you alongside decision 1.
 
