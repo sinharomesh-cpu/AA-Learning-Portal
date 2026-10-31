@@ -179,13 +179,11 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
           <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-on-surface-variant">
             Today: {today} {today === 1 ? 'lesson' : 'lessons'}
           </span>
-          {home.mode === 'demo' ? (
-            // B1: hidden for real accounts until teacher proposals (OC-45) are built.
-            <LinkButton href="/teacher/propose" variant="secondary">
-              <Icon name="add" size={18} />
-              Propose a meeting
-            </LinkButton>
-          ) : null}
+          {/* B1 lifted by TL-3: real teachers propose lessons (OC-45); the demo keeps its wording. */}
+          <LinkButton href="/teacher/propose" variant="secondary">
+            <Icon name="add" size={18} />
+            {home.mode === 'demo' ? 'Propose a meeting' : 'Schedule a class'}
+          </LinkButton>
         </div>
       </div>
       {home.mode === 'real' && home.lessonRequests ? (
@@ -292,9 +290,10 @@ function Sessions({ home, now }: { home: TeacherHome; now: Date }) {
                   'You or the parent can cancel or move a lesson up to 30 minutes before the start. Your move needs the parent’s OK, and the parent is told if you cancel.',
                   LESSON_RULES_TEXT.oneToOne,
                 ]
-              : // Real accounts (CR-17 PR 2, B1): nothing about proposing or moving, which aren't available.
+              : // Real accounts (CR-17 PR 2; TL-3): proposals are available; moving a lesson is not (D3A-6).
                 [
                   REAL_LESSON_RULES_TEXT.teacherJoin,
+                  REAL_LESSON_RULES_TEXT.teacherProposal,
                   REAL_LESSON_RULES_TEXT.teacherChanges,
                   REAL_LESSON_RULES_TEXT.oneToOne,
                   REAL_LESSON_RULES_TEXT.reminders,

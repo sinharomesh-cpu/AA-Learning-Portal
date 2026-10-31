@@ -29,17 +29,26 @@ function base(l: LessonItem) {
     startIso: l.startsAt.toISOString(),
     endIso: l.endsAt.toISOString(),
     durationMinutes: l.minutes,
-    status: l.status === 'confirmed' ? ('confirmed' as const) : ('requested' as const),
+    // TL-3: a teacher's open proposal shows as proposed (the parent reviews it on its booking page).
+    status:
+      l.status === 'confirmed'
+        ? ('confirmed' as const)
+        : l.status === 'proposed'
+          ? ('proposed' as const)
+          : ('requested' as const),
     teacherId: l.teacherId,
     teacherName: l.teacherName,
   };
 }
 
-/** Open requests and confirmed lessons that haven't ended, for a parent's home (soonest first). */
+/**
+ * Open requests, open teacher proposals (TL-3) and confirmed lessons that haven't ended, for a
+ * parent's home (soonest first).
+ */
 export async function parentHomeLessons(parentId: string, tz: string, now: Date): Promise<ParentLesson[]> {
   const items = await lessonsForParent(db(), parentId, now);
   return items
-    .filter((l) => (l.status === 'confirmed' || l.status === 'requested') && l.endsAt > now)
+    .filter((l) => (l.status === 'confirmed' || l.status === 'requested' || l.status === 'proposed') && l.endsAt > now)
     .map((l) => ({
       ...base(l),
       childName: l.childName,
@@ -48,15 +57,19 @@ export async function parentHomeLessons(parentId: string, tz: string, now: Date)
     }));
 }
 
-/** Confirmed lessons that haven't ended, and the number of requests waiting, for a teacher's home. */
+/**
+ * Confirmed lessons that haven't ended, the number of requests waiting, and (TL-3) the teacher's
+ * open proposals still waiting for a parent, for a teacher's home.
+ */
 export async function teacherHomeLessons(
   teacherId: string,
   tz: string,
   now: Date,
-): Promise<{ lessons: TeacherLesson[]; requests: number }> {
+): Promise<{ lessons: TeacherLesson[]; requests: number; proposals: number }> {
   const items = await lessonsForTeacher(db(), teacherId, now);
   return {
     requests: items.filter((l) => l.canAnswer).length,
+    proposals: items.filter((l) => l.status === 'proposed').length,
     lessons: items
       .filter((l) => l.status === 'confirmed' && l.endsAt > now)
       .map((l) => ({

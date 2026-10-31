@@ -29,8 +29,11 @@ export function MaterialAnswerForm({
   label,
   choices,
   noneText,
+  bookingId,
 }: {
   requestId: string;
+  /** Answered from a booking-details page: come back to it (owner acceptance, 30 Oct 2026). */
+  bookingId?: string;
   /** What is asked, and for which lesson, for accessible names and the dialog. */
   label: string;
   choices: ShareChoice[];
@@ -49,6 +52,7 @@ export function MaterialAnswerForm({
       {choices.length ? (
         <form action={share} className="flex w-full max-w-[460px] flex-col gap-2">
           <input type="hidden" name="requestId" value={requestId} />
+          {bookingId ? <input type="hidden" name="bookingId" value={bookingId} /> : null}
           <label htmlFor={selectId} className="text-sm font-bold">
             Share from your books
           </label>
@@ -81,6 +85,7 @@ export function MaterialAnswerForm({
         </LinkButton>
         <form ref={noForm} id={noFormId} action={notAvailable}>
           <input type="hidden" name="requestId" value={requestId} />
+          {bookingId ? <input type="hidden" name="bookingId" value={bookingId} /> : null}
           <Button
             type="button"
             variant="secondary"

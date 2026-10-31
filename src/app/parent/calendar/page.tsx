@@ -73,9 +73,11 @@ export default async function FamilyCalendarPage({
   const choices = new Map<string, ShareOption[]>();
   for (const list of materials.values())
     for (const r of list) if (r.canAnswer) choices.set(r.id, await shareOptions(db(), access.viewer.id, r.id));
+  // TL-3 (OC-45): teachers' proposals waiting for a parent of the child to accept or decline.
+  const forYou = all.filter((l) => l.status === 'proposed');
   const waiting = all.filter((l) => l.status === 'requested');
   const upcoming = all.filter((l) => l.status === 'confirmed' && l.endsAt > now);
-  const past = all.filter((l) => !waiting.includes(l) && !upcoming.includes(l)).reverse();
+  const past = all.filter((l) => !forYou.includes(l) && !waiting.includes(l) && !upcoming.includes(l)).reverse();
   const describe = (l: LessonItem) =>
     `${l.childName}’s lesson with ${l.teacherName}, ${formatLessonTime(l.startsAt, tz)}`;
   const latest =
@@ -92,7 +94,11 @@ export default async function FamilyCalendarPage({
             viewer="parent"
             timeZone={tz}
             actions={
-              l.canWithdraw ? (
+              l.canAnswer ? (
+                <LinkButton href={`/parent/bookings/${l.id}`} aria-label={`Review and answer: ${describe(l)}`}>
+                  Review and answer
+                </LinkButton>
+              ) : l.canWithdraw ? (
                 <ParentLessonButton lessonId={l.id} kind="withdraw" label={describe(l)} />
               ) : l.status === 'confirmed' && !l.ended ? (
                 <>
@@ -167,6 +173,19 @@ export default async function FamilyCalendarPage({
         <FormMessage tone={DONE[done]!.tone}>{DONE[done]!.text}</FormMessage>
       ) : null}
       {refused ? <FormMessage tone="info">{refused}</FormMessage> : null}
+
+      {forYou.length ? (
+        <section aria-labelledby="for-you" className="flex flex-col gap-3">
+          <h2 id="for-you" className="m-0 text-[22px] font-bold leading-7">
+            Waiting for you
+          </h2>
+          {list(forYou)}
+          <p className="m-0 text-sm leading-5 text-on-surface-variant">
+            A teacher proposed these lessons. Either parent can accept or decline; nothing is booked until one of you
+            accepts.
+          </p>
+        </section>
+      ) : null}
 
       <section aria-labelledby="waiting" className="flex flex-col gap-3">
         <h2 id="waiting" className="m-0 text-[22px] font-bold leading-7">
