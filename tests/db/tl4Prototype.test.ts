@@ -207,7 +207,10 @@ describe('TL-4 prototype: the move', () => {
       [answered, 'unavailable', null],
     ]);
     const copies = await requests(r.id);
-    expect(copies.map((x) => [x.status, x.lesson_position, x.description])).toEqual([
+    // The copies are written in one transaction, so created_at ties and the id order is random:
+    // compare them as a set (sorted), not in insertion order.
+    const shown = copies.map((x) => [x.status, x.lesson_position, x.description]);
+    expect(shown.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))).toEqual([
       ['open', 1, null],
       ['open', null, 'A ruler (sample)'],
     ]);
