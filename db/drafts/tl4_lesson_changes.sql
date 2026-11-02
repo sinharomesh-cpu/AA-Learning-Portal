@@ -1,14 +1,29 @@
--- TL-4 PROTOTYPE (local draft, NOT a migration). No number is assigned and this file is outside
--- db/migrations, so no migration run, gate or checksum ever sees it. It exists to prove the
--- integrity and locking mechanism of the TL-4 design notes (revision 2, §3-§5) on throw-away
--- databases before final SQL is written. Rules marked [PROPOSED] wait for the owner (decisions
--- 1-4 and the migration order); nothing here is approved for the shared database.
+-- TL-4 FINAL DESIGN SQL FOR TECHNICAL REVIEW (local draft, NOT a migration). No number is assigned
+-- (0036 is proposed, not approved) and this file is outside db/migrations, so no migration run, gate
+-- or checksum sees it. It implements the signed-off TL-4 specification: Evidence Pack revisions
+-- 4.1 to 4.3 (BA sign-off 2 Nov 2026, 22:57 IST; PO decisions D1-D4, Q-A, Q-B, R1-R3, PO-D5 to
+-- PO-D8). Applying it anywhere other than a throw-away database needs the numbering, review, CI,
+-- push and apply gates; none is granted by this file.
 --
--- Design choice in this prototype (differs from rev 2 §3.2, which edited lessons_before_update):
--- the swap runs in its OWN trigger, lessons_before_update_tl4, which fires after
--- lessons_before_update (BEFORE triggers fire in name order). lessons_before_insert and
--- lessons_before_update are NOT replaced, so the TU/TL-4 shared-function conflict (§8) shrinks to
--- lessons_status_fields and lesson_chapters_before_write. To be confirmed when TU is designed.
+-- 0033 and 0034 are NOT edited. TL-4 adds its OWN triggers (BEFORE triggers fire in name order, so
+-- *_tl4 runs after the 0029/0033/0034 trigger of the same table) and replaces exactly one earlier
+-- function body, lesson_chapters_before_write (0034's body plus one TL-4 block at the top).
+-- Overlap with TU (not yet written): lessons_status_fields, lessons_close_reason_check and
+-- lesson_chapters_before_write; whichever is numbered second carries the other's versions.
+--
+-- Contents:
+--   1. lessons: replaces_lesson_id, close reason 'rescheduled', deadline rule, one open change.
+--   2. lesson_reschedules: the swap record (swap_xid proof).
+--   3. Starting a change: same teacher/child/subject; original confirmed, no outcome; deadline at
+--      creation, refused if <= the proposal time (so the original must start > 30 min later);
+--      24 h to 4 weeks from the proposal (PO-D5) via 0029's existing rule; projected parent check (C-1).
+--   4. The swap: Q-B mapping (M1-M8), per-lesson limit, per-parent rule (PO-D6 to PO-D8, C-2 to C-4),
+--      originals closed 'carried_forward', copies with the same logical_request_id, mapping rows.
+--   5. The two-way rule and mapping completeness, at commit.
+--   6. material_requests: logical_request_id (backfilled), one open row per logical request,
+--      close reason 'carried_forward'.
+--   7. lesson_reschedule_requests: the request mapping (append-only, swap-only).
+--   8. lesson_chapters_before_write: 0034 + the swap's chapter copy.
 
 -- ---------------------------------------------------------------- the link
 ALTER TABLE lessons ADD COLUMN replaces_lesson_id uuid REFERENCES lessons (id);
@@ -133,6 +148,7 @@ END $$;
 CREATE FUNCTION lessons_before_insert_tl4() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   o lessons%ROWTYPE;
+  n_open int;
 BEGIN
   IF NEW.replaces_lesson_id IS NULL THEN
     RETURN NEW;
@@ -149,20 +165,39 @@ BEGIN
   -- Requirement 6: the earliest of the three.
   NEW.reply_deadline := LEAST(NEW.requested_at + interval '48 hours', NEW.starts_at - interval '2 hours',
                               o.starts_at - interval '30 minutes');
+  -- AC-1 / AC-4: the deadline is fixed at creation and must be after it. Only the original's term
+  -- can reach it (R >= P + 24 h by 0029), so the original must start MORE than 30 minutes later.
   IF NEW.reply_deadline <= NEW.requested_at THEN
     RAISE EXCEPTION 'the lesson starts too soon to move' USING ERRCODE = 'check_violation';
   END IF;
+  -- C-1: the parent rule, projected. A move carries every open request of the original one for one
+  -- (each closed on the original, one copy on the replacement), so the projected effect on each
+  -- parent's count is (copies - closures) = 0; the authoritative check runs again at the swap.
+  SELECT count(*)::int INTO n_open FROM material_requests WHERE lesson_id = o.id AND status = 'open';
+  PERFORM tl4_parent_rule_check(o.student_id, n_open - n_open);
   RETURN NEW;
 END $$;
 CREATE TRIGGER lessons_before_insert_tl4 BEFORE INSERT ON lessons
   FOR EACH ROW EXECUTE FUNCTION lessons_before_insert_tl4();
 
 -- ---------------------------------------------------------------- the swap
+-- Runs when a change (requested or proposed, replaces_lesson_id set) is confirmed. Everything below
+-- happens in the accepting transaction; any exception rolls all of it back, so the original stays
+-- confirmed with its requests open and no copy, record or mapping remains (atomic swap, AC-6/7).
 CREATE FUNCTION lessons_before_update_tl4() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   o lessons%ROWTYPE;
   req record;
-  reqs jsonb := '[]'::jsonb;
+  carried jsonb := '[]'::jsonb;
+  x jsonb;
+  own_chapters boolean;
+  tgt smallint;
+  n int;
+  kind text;
+  copies_planned int;
+  closures_planned int;
+  rs_id uuid;
+  copy_id uuid;
 BEGIN
   IF NEW.replaces_lesson_id IS DISTINCT FROM OLD.replaces_lesson_id THEN
     RAISE EXCEPTION 'which lesson a change replaces cannot be changed' USING ERRCODE = 'check_violation';
@@ -181,43 +216,89 @@ BEGIN
     RAISE EXCEPTION 'only a confirmed lesson at least 30 minutes away can be moved' USING ERRCODE = 'check_violation';
   END IF;
 
-  -- [PROPOSED, decision 1, option R] The original's OPEN material requests, captured and locked
-  -- BEFORE the original closes (0033's trigger closes them as "no longer needed" the moment it
-  -- does). A parent's answer in flight holds the request row: this waits, then re-reads it, so an
-  -- answered request is not captured.
-  FOR req IN SELECT id, raised_by, lesson_position, description, note FROM material_requests
-             WHERE lesson_id = o.id AND status = 'open' ORDER BY created_at, id FOR UPDATE LOOP
-    reqs := reqs || jsonb_build_object('raised_by', req.raised_by, 'lesson_position', req.lesson_position,
-                                       'description', req.description, 'note', req.note);
+  -- Q-B: did the change bring its own chapters (C2), or are the original's carried (C1)?
+  own_chapters := EXISTS (SELECT 1 FROM lesson_chapters WHERE lesson_id = NEW.id);
+
+  -- D1 / Q-A / Q-B: capture, lock and MAP every open request of the original BEFORE anything is
+  -- written. A parent's answer in flight holds the request row: this waits, then re-reads it, so an
+  -- answered request is not carried (M8). Any request that cannot be mapped refuses the move (M4,
+  -- M6, M7): nothing is ever dropped, guessed or attached to another chapter.
+  FOR req IN SELECT m.id, m.logical_request_id, m.lesson_position, m.description, m.note,
+                    c.book_chapter_id, c.topic
+             FROM material_requests m
+             LEFT JOIN lesson_chapters c ON c.lesson_id = m.lesson_id AND c.position = m.lesson_position
+             WHERE m.lesson_id = o.id AND m.status = 'open'
+             ORDER BY m.created_at, m.id FOR UPDATE OF m LOOP
+    IF req.lesson_position IS NULL THEN
+      tgt := NULL; kind := 'description';                                -- M1
+    ELSIF NOT own_chapters THEN
+      tgt := req.lesson_position; kind := 'same_position';               -- M2 (chapters copied row for row)
+    ELSE
+      IF req.book_chapter_id IS NOT NULL THEN                            -- M3 / M4: by book chapter id
+        SELECT count(*)::int, min(position) INTO n, tgt FROM lesson_chapters
+        WHERE lesson_id = NEW.id AND book_chapter_id = req.book_chapter_id;
+      ELSIF req.topic IS NOT NULL THEN                                   -- M5 / M6: exact topic only
+        SELECT count(*)::int, min(position) INTO n, tgt FROM lesson_chapters
+        WHERE lesson_id = NEW.id AND topic = req.topic;
+      ELSE
+        n := 0;                                                          -- M7: chapter link lost
+      END IF;
+      IF n <> 1 THEN
+        RAISE EXCEPTION 'material_request_unmappable: a material request is about a chapter that is not on the new lesson'
+          USING ERRCODE = 'check_violation';
+      END IF;
+      kind := 'remapped_position';
+    END IF;
+    carried := carried || jsonb_build_object('id', req.id, 'logical', req.logical_request_id,
+      'from', req.lesson_position, 'to', tgt, 'description', req.description, 'note', req.note, 'kind', kind);
   END LOOP;
 
+  copies_planned := jsonb_array_length(carried);
+  closures_planned := jsonb_array_length(carried);
+
+  -- L-MR-lesson (TL2-3): at most five open requests on the replacement, its own plus the carried.
+  -- (0034's insert rule enforces the same; this gives the named refusal before any write.)
+  IF (SELECT count(*) FROM material_requests WHERE lesson_id = NEW.id AND status = 'open') + copies_planned > 5 THEN
+    RAISE EXCEPTION 'material_request_limit: the new lesson would have more than five open material requests'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- L-MR-parent (PO-D6 to PO-D8, C-2 to C-4): the move's own effect on every active parent of the
+  -- child, under parent locks in id order. The original's open requests are all closed and each is
+  -- copied once onto the replacement (a live lesson before and after), so the effect is
+  -- copies - closures for the child's parents.
+  PERFORM tl4_parent_rule_check(o.student_id, copies_planned - closures_planned);
+
   -- Close the original. lessons_before_update (0029 rules) sets closed_at and clears
-  -- closed_by_account; 0030 drops its meeting link; 0033 closes its open requests.
+  -- closed_by_account; 0030 drops its meeting link; 0033 closes its open requests, and
+  -- material_requests_before_write_tl4 records those closures as 'carried_forward'.
   UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = 'rescheduled' WHERE id = o.id;
 
   -- The proof: one record, stamped with this transaction.
   INSERT INTO lesson_reschedules (original_lesson_id, replacement_lesson_id, swap_xid, accepted_by)
   VALUES (o.id, NEW.id, pg_current_xact_id(),
-          CASE WHEN NEW.origin = 'teacher_proposal' THEN NEW.confirmed_by ELSE NEW.teacher_id END);
+          CASE WHEN NEW.origin = 'teacher_proposal' THEN NEW.confirmed_by ELSE NEW.teacher_id END)
+  RETURNING id INTO rs_id;
 
-  -- Requirement 12: chapters copied, unless the change brought its own (§5.1, [PROPOSED]).
-  IF NOT EXISTS (SELECT 1 FROM lesson_chapters WHERE lesson_id = NEW.id) THEN
+  -- C1: the original's chapters copied row for row (Q-B); C2: the change's own chapters stay.
+  IF NOT own_chapters THEN
     INSERT INTO lesson_chapters (lesson_id, position, source, book_chapter_id, topic, label, intent)
     SELECT NEW.id, position, source, book_chapter_id, topic, label, intent
     FROM lesson_chapters WHERE lesson_id = o.id ORDER BY position;
   END IF;
 
-  -- [PROPOSED, decision 1, option R] One open copy per captured request. A request that names a
-  -- chapter is copied only if the replacement has the same chapter at that position. 0033's
-  -- insert rules apply, including the limit of five open requests per lesson.
-  INSERT INTO material_requests (lesson_id, raised_by, lesson_position, description, note)
-  SELECT NEW.id, (x ->> 'raised_by')::uuid, (x ->> 'lesson_position')::smallint, x ->> 'description', x ->> 'note'
-  FROM jsonb_array_elements(reqs) x
-  WHERE x ->> 'lesson_position' IS NULL
-     OR EXISTS (SELECT 1 FROM lesson_chapters a JOIN lesson_chapters b
-                  ON b.lesson_id = o.id AND b.position = a.position
-                 AND a.book_chapter_id IS NOT DISTINCT FROM b.book_chapter_id AND a.topic IS NOT DISTINCT FROM b.topic
-                WHERE a.lesson_id = NEW.id AND a.position = (x ->> 'lesson_position')::smallint);
+  -- One open copy per carried request, keeping its logical identity, and one mapping row each.
+  -- 0034's insert rules still apply to every copy (linked teacher, limit of five per lesson).
+  FOR x IN SELECT * FROM jsonb_array_elements(carried) LOOP
+    INSERT INTO material_requests (lesson_id, raised_by, lesson_position, description, note, logical_request_id)
+    VALUES (NEW.id, NEW.teacher_id, (x ->> 'to')::smallint, x ->> 'description', x ->> 'note',
+            (x ->> 'logical')::uuid)
+    RETURNING id INTO copy_id;
+    INSERT INTO lesson_reschedule_requests (reschedule_id, logical_request_id, original_request_id,
+                                            replacement_request_id, original_position, replacement_position, kind)
+    VALUES (rs_id, (x ->> 'logical')::uuid, (x ->> 'id')::uuid, copy_id,
+            (x ->> 'from')::smallint, (x ->> 'to')::smallint, x ->> 'kind');
+  END LOOP;
   RETURN NEW;
 END $$;
 CREATE TRIGGER lessons_before_update_tl4 BEFORE UPDATE ON lessons
@@ -289,6 +370,18 @@ BEGIN
     RAISE EXCEPTION 'a lesson move record needs both lessons moved in the same step'
       USING ERRCODE = 'integrity_constraint_violation';
   END IF;
+  -- Mapping completeness (Q-B audit): every request carried forward from the original has exactly
+  -- one mapping row in this move, and every mapping row belongs to a carried request.
+  IF EXISTS (SELECT 1 FROM material_requests m
+             WHERE m.lesson_id = NEW.original_lesson_id AND m.close_reason = 'carried_forward'
+               AND (SELECT count(*) FROM lesson_reschedule_requests x
+                    WHERE x.reschedule_id = NEW.id AND x.original_request_id = m.id) <> 1)
+     OR EXISTS (SELECT 1 FROM lesson_reschedule_requests x
+                JOIN material_requests m ON m.id = x.original_request_id
+                WHERE x.reschedule_id = NEW.id AND m.close_reason IS DISTINCT FROM 'carried_forward') THEN
+    RAISE EXCEPTION 'every carried material request needs exactly one mapping in the same step'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
   RETURN NULL;
 END $$;
 CREATE CONSTRAINT TRIGGER lesson_reschedules_two_way AFTER INSERT ON lesson_reschedules
@@ -298,14 +391,14 @@ CREATE CONSTRAINT TRIGGER lesson_reschedules_two_way AFTER INSERT ON lesson_resc
 -- 0034's lesson_chapters_before_write with ONE block added at the top: a copy written by the
 -- swap. Accepted only when a move record for this lesson carries THIS transaction's id and the
 -- row matches one of the original's chapters exactly (database state only). The 0034 function
--- body follows unchanged (checked by the prototype tests).
+-- body follows unchanged (checked by tests/db/tl4Prototype.test.ts).
 
 CREATE OR REPLACE FUNCTION lesson_chapters_before_write() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   tl3_l lessons%ROWTYPE;
   tl3_c record;
 BEGIN
-  -- TL-4 (prototype): a chapter copied by the swap, inside the swap's own transaction.
+  -- TL-4: a chapter copied by the swap, inside the swap's own transaction.
   IF TG_OP = 'INSERT' AND EXISTS (
        SELECT 1 FROM lesson_reschedules r
        JOIN lesson_chapters x ON x.lesson_id = r.original_lesson_id AND x.position = NEW.position
@@ -413,4 +506,182 @@ BEGIN
   END IF;
   RETURN NEW;
 END ;
+END $$;
+
+-- ---------------------------------------------------------------- material requests (TL-4)
+-- 0033's table is changed here, by the new migration; 0033's file and checksum are untouched.
+
+-- History: a request carried to the replacement closes as 'carried_forward', distinct from
+-- 'lesson_closed' (no longer needed) and 'lesson_ended'.
+ALTER TABLE material_requests DROP CONSTRAINT material_requests_close_reason_check;
+ALTER TABLE material_requests ADD CONSTRAINT material_requests_close_reason_check
+  CHECK (close_reason IN ('lesson_closed', 'lesson_ended', 'carried_forward'));
+
+-- Q-A: explicit logical identity. A request's own id, except a copy made by a move, which keeps
+-- the original's logical id. Never inferred from chapter, topic or description; never changes.
+ALTER TABLE material_requests ADD COLUMN logical_request_id uuid;
+
+CREATE FUNCTION material_requests_before_write_tl4() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.logical_request_id IS NULL OR NEW.logical_request_id = NEW.id THEN
+      NEW.logical_request_id := NEW.id;           -- an ordinary new request (TL-2 unchanged)
+      RETURN NEW;
+    END IF;
+    -- A copy made by a move, inside the move's own transaction (database state only): the move
+    -- record for this lesson carries this transaction's id, and the original request with the
+    -- same logical id is on that move's original lesson, closed as carried_forward just now.
+    IF NOT EXISTS (
+         SELECT 1 FROM lesson_reschedules r
+         JOIN material_requests m ON m.lesson_id = r.original_lesson_id
+         WHERE r.replacement_lesson_id = NEW.lesson_id AND r.swap_xid = pg_current_xact_id()
+           AND m.logical_request_id = NEW.logical_request_id
+           AND m.status = 'no_longer_needed' AND m.close_reason = 'carried_forward' AND m.closed_at = now()) THEN
+      RAISE EXCEPTION 'a material request keeps another request''s identity only when a lesson move carries it'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- UPDATE: the logical id never changes (the one-time backfill below sets it from NULL to the id).
+  IF NEW.logical_request_id IS DISTINCT FROM OLD.logical_request_id
+     AND NOT (OLD.logical_request_id IS NULL AND NEW.logical_request_id = NEW.id) THEN
+    RAISE EXCEPTION 'a material request''s identity cannot change' USING ERRCODE = 'check_violation';
+  END IF;
+  -- A closure by AA Pro because the lesson was moved (its lesson closed as 'rescheduled' in this
+  -- transaction) is recorded as carried_forward; the move copies every such request.
+  IF OLD.status = 'open' AND NEW.status = 'no_longer_needed' AND NEW.closed_by = 'aa_pro'
+     AND NEW.close_reason = 'lesson_closed'
+     AND EXISTS (SELECT 1 FROM lessons l WHERE l.id = NEW.lesson_id AND l.status = 'cancelled'
+                   AND l.close_reason = 'rescheduled' AND l.closed_at = now()) THEN
+    NEW.close_reason := 'carried_forward';
+  END IF;
+  -- carried_forward is written only that way.
+  IF NEW.close_reason = 'carried_forward' AND OLD.close_reason IS DISTINCT FROM 'carried_forward'
+     AND NOT EXISTS (SELECT 1 FROM lessons l WHERE l.id = NEW.lesson_id AND l.status = 'cancelled'
+                       AND l.close_reason = 'rescheduled' AND l.closed_at = now()) THEN
+    RAISE EXCEPTION 'carried_forward is set only by a lesson move' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+-- Fires after material_requests_before_write (BEFORE triggers run in name order).
+CREATE TRIGGER material_requests_before_write_tl4 BEFORE INSERT OR UPDATE ON material_requests
+  FOR EACH ROW EXECUTE FUNCTION material_requests_before_write_tl4();
+
+-- One-time backfill (a data change on every existing row when applied): each existing request is
+-- its own logical request. Allowed by 0034's update rule (nothing it checks changes) and by the
+-- TL-4 rule above (NULL -> own id only).
+UPDATE material_requests SET logical_request_id = id WHERE logical_request_id IS NULL;
+ALTER TABLE material_requests ALTER COLUMN logical_request_id SET NOT NULL;
+
+-- A logical request is open at most once, anywhere: no double counting by construction.
+CREATE UNIQUE INDEX material_requests_one_open_logical ON material_requests (logical_request_id)
+  WHERE status = 'open';
+
+-- ---------------------------------------------------------------- the request mapping (Q-B audit)
+CREATE TABLE lesson_reschedule_requests (
+  id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reschedule_id           uuid NOT NULL REFERENCES lesson_reschedules (id) ON DELETE CASCADE,
+  logical_request_id      uuid NOT NULL,
+  original_request_id     uuid NOT NULL UNIQUE REFERENCES material_requests (id) ON DELETE CASCADE,
+  replacement_request_id  uuid NOT NULL UNIQUE REFERENCES material_requests (id) ON DELETE CASCADE,
+  original_position       smallint,
+  replacement_position    smallint,
+  kind                    text NOT NULL CHECK (kind IN ('description', 'same_position', 'remapped_position')),
+  swap_xid                xid8 NOT NULL,
+  created_at              timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT lesson_reschedule_requests_two_rows CHECK (original_request_id <> replacement_request_id),
+  CONSTRAINT lesson_reschedule_requests_kind CHECK (
+    (kind = 'description' AND original_position IS NULL AND replacement_position IS NULL)
+    OR (kind = 'same_position' AND original_position IS NOT NULL AND replacement_position = original_position)
+    OR (kind = 'remapped_position' AND original_position IS NOT NULL AND replacement_position IS NOT NULL))
+);
+
+CREATE FUNCTION lesson_reschedule_requests_before_write() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  r lesson_reschedules%ROWTYPE;
+  a material_requests%ROWTYPE;
+  b material_requests%ROWTYPE;
+  ca lesson_chapters%ROWTYPE;
+  cb lesson_chapters%ROWTYPE;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    -- Only with its move or requests (ON DELETE CASCADE, i.e. a lesson being deleted).
+    IF EXISTS (SELECT 1 FROM lesson_reschedules WHERE id = OLD.reschedule_id)
+       AND EXISTS (SELECT 1 FROM material_requests WHERE id = OLD.original_request_id)
+       AND EXISTS (SELECT 1 FROM material_requests WHERE id = OLD.replacement_request_id) THEN
+      RAISE EXCEPTION 'a request mapping cannot be removed' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    RAISE EXCEPTION 'a request mapping cannot change' USING ERRCODE = 'check_violation';
+  END IF;
+  -- INSERT, inside the move's own transaction, from database state only.
+  NEW.swap_xid := pg_current_xact_id();
+  NEW.created_at := now();
+  SELECT * INTO r FROM lesson_reschedules WHERE id = NEW.reschedule_id;
+  SELECT * INTO a FROM material_requests WHERE id = NEW.original_request_id;
+  SELECT * INTO b FROM material_requests WHERE id = NEW.replacement_request_id;
+  IF r.id IS NULL OR r.swap_xid <> pg_current_xact_id()
+     OR a.id IS NULL OR a.lesson_id <> r.original_lesson_id
+     OR a.status <> 'no_longer_needed' OR a.close_reason IS DISTINCT FROM 'carried_forward'
+     OR b.id IS NULL OR b.lesson_id <> r.replacement_lesson_id OR b.status <> 'open'
+     OR a.logical_request_id <> NEW.logical_request_id OR b.logical_request_id <> NEW.logical_request_id
+     OR a.lesson_position IS DISTINCT FROM NEW.original_position
+     OR b.lesson_position IS DISTINCT FROM NEW.replacement_position
+     OR a.description IS DISTINCT FROM b.description OR a.note IS DISTINCT FROM b.note THEN
+    RAISE EXCEPTION 'a request mapping is written only by the move that carries the request'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  -- The same chapter identity on both sides: the same book chapter, or exactly the same topic.
+  IF NEW.kind <> 'description' THEN
+    SELECT * INTO ca FROM lesson_chapters WHERE lesson_id = r.original_lesson_id AND position = NEW.original_position;
+    SELECT * INTO cb FROM lesson_chapters WHERE lesson_id = r.replacement_lesson_id AND position = NEW.replacement_position;
+    IF ca.lesson_id IS NULL OR cb.lesson_id IS NULL
+       OR NOT ((ca.book_chapter_id IS NOT NULL AND cb.book_chapter_id = ca.book_chapter_id)
+               OR (ca.book_chapter_id IS NULL AND ca.topic IS NOT NULL AND cb.topic = ca.topic)
+               OR (NEW.kind = 'same_position'
+                   AND (ca.source, ca.book_chapter_id, ca.topic, ca.label, ca.intent)
+                       IS NOT DISTINCT FROM (cb.source, cb.book_chapter_id, cb.topic, cb.label, cb.intent))) THEN
+      RAISE EXCEPTION 'a request is mapped only to the same chapter on the new lesson' USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER lesson_reschedule_requests_before_write BEFORE INSERT OR UPDATE OR DELETE ON lesson_reschedule_requests
+  FOR EACH ROW EXECUTE FUNCTION lesson_reschedule_requests_before_write();
+
+-- ---------------------------------------------------------------- the per-parent rule (Q-A)
+-- C-2: a parent's open material requests = open requests on LIVE lessons (requested or proposed
+-- before their reply deadline, or confirmed and not ended) of every child the parent is actively
+-- linked to (PO-D7), exactly as the application counts them (materialRequests.ts openMaterialRequestCount).
+CREATE FUNCTION tl4_parent_open_count(p_parent uuid) RETURNS int LANGUAGE sql STABLE AS $$
+  SELECT count(*)::int FROM material_requests m JOIN lessons l ON l.id = m.lesson_id
+  WHERE m.status = 'open'
+    AND ((l.status IN ('requested', 'proposed') AND l.reply_deadline > now())
+         OR (l.status = 'confirmed' AND l.ends_at > now()))
+    AND EXISTS (SELECT 1 FROM guardian_links g JOIN accounts p ON p.id = g.parent_id
+                WHERE g.parent_id = p_parent AND g.student_id = l.student_id AND g.status = 'active'
+                  AND p.role = 'parent' AND p.status = 'active')
+$$;
+
+-- PO-D6 to PO-D8, C-3, C-4: for every active parent of the child, independently, in parent-id order
+-- (a transaction advisory lock per parent): after = before + the move's own effect, and
+-- after <= max(5, before). Ordinary TL-2 request creation takes no parent lock and is not capped (PO-D6).
+CREATE FUNCTION tl4_parent_rule_check(p_student uuid, p_delta int) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  p record;
+  before_n int;
+BEGIN
+  FOR p IN SELECT g.parent_id FROM guardian_links g JOIN accounts a ON a.id = g.parent_id
+           WHERE g.student_id = p_student AND g.status = 'active' AND a.role = 'parent' AND a.status = 'active'
+           ORDER BY g.parent_id LOOP
+    PERFORM pg_advisory_xact_lock(hashtextextended('aa_pro.tl4_parent:' || p.parent_id::text, 0));
+    before_n := tl4_parent_open_count(p.parent_id);
+    IF before_n + p_delta > GREATEST(5, before_n) THEN
+      RAISE EXCEPTION 'material_request_parent_limit: a parent would have more open material requests than allowed (before %, after %)',
+        before_n, before_n + p_delta USING ERRCODE = 'check_violation';
+    END IF;
+  END LOOP;
 END $$;

@@ -202,8 +202,8 @@ describe('TL-4 prototype: the move', () => {
     expect(await sql`SELECT count(*)::int AS n FROM lesson_chapters WHERE lesson_id = ${o}`).toEqual([{ n: 1 }]);
     const before = await requests(o);
     expect(before.map((x) => [x.id, x.status, x.close_reason])).toEqual([
-      [byChapter, 'no_longer_needed', 'lesson_closed'],
-      [byText, 'no_longer_needed', 'lesson_closed'],
+      [byChapter, 'no_longer_needed', 'carried_forward'],
+      [byText, 'no_longer_needed', 'carried_forward'],
       [answered, 'unavailable', null],
     ]);
     const copies = await requests(r.id);
@@ -404,7 +404,7 @@ describe('TL-4 prototype: partial moves fail closed', () => {
     await ask(f, o, 'Two (sample)');
     const r = await change(f, o, at(DAY + 28 * HOUR));
     for (const n of ['Three', 'Four', 'Five', 'Six']) await ask(f, r.id, `${n} (sample)`);
-    await expect(sql.begin((t) => accept(t, f, o, r.id))).rejects.toThrow(/at most five open material requests/);
+    await expect(sql.begin((t) => accept(t, f, o, r.id))).rejects.toThrow(/material_request_limit/);
     expect(await lesson(o)).toMatchObject({ status: 'confirmed' });
     expect((await requests(o)).map((x) => x.status)).toEqual(['open', 'open']);
     expect(await requests(r.id)).toHaveLength(4);
@@ -604,7 +604,7 @@ describe('TL-4 prototype: the shared chapter function', () => {
       return s.slice(a, s.indexOf('END $$;', a) + 7);
     };
     const added = fn(draft);
-    const start = added.indexOf('  -- TL-4 (prototype)');
+    const start = added.indexOf('  -- TL-4: a chapter copied by the swap');
     const end = added.indexOf('  END IF;\n\n', start) + '  END IF;\n\n'.length;
     expect(added.slice(0, start) + added.slice(end)).toBe(fn(m34));
   });

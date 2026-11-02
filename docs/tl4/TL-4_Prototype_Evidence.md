@@ -1,5 +1,7 @@
 # TL-4 prototype: integrity and locking evidence (revision 3 findings)
 
+> **Historical (superseded 2 Nov 2026).** Decisions marked proposed here were later decided by the Product Owner and the specification was signed off by the BA (2 Nov 2026). The current design is `docs/tl4/TL-4_Final_Design.md` and `db/drafts/tl4_lesson_changes.sql`.
+
 **31 Oct 2026.** This document answers the owner's BA review (31 Oct 2026, §4). It is local work only:
 - branch `tl4-lesson-changes`, based on `main` `379701a`;
 - not pushed, no PR;

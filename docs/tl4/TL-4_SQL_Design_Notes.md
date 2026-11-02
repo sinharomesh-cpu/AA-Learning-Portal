@@ -1,5 +1,7 @@
 # TL-4 (moving a confirmed lesson): SQL design notes, revision 2
 
+> **Historical (superseded 2 Nov 2026).** Decisions marked proposed here were later decided by the Product Owner and the specification was signed off by the BA (2 Nov 2026). The current design is `docs/tl4/TL-4_Final_Design.md` and `db/drafts/tl4_lesson_changes.sql`.
+
 **31 Oct 2026, 18:00 IST.** This is a local design document, **not executable implementation.**
 - **No migration file exists. No migration number is assigned.**
 - **Base:** `main` `379701a`. Branch `tl4-lesson-changes`, local only, never pushed.
