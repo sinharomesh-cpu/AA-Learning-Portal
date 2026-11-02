@@ -552,7 +552,7 @@ describe('Audit table and integrity (AC-22, AC-26, AC-27)', () => {
   });
 
   it('AC-27: migration 0033 is untouched (file checksum equals the approved, applied value)', async () => {
-    const APPROVED_0033 = '3be71d017ad63c4db5ae97a3c003fb71a6ea8431e6d596923789fa27c0fbded9';
+    const APPROVED_0033 = '3be71d017ad63c4db5ae97a3c003fb71a6ea8431e6d596923789fa27c0fbded9'; // pragma: allowlist secret (public SHA-256 of migration 0033)
     const text = await readFile(new URL('../../db/migrations/0033_material_requests.sql', import.meta.url));
     expect(createHash('sha256').update(text).digest('hex')).toBe(APPROVED_0033);
     const [row] = await sql<
