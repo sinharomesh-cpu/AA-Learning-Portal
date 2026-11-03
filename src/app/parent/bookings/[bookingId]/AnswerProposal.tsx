@@ -39,7 +39,12 @@ export function AnswerProposal({
       <input type="hidden" name="lessonId" value={lessonId} />
       <input ref={answer} type="hidden" name="answer" value="accept" />
       {movedFrom ? <input type="hidden" name="move" value="1" /> : null}
-      {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
+      {/* DEF-TL4-11: the card's action column must not grow with a long refusal, or it squeezes the details. */}
+      {state.error ? (
+        <div className="md:max-w-xs">
+          <FormMessage tone="error">{state.error}</FormMessage>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" inactive={pending} onClick={() => setOpen('accept')} aria-label={`Accept: ${summary}`}>
           Accept

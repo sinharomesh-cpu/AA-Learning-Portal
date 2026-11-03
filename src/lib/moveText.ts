@@ -13,7 +13,8 @@ export type MoveReason =
   | 'move_unmappable'
   | 'move_limit'
   | 'move_parent_limit'
-  | 'original_changed';
+  | 'original_changed'
+  | 'move_drops_requested';
 
 export const MOVE_TEXT: Record<MoveReason, string> = {
   not_found: 'That lesson can’t be found, or you can’t change it.',
@@ -29,6 +30,8 @@ export const MOVE_TEXT: Record<MoveReason, string> = {
   move_parent_limit:
     'The lesson couldn’t be moved: it would give a parent more open material requests than allowed. Nothing changed; the lesson stays at its booked time.',
   original_changed: 'The lesson was cancelled or changed meanwhile, so it can’t be moved. Nothing else changed.',
+  move_drops_requested:
+    'A material request on this lesson is about a chapter you haven’t chosen, so the parents couldn’t accept this move. Add that chapter, or choose no chapters so the lesson’s own chapters move with it. Nothing was sent.',
 };
 
 export const isMoveReason = (r: string): r is MoveReason => Object.hasOwn(MOVE_TEXT, r);

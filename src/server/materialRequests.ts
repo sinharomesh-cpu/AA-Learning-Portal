@@ -145,7 +145,12 @@ export async function materialRequestsFor(
     FROM material_requests m JOIN lessons l ON l.id = m.lesson_id
     LEFT JOIN lesson_chapters lc ON lc.lesson_id = m.lesson_id AND lc.position = m.lesson_position
     WHERE m.lesson_id IN ${sql(ids)} AND ${who}
-    ORDER BY m.created_at, m.id`;
+    -- DEF-TL4-12: copies carried by a move share one created_at; order them by when the request was
+    -- first raised (its logical request), so they keep the order they had on the original. Without
+    -- the TL-4 schema the key is absent and this is the plain created_at order.
+    ORDER BY coalesce((SELECT o.created_at FROM material_requests o
+                       WHERE o.id = (to_jsonb(m) ->> 'logical_request_id')::uuid), m.created_at),
+             m.created_at, m.id`;
   for (const r of rows) {
     const list = out.get(r.lesson_id) ?? [];
     list.push(toView(r, viewer.role));

@@ -326,6 +326,19 @@ async function checkProposal(
   const minutes = typeof input.minutes === 'number' ? input.minutes : Number(line(input.minutes));
   const planned = plannedChoices(input.planned);
   if (!planned) return { ok: false, reason: 'chapters' };
+  // G-4 (DEF-TL4-13): the projected Q-B mapping, as the swap will apply it (M3/M4, M6/M7). A
+  // teacher's own chapters (C2) are book chapters; an open request on the lesson about a chapter
+  // that is not among them could never be carried, so the parents could never accept the move.
+  // Say so now instead of sending a move that can only be refused. The swap still decides.
+  if (target && planned.length) {
+    const chosen = planned.map((p) => p.chapterId);
+    const [dropped] = await sql<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM material_requests m
+      JOIN lesson_chapters c ON c.lesson_id = m.lesson_id AND c.position = m.lesson_position
+      WHERE m.lesson_id = ${target.id} AND m.status = 'open'
+        AND (c.book_chapter_id IS NULL OR NOT (c.book_chapter_id = ANY (${chosen}::uuid[])))`;
+    if (dropped!.n > 0) return { ok: false, reason: 'move_drops_requested' };
+  }
   const description = typeof input.material?.description === 'string' ? input.material.description.trim() : '';
   const materialNote = typeof input.material?.note === 'string' ? input.material.note.trim() : '';
   if ([...description].length > MAX_DESCRIPTION_LENGTH || [...materialNote].length > MAX_NOTE_LENGTH)

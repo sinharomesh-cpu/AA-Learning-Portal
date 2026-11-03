@@ -13,7 +13,7 @@ import {
   requestLesson,
   withdrawLesson,
 } from '@/server/lessons';
-import { materialRequestsFor, requestMaterial } from '@/server/materialRequests';
+import { materialRequestsFor, requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
 import { answerProposal, proposeLesson, withdrawProposal } from '@/server/proposals';
 import { migrate } from '../../scripts/db-migrate.mjs';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
@@ -273,6 +273,22 @@ describe('with the TL-4 SQL (throw-away database)', () => {
     expect((await notices(sql, f.parent2, r.id)).map((n) => n.type)).toContain('lesson_moved');
   });
 
+  it('DEF-TL4-12: carried requests keep the order they had on the original (the copies share one created_at)', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(2 * 60), 30);
+    const texts = ['First: workbook', 'Second: ruler', 'Third: atlas', 'Fourth: graph paper', 'Fifth: notes'];
+    for (const description of texts) {
+      expect((await requestMaterial(sql, f.t, { lessonId: original, description, note: '' })).ok).toBe(true);
+    }
+    const r = await moveByParent(sql, f, original, at(5 * 60), 30);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(await answerLesson(sql, f.t, r.id, 'accept')).toEqual({ ok: true });
+    const views = await materialRequestsFor(sql, { id: f.parent, role: 'parent' }, [original, r.id]);
+    expect(views.get(r.id)?.map((v) => v.what)).toEqual(texts);
+    expect(views.get(original)?.map((v) => v.what)).toEqual(texts);
+  });
+
   it('decline and withdraw change nothing; the lesson stays booked and the other side is told', async () => {
     const f = await family(sql);
     const original = await booked(sql, f, at(0));
@@ -390,10 +406,31 @@ describe('with the TL-4 SQL (throw-away database)', () => {
     });
     if (!p0.ok) throw new Error(p0.reason);
     expect(await answerProposal(sql, f.parent, p0.id, 'accept')).toEqual({ ok: true });
+    // G-4 (DEF-TL4-13): with the request already open, a move whose own chapters leave out Fractions
+    // is refused when it is proposed, before anything is sent; with Fractions, or with no chapters
+    // of its own (the lesson's move with it), it may be sent.
     expect((await requestMaterial(sql, f.t, { lessonId: p0.id, position: 1 })).ok).toBe(true);
-    // The move brings its own chapters (Q-B C2) without Fractions: the request can't be mapped (M4).
-    const p = await moveByTeacher(sql, f, p0.id, at(DAY / MIN), { planned: [{ chapterId: ch[1]!, intent: 'new' }] });
+    expect(
+      await moveByTeacher(sql, f, p0.id, at(DAY / MIN), { planned: [{ chapterId: ch[1]!, intent: 'new' }] }),
+    ).toEqual({ ok: false, reason: 'move_drops_requested' });
+    expect((await sql`SELECT 1 FROM lessons WHERE replaces_lesson_id = ${p0.id}`).length).toBe(0);
+    const withIt = await moveByTeacher(sql, f, p0.id, at(DAY / MIN), {
+      planned: [
+        { chapterId: ch[1]!, intent: 'new' },
+        { chapterId: ch[0]!, intent: 'revise' },
+      ],
+    });
+    expect(withIt.ok).toBe(true);
+    if (!withIt.ok) return;
+    expect(await withdrawProposal(sql, f.t, withIt.id)).toMatchObject({ ok: true });
+    // The swap still decides: a request raised AFTER the move was sent can't be carried (M4).
+    const [open] = await sql<{ id: string }[]>`SELECT id FROM material_requests WHERE lesson_id = ${p0.id}`;
+    expect(await withdrawMaterialRequest(sql, f.t, open!.id)).toMatchObject({ ok: true });
+    const p = await moveByTeacher(sql, f, p0.id, at(DAY / MIN + 60), {
+      planned: [{ chapterId: ch[1]!, intent: 'new' }],
+    });
     if (!p.ok) throw new Error(p.reason);
+    expect((await requestMaterial(sql, f.t, { lessonId: p0.id, position: 1 })).ok).toBe(true);
     expect(await answerProposal(sql, f.parent, p.id, 'accept')).toEqual({ ok: false, reason: 'move_unmappable' });
     expect((await statusOf(sql, p0.id)).status).toBe('confirmed');
     expect((await statusOf(sql, p.id)).status).toBe('proposed');

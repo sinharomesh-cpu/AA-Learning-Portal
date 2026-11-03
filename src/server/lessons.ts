@@ -700,7 +700,14 @@ export interface MoveTarget {
   minutes: number;
 }
 
-export type MoveRefusal = 'not_found' | 'unavailable' | 'not_movable' | 'too_soon' | 'change_open';
+export type MoveRefusal =
+  | 'not_found'
+  | 'unavailable'
+  | 'not_movable'
+  | 'too_soon'
+  | 'change_open'
+  // G-4 / DEF-TL4-13: the teacher's chosen chapters leave out a chapter an open request is about.
+  | 'move_drops_requested';
 
 /**
  * Whether this parent or teacher may start a change for this lesson now (Evidence Pack 4.3 §4 rule
@@ -783,7 +790,16 @@ export function moveFailureFromDb(error: unknown): MoveFailure | null {
  */
 export async function lockChangePair(tx: Db, lessonId: string): Promise<string | null> {
   const original = await replacedLessonId(tx, lessonId);
-  if (original) await tx`SELECT lessons_lock_pair(${original}::uuid, ${lessonId}::uuid)`;
+  if (original) {
+    // Review F-3: the teacher-then-child time locks come BEFORE the two row locks. A change proposal
+    // for the same lesson takes the time locks (0034's insert rule) and then a row lock on the
+    // original, so taking the rows first here could deadlock with it. Same keys as lessons_lock_times
+    // (re-entrant, so 0034's update rule taking them again later doesn't wait).
+    const [l] = await tx<Array<{ teacher_id: string; student_id: string }>>`
+      SELECT teacher_id, student_id FROM lessons WHERE id = ${lessonId}`;
+    if (l) await lockLessonTimes(tx, l.teacher_id, l.student_id);
+    await tx`SELECT lessons_lock_pair(${original}::uuid, ${lessonId}::uuid)`;
+  }
   return original;
 }
 
