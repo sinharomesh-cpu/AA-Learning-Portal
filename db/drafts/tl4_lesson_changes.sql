@@ -1,29 +1,38 @@
--- TL-4 FINAL DESIGN SQL FOR TECHNICAL REVIEW (local draft, NOT a migration). No number is assigned
--- (0036 is proposed, not approved) and this file is outside db/migrations, so no migration run, gate
+-- TL-4 CONSOLIDATED SQL FOR TECHNICAL REVIEW (local draft, NOT a migration). No number is assigned
+-- (0036 is reserved conditionally, not approved) and this file is outside db/migrations, so no migration run, gate
 -- or checksum sees it. It implements the signed-off TL-4 specification: Evidence Pack revisions
 -- 4.1 to 4.3 (BA sign-off 2 Nov 2026, 22:57 IST; PO decisions D1-D4, Q-A, Q-B, R1-R3, PO-D5 to
--- PO-D8). Applying it anywhere other than a throw-away database needs the numbering, review, CI,
--- push and apply gates; none is granted by this file.
+-- PO-D8), plus the PO decisions of 3 Nov 2026 (received 21:17 IST): DEF-TL4-07 Option B,
+-- DEF-TL4-08 Option B and F-2 (a move's chapters come only with the move). 0036 is reserved for it
+-- conditionally (PO, 3 Nov 2026); that is not migration approval. Applying it anywhere other than a
+-- throw-away database needs the review, CI, push and apply gates; none is granted by this file.
 --
 -- 0033 and 0034 are NOT edited. TL-4 adds its OWN triggers (BEFORE triggers fire in name order, so
--- *_tl4 runs after the 0029/0033/0034 trigger of the same table) and replaces exactly one earlier
--- function body, lesson_chapters_before_write (0034's body plus one TL-4 block at the top).
--- Overlap with TU (not yet written): lessons_status_fields, lessons_close_reason_check and
--- lesson_chapters_before_write; whichever is numbered second carries the other's versions.
+-- *_tl4 runs after the 0029/0033/0034 trigger of the same table) and replaces exactly two earlier
+-- function bodies: lesson_chapters_before_write (0034's body plus one TL-4 block at the top) and
+-- lessons_before_insert (0034's body plus one predicate in the busy check; review F-1).
+-- Overlap with TU (not yet written): lessons_status_fields, lessons_close_reason_check,
+-- lessons_before_insert and lesson_chapters_before_write; whichever is numbered second carries the
+-- other's versions.
 --
 -- Contents:
 --   1. lessons: replaces_lesson_id, close reason 'rescheduled', deadline rule, one open change.
 --   2. lesson_reschedules: the swap record (swap_xid proof).
---   3. Starting a change: same teacher/child/subject; original confirmed, no outcome; deadline at
---      creation, refused if <= the proposal time (so the original must start > 30 min later);
---      24 h to 4 weeks from the proposal (PO-D5) via 0029's existing rule; projected parent check (C-1).
---   4. The swap: Q-B mapping (M1-M8), per-lesson limit, per-parent rule (PO-D6 to PO-D8, C-2 to C-4),
---      originals closed 'carried_forward', copies with the same logical_request_id, mapping rows.
+--   3. Starting a change: 0034's busy check no longer counts the change's own original (F-1);
+--      an overdue open change of the same original is expired first (F-6); same
+--      teacher/child/subject; original confirmed, no outcome; deadline at creation, refused if
+--      <= the proposal time (so the original must start > 30 min later); 24 h to 4 weeks from the
+--      proposal (PO-D5) via 0029's existing rule; projected parent check (C-1).
+--   4. The swap: Q-B mapping (M1-M8), per-lesson limit, per-parent rule (PO-D6 to PO-D8, C-2 to C-4:
+--      parents locked and counted before, re-counted after the writes, F-7), originals closed
+--      'carried_forward', copies with the same logical_request_id, mapping rows.
+--   4a. Original cancelled another way: its open change closes as 'original_cancelled' (DEF-TL4-08).
 --   5. The two-way rule and mapping completeness, at commit.
 --   6. material_requests: logical_request_id (backfilled), one open row per logical request,
 --      close reason 'carried_forward'.
 --   7. lesson_reschedule_requests: the request mapping (append-only, swap-only).
---   8. lesson_chapters_before_write: 0034 + the swap's chapter copy.
+--   8. lesson_chapters_before_write: 0034 + the swap's chapter copy (only onto a change with no
+--      chapters of its own, F-8) + no planned chapters added to a change after it is created (F-2).
 
 -- ---------------------------------------------------------------- the link
 ALTER TABLE lessons ADD COLUMN replaces_lesson_id uuid REFERENCES lessons (id);
@@ -32,7 +41,8 @@ ALTER TABLE lessons ADD COLUMN replaces_lesson_id uuid REFERENCES lessons (id);
 -- minutes before its start (requirement 9). Every existing branch is unchanged.
 ALTER TABLE lessons DROP CONSTRAINT lessons_close_reason_check;
 ALTER TABLE lessons ADD CONSTRAINT lessons_close_reason_check
-  CHECK (close_reason IN ('time_no_longer_free', 'teacher_deactivated', 'link_ended', 'rescheduled'));
+  CHECK (close_reason IN ('time_no_longer_free', 'teacher_deactivated', 'link_ended', 'rescheduled',
+                          'original_cancelled'));
 ALTER TABLE lessons DROP CONSTRAINT lessons_status_fields;
 ALTER TABLE lessons ADD CONSTRAINT lessons_status_fields CHECK (
   (status = 'requested' AND origin = 'parent_request' AND confirmed_at IS NULL AND closed_at IS NULL
@@ -141,6 +151,168 @@ BEGIN
   PERFORM 1 FROM lessons WHERE id = GREATEST(p_a, p_b) FOR UPDATE;
 END $$;
 
+-- ---------------------------------------------------------------- the busy check (review F-1)
+-- 0034's lessons_before_insert, replaced with ONE predicate added to its D-TLS-3 busy check: a change
+-- does not conflict with the very lesson it replaces. That lesson is closed in the same transaction
+-- that confirms the change, before the replacement row is written, so 0029's no-overlap exclusion
+-- constraints still guard the final state. lessons_before_insert_tl4 (fires next, name order)
+-- refuses a replaces_lesson_id that is not a confirmed lesson of the same teacher, child and
+-- subject, so the exception can't be borrowed. Every other line is 0034's (a test compares them).
+CREATE OR REPLACE FUNCTION lessons_before_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  tl3_open int;
+  tl3_p record;
+BEGIN
+  -- TL-3: a teacher's proposal. A parent's request skips this block and runs 0029's rules below.
+  IF NEW.status = 'proposed' THEN
+    NEW.origin := 'teacher_proposal';
+    IF NEW.requested_by IS NOT NULL OR NEW.proposed_by IS NULL OR NEW.proposed_by <> NEW.teacher_id
+       OR NEW.confirmed_by IS NOT NULL THEN
+      RAISE EXCEPTION 'a proposal is made by the lesson''s own teacher' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    -- Times come from the database clock, never from the caller.
+    NEW.requested_at := now();
+    NEW.ends_at := NEW.starts_at + make_interval(mins => NEW.minutes);
+    -- D-TLS-5 (as D3A-5): any deadline sent by the caller is replaced.
+    NEW.reply_deadline := LEAST(NEW.requested_at + interval '48 hours', NEW.starts_at - interval '2 hours');
+    -- D-TLS-3: 24 hours to 4 weeks ahead, any 5-minute start, not limited to the usual times.
+    IF NEW.starts_at < now() + interval '24 hours' THEN
+      RAISE EXCEPTION 'a lesson must be proposed at least 24 hours ahead' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.starts_at > now() + interval '28 days' THEN
+      RAISE EXCEPTION 'a lesson can be proposed at most 4 weeks ahead' USING ERRCODE = 'check_violation';
+    END IF;
+    IF extract(minute FROM NEW.starts_at)::int % 5 <> 0 THEN
+      RAISE EXCEPTION 'a proposed lesson starts on a 5-minute step' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM accounts WHERE id = NEW.student_id AND role = 'student' AND status = 'active') THEN
+      RAISE EXCEPTION 'lessons are for an active child account' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT lessons_teacher_link_ok(NEW.teacher_id, NEW.student_id, NEW.subject) THEN
+      RAISE EXCEPTION 'the teacher must be approved, active and linked to the child in this subject'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    -- D-TLS-12: the same price snapshot as for a request (0029); no hourly price, no proposal.
+    tl3_p := lessons_price_for(NEW.teacher_id, NEW.student_id, NEW.subject, NEW.starts_at, NEW.minutes);
+    IF (NEW.price_basis IS NOT NULL AND NEW.price_basis <> tl3_p.basis)
+       OR (NEW.rate_minor IS NOT NULL AND NEW.rate_minor <> tl3_p.rate)
+       OR (NEW.currency IS NOT NULL AND NEW.currency <> tl3_p.cur)
+       OR (NEW.agreement_id IS NOT NULL AND NEW.agreement_id IS DISTINCT FROM tl3_p.agreement)
+       OR (NEW.price_minor IS NOT NULL AND NEW.price_minor <> (tl3_p.rate * NEW.minutes * 2 + 60) / 120) THEN
+      RAISE EXCEPTION 'the lesson price has changed' USING ERRCODE = 'check_violation';
+    END IF;
+    NEW.price_basis := tl3_p.basis;
+    NEW.rate_minor := tl3_p.rate;
+    NEW.currency := tl3_p.cur;
+    NEW.agreement_id := tl3_p.agreement;
+    NEW.price_minor := (tl3_p.rate * NEW.minutes * 2 + 60) / 120;
+
+    -- An overdue proposal for the same teacher, child and start is expired now, so it never blocks
+    -- the slot even if no sweep has run.
+    UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
+    WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND starts_at = NEW.starts_at
+      AND status = 'proposed' AND reply_deadline <= now();
+
+    -- D-TLS-3: never over a confirmed lesson of the teacher or of the child, checked after taking
+    -- the time locks so an overlapping confirmation still in flight is waited for and then seen.
+    -- (After that, a proposal still holds no time, TL3-4: a later confirmation may overlap it, and
+    -- its acceptance is then refused by 0029's no-overlap rules.)
+    PERFORM lessons_lock_times(NEW.teacher_id, NEW.student_id);
+    IF EXISTS (SELECT 1 FROM lessons x
+               WHERE x.status = 'confirmed' AND (x.teacher_id = NEW.teacher_id OR x.student_id = NEW.student_id)
+                 AND tstzrange(x.starts_at, x.ends_at, '[)') && tstzrange(NEW.starts_at, NEW.ends_at, '[)')
+                 AND x.id IS DISTINCT FROM NEW.replaces_lesson_id) THEN
+      RAISE EXCEPTION 'the time overlaps a confirmed lesson' USING ERRCODE = 'check_violation';
+    END IF;
+
+    -- D-TLS-5: at most 10 open proposals per teacher and child. A per-pair transaction lock makes
+    -- two proposals sent at the same moment count one after the other. Overdue ones don't count.
+    PERFORM pg_advisory_xact_lock(hashtextextended(
+      'aa_pro.lesson_proposals:' || NEW.teacher_id::text || ':' || NEW.student_id::text, 0));
+    SELECT count(*) INTO tl3_open FROM lessons
+    WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND status = 'proposed'
+      AND reply_deadline > now();
+    IF tl3_open >= 10 THEN
+      RAISE EXCEPTION 'at most 10 open lesson proposals per teacher and child' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- A parent's request: 0029's rules, unchanged (byte for byte), as a labelled sub-block. In
+  -- PL/pgSQL a sub-block (DECLARE ... BEGIN ... END;) is itself a statement, so its own DECLARE
+  -- section may follow other statements; its variables exist only inside it.
+  <<parent_request_0029>>
+
+DECLARE
+  open_count int;
+  p record;
+BEGIN
+  IF NEW.status <> 'requested' THEN
+    RAISE EXCEPTION 'a lesson starts as a request' USING ERRCODE = 'check_violation';
+  END IF;
+  -- Times come from the database clock, never from the caller.
+  NEW.requested_at := now();
+  NEW.ends_at := NEW.starts_at + make_interval(mins => NEW.minutes);
+  -- D3A-5: any deadline sent by the caller is replaced.
+  NEW.reply_deadline := LEAST(NEW.requested_at + interval '48 hours', NEW.starts_at - interval '2 hours');
+  -- D3A-3 and D3A-2: at least 24 hours ahead, at most 4 weeks ahead.
+  IF NEW.starts_at < now() + interval '24 hours' THEN
+    RAISE EXCEPTION 'a lesson must be requested at least 24 hours ahead' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.starts_at > now() + interval '28 days' THEN
+    RAISE EXCEPTION 'a lesson can be requested at most 4 weeks ahead' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM accounts WHERE id = NEW.student_id AND role = 'student' AND status = 'active') THEN
+    RAISE EXCEPTION 'lessons are for an active child account' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT lessons_parent_ok(NEW.requested_by, NEW.student_id) THEN
+    RAISE EXCEPTION 'only a parent linked to the child can request a lesson' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF NOT lessons_teacher_link_ok(NEW.teacher_id, NEW.student_id, NEW.subject) THEN
+    RAISE EXCEPTION 'the teacher must be approved, active and linked to the child in this subject'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT lessons_in_usual_time(NEW.teacher_id, NEW.starts_at, NEW.minutes) THEN
+    RAISE EXCEPTION 'the lesson must start on the 30-minute grid and fit inside the teacher''s usual times'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- The price is worked out here. A caller may send the price it showed; if any part differs
+  -- (the listing or agreement changed meanwhile) the request is refused so it can be shown again.
+  p := lessons_price_for(NEW.teacher_id, NEW.student_id, NEW.subject, NEW.starts_at, NEW.minutes);
+  IF (NEW.price_basis IS NOT NULL AND NEW.price_basis <> p.basis)
+     OR (NEW.rate_minor IS NOT NULL AND NEW.rate_minor <> p.rate)
+     OR (NEW.currency IS NOT NULL AND NEW.currency <> p.cur)
+     OR (NEW.agreement_id IS NOT NULL AND NEW.agreement_id IS DISTINCT FROM p.agreement)
+     OR (NEW.price_minor IS NOT NULL AND NEW.price_minor <> (p.rate * NEW.minutes * 2 + 60) / 120) THEN
+    RAISE EXCEPTION 'the lesson price has changed' USING ERRCODE = 'check_violation';
+  END IF;
+  NEW.price_basis := p.basis;
+  NEW.rate_minor := p.rate;
+  NEW.currency := p.cur;
+  NEW.agreement_id := p.agreement;
+  NEW.price_minor := (p.rate * NEW.minutes * 2 + 60) / 120;
+
+  -- D3A-5: an overdue request for the same child, teacher and start is expired now, so it never
+  -- blocks the slot even if no sweep has run.
+  UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
+  WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND starts_at = NEW.starts_at
+    AND status = 'requested' AND reply_deadline <= now();
+
+  -- At most 10 open requests per parent (D3A-17). A per-parent transaction lock makes two requests
+  -- sent at the same moment count one after the other, without locking the account row itself.
+  -- Requests past their deadline don't count.
+  PERFORM pg_advisory_xact_lock(hashtextextended('aa_pro.lesson_requests:' || NEW.requested_by::text, 0));
+  SELECT count(*) INTO open_count FROM lessons
+  WHERE requested_by = NEW.requested_by AND status = 'requested' AND reply_deadline > now();
+  IF open_count >= 10 THEN
+    RAISE EXCEPTION 'at most 10 open lesson requests per parent' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END ;
+END $$;
+
+
 -- ---------------------------------------------------------------- starting a change
 -- Runs after lessons_before_insert (name order), which has already applied the ordinary request
 -- or proposal rules (24 hours to 4 weeks ahead, price snapshot, link, limits: decision 2 "Yes"
@@ -149,6 +321,7 @@ CREATE FUNCTION lessons_before_insert_tl4() RETURNS trigger LANGUAGE plpgsql AS 
 DECLARE
   o lessons%ROWTYPE;
   n_open int;
+  n_carry int;
 BEGIN
   IF NEW.replaces_lesson_id IS NULL THEN
     RETURN NEW;
@@ -157,6 +330,12 @@ BEGIN
   IF NOT FOUND OR (o.teacher_id, o.student_id, o.subject) IS DISTINCT FROM (NEW.teacher_id, NEW.student_id, NEW.subject) THEN
     RAISE EXCEPTION 'a change is for a lesson of the same teacher, child and subject' USING ERRCODE = 'check_violation';
   END IF;
+  -- F-6: an open change of the same original whose reply deadline has passed but which no sweep has
+  -- closed yet would block this one (lessons_one_open_change); expire it first, as 0029 and 0034
+  -- do for a request or proposal at the same slot.
+  UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
+  WHERE replaces_lesson_id = NEW.replaces_lesson_id AND status IN ('requested', 'proposed')
+    AND reply_deadline <= now();
   -- Requirement 3, at initiation.
   IF o.status <> 'confirmed' OR o.outcome IS NOT NULL OR o.starts_at < now() + interval '30 minutes' THEN
     RAISE EXCEPTION 'only a confirmed lesson at least 30 minutes away can be moved' USING ERRCODE = 'check_violation';
@@ -170,11 +349,13 @@ BEGIN
   IF NEW.reply_deadline <= NEW.requested_at THEN
     RAISE EXCEPTION 'the lesson starts too soon to move' USING ERRCODE = 'check_violation';
   END IF;
-  -- C-1: the parent rule, projected. A move carries every open request of the original one for one
-  -- (each closed on the original, one copy on the replacement), so the projected effect on each
-  -- parent's count is (copies - closures) = 0; the authoritative check runs again at the swap.
+  -- C-1: the parent rule, projected. The swap closes every open request of the original (closures)
+  -- and copies each one that is carried (copies: the same open requests, one for one); both are
+  -- counted here as the swap will count them. The authoritative check is at the swap (F-7).
   SELECT count(*)::int INTO n_open FROM material_requests WHERE lesson_id = o.id AND status = 'open';
-  PERFORM tl4_parent_rule_check(o.student_id, n_open - n_open);
+  SELECT count(*)::int INTO n_carry FROM material_requests m
+  WHERE m.lesson_id = o.id AND m.status = 'open' AND m.logical_request_id IS NOT NULL;
+  PERFORM tl4_parent_rule_check(o.student_id, n_carry - n_open);
   RETURN NEW;
 END $$;
 CREATE TRIGGER lessons_before_insert_tl4 BEFORE INSERT ON lessons
@@ -196,6 +377,8 @@ DECLARE
   kind text;
   copies_planned int;
   closures_planned int;
+  copies_written int := 0;
+  parents_before jsonb;
   rs_id uuid;
   copy_id uuid;
 BEGIN
@@ -253,8 +436,10 @@ BEGIN
       'from', req.lesson_position, 'to', tgt, 'description', req.description, 'note', req.note, 'kind', kind);
   END LOOP;
 
+  -- F-7: counted separately. Copies: what the mapping above plans to write. Closures: every open
+  -- request on the original, which 0033 closes with the original.
   copies_planned := jsonb_array_length(carried);
-  closures_planned := jsonb_array_length(carried);
+  SELECT count(*)::int INTO closures_planned FROM material_requests WHERE lesson_id = o.id AND status = 'open';
 
   -- L-MR-lesson (TL2-3): at most five open requests on the replacement, its own plus the carried.
   -- (0034's insert rule enforces the same; this gives the named refusal before any write.)
@@ -264,10 +449,12 @@ BEGIN
   END IF;
 
   -- L-MR-parent (PO-D6 to PO-D8, C-2 to C-4): the move's own effect on every active parent of the
-  -- child, under parent locks in id order. The original's open requests are all closed and each is
-  -- copied once onto the replacement (a live lesson before and after), so the effect is
-  -- copies - closures for the child's parents.
+  -- child, under parent locks in id order. Planned first (copies - closures), then (F-7) each
+  -- parent's count is measured before any write and again after the last one, still under the same
+  -- locks, and after <= max(5, before) is checked on the real counts. The effect is 0 by design
+  -- (one copy per closure, both lessons live); the re-count catches any write that breaks that.
   PERFORM tl4_parent_rule_check(o.student_id, copies_planned - closures_planned);
+  parents_before := tl4_parent_snapshot(o.student_id);
 
   -- Close the original. lessons_before_update (0029 rules) sets closed_at and clears
   -- closed_by_account; 0030 drops its meeting link; 0033 closes its open requests, and
@@ -298,11 +485,40 @@ BEGIN
                                             replacement_request_id, original_position, replacement_position, kind)
     VALUES (rs_id, (x ->> 'logical')::uuid, (x ->> 'id')::uuid, copy_id,
             (x ->> 'from')::smallint, (x ->> 'to')::smallint, x ->> 'kind');
+    copies_written := copies_written + 1;
   END LOOP;
+  -- F-7: what was written matches what was planned, and the parents' real counts obey the rule.
+  IF copies_written <> copies_planned
+     OR (SELECT count(*) FROM material_requests WHERE lesson_id = o.id AND status = 'open') <> 0 THEN
+    RAISE EXCEPTION 'the move did not carry every open material request' USING ERRCODE = 'check_violation';
+  END IF;
+  PERFORM tl4_parent_verify(parents_before);
   RETURN NEW;
 END $$;
 CREATE TRIGGER lessons_before_update_tl4 BEFORE UPDATE ON lessons
   FOR EACH ROW EXECUTE FUNCTION lessons_before_update_tl4();
+
+-- ---------------------------------------------------------------- original cancelled (DEF-TL4-08)
+-- When a confirmed original is cancelled in any other way (by a parent, the teacher, or AA Pro for
+-- a deactivated teacher or an ended link), its open change can never be accepted. Close it at once,
+-- in the same transaction, as declined by AA Pro with the reason 'original_cancelled'. The change
+-- row is kept as history (never deleted); 0033's close trigger closes any material requests raised
+-- on the change itself. A move's own swap ('rescheduled') never reaches this: it closes the
+-- original only while confirming its one change.
+CREATE FUNCTION lessons_after_update_tl4() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.status = 'confirmed' AND NEW.status = 'cancelled' AND NEW.close_reason IS DISTINCT FROM 'rescheduled' THEN
+    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'original_cancelled'
+    WHERE replaces_lesson_id = NEW.id AND status IN ('requested', 'proposed');
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER lessons_after_update_tl4 AFTER UPDATE OF status ON lessons
+  FOR EACH ROW EXECUTE FUNCTION lessons_after_update_tl4();
+
+-- 'original_cancelled' is only ever the close reason of a change (a lesson that replaces another).
+ALTER TABLE lessons ADD CONSTRAINT lessons_original_cancelled_change_only
+  CHECK (close_reason IS DISTINCT FROM 'original_cancelled' OR replaces_lesson_id IS NOT NULL);
 
 -- ---------------------------------------------------------------- the two-way rule, at commit
 -- Fires only for an update that CHANGED status or close reason (the transition guard, for both
@@ -404,9 +620,20 @@ BEGIN
        JOIN lesson_chapters x ON x.lesson_id = r.original_lesson_id AND x.position = NEW.position
        WHERE r.replacement_lesson_id = NEW.lesson_id AND r.swap_xid = pg_current_xact_id()
          AND (x.source, x.book_chapter_id, x.topic, x.label, x.intent)
-             IS NOT DISTINCT FROM (NEW.source, NEW.book_chapter_id, NEW.topic, NEW.label, NEW.intent)) THEN
+             IS NOT DISTINCT FROM (NEW.source, NEW.book_chapter_id, NEW.topic, NEW.label, NEW.intent))
+     -- F-8: only onto a change with no chapters of its own (C1). Its own chapters were written when
+     -- it was created, in an earlier transaction; a copy is written now.
+     AND NOT EXISTS (SELECT 1 FROM lesson_chapters y WHERE y.lesson_id = NEW.lesson_id AND y.created_at <> now()) THEN
     NEW.created_at := now();
     RETURN NEW;
+  END IF;
+  -- F-2 (Q-B): a change's chapters are either its own, given when it is created, or the original's,
+  -- copied by the swap; never a mix. So no planned chapter is added to a change once it exists
+  -- (0034 otherwise lets a teacher plan chapters while accepting a parent's request).
+  IF TG_OP = 'INSERT' AND NEW.source = 'planned' AND EXISTS (
+       SELECT 1 FROM lessons l WHERE l.id = NEW.lesson_id AND l.replaces_lesson_id IS NOT NULL
+         AND NOT (l.status = 'proposed' AND l.requested_at = now())) THEN
+    RAISE EXCEPTION 'a moved lesson''s chapters come with the move itself' USING ERRCODE = 'check_violation';
   END IF;
 
   -- WF-10: the intent never changes once written. 0032's rules below allow one update, the
@@ -682,6 +909,40 @@ BEGIN
     IF before_n + p_delta > GREATEST(5, before_n) THEN
       RAISE EXCEPTION 'material_request_parent_limit: a parent would have more open material requests than allowed (before %, after %)',
         before_n, before_n + p_delta USING ERRCODE = 'check_violation';
+    END IF;
+  END LOOP;
+END $$;
+
+-- F-7: the swap's authoritative check on real counts. tl4_parent_snapshot locks every active parent
+-- of the child in parent-id order (the same advisory locks) and returns each one's count before the
+-- swap writes anything; tl4_parent_verify re-counts each of them after the writes, in the same
+-- transaction and under the same locks, and refuses if after > max(5, before) (C-3).
+CREATE FUNCTION tl4_parent_snapshot(p_student uuid) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE
+  p record;
+  snap jsonb := '{}'::jsonb;
+BEGIN
+  FOR p IN SELECT g.parent_id FROM guardian_links g JOIN accounts a ON a.id = g.parent_id
+           WHERE g.student_id = p_student AND g.status = 'active' AND a.role = 'parent' AND a.status = 'active'
+           ORDER BY g.parent_id LOOP
+    PERFORM pg_advisory_xact_lock(hashtextextended('aa_pro.tl4_parent:' || p.parent_id::text, 0));
+    snap := snap || jsonb_build_object(p.parent_id::text, tl4_parent_open_count(p.parent_id));
+  END LOOP;
+  RETURN snap;
+END $$;
+
+CREATE FUNCTION tl4_parent_verify(p_before jsonb) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  k text;
+  before_n int;
+  after_n int;
+BEGIN
+  FOR k IN SELECT jsonb_object_keys(p_before) ORDER BY 1 LOOP
+    before_n := (p_before ->> k)::int;
+    after_n := tl4_parent_open_count(k::uuid);
+    IF after_n > GREATEST(5, before_n) THEN
+      RAISE EXCEPTION 'material_request_parent_limit: a parent would have more open material requests than allowed (before %, after %)',
+        before_n, after_n USING ERRCODE = 'check_violation';
     END IF;
   END LOOP;
 END $$;

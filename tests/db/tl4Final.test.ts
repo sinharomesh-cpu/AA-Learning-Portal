@@ -479,6 +479,63 @@ describe('Q-A per-parent rule (PO-D6 to PO-D8, C-2 to C-4)', () => {
   });
 });
 
+describe('DEF-TL4-08: an open change closes when its original is cancelled another way', () => {
+  it('parent cancels the original: the open change is declined by AA Pro as original_cancelled; history kept; its own material request closes', async () => {
+    const f = await family();
+    const o = await confirmed(f, at(30 * HOUR));
+    const r = await change(f, o, at(2 * DAY));
+    const onChange = await ask(f, r.id, 'Bring the workbook');
+    await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${o}`;
+    expect(await status(r.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+    expect((await sql`SELECT closed_by, closed_at IS NOT NULL AS closed FROM lessons WHERE id = ${r.id}`)[0]).toEqual({
+      closed_by: 'aa_pro',
+      closed: true,
+    });
+    expect((await reqs(r.id)).find((x) => x.id === onChange)).toMatchObject({
+      status: 'no_longer_needed',
+      close_reason: 'lesson_closed',
+    });
+    expect(await status(o)).toEqual({ status: 'cancelled', close_reason: null });
+    expect((await sql`SELECT count(*)::int AS n FROM lesson_reschedules WHERE original_lesson_id = ${o}`)[0]!.n).toBe(
+      0,
+    );
+  });
+
+  it('teacher cancels, and AA Pro closes for a deactivated teacher: the same; a change already closed is untouched', async () => {
+    const f = await family();
+    const o1 = await confirmed(f, at(36 * HOUR));
+    const r1 = await change(f, o1, at(2 * DAY + 6 * HOUR));
+    await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'teacher', closed_by_account = ${f.teacher} WHERE id = ${o1}`;
+    expect(await status(r1.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+
+    const o2 = await confirmed(f, at(40 * HOUR));
+    const r2 = await change(f, o2, at(2 * DAY + 10 * HOUR));
+    await sql`UPDATE lessons SET status = 'withdrawn', closed_by = 'teacher', closed_by_account = ${f.teacher} WHERE id = ${r2.id}`;
+    const r3 = await change(f, o2, at(2 * DAY + 12 * HOUR));
+    await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = 'teacher_deactivated' WHERE id = ${o2}`;
+    expect(await status(r2.id)).toEqual({ status: 'withdrawn', close_reason: null });
+    expect(await status(r3.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+  });
+
+  it("a completed move is not affected; original_cancelled is only ever a change's close reason", async () => {
+    const f = await family();
+    const o = await confirmed(f, at(44 * HOUR));
+    const r = await change(f, o, at(2 * DAY + 14 * HOUR));
+    await sql.begin((t) => accept(t, f, o, r.id));
+    expect(await status(r.id)).toEqual({ status: 'confirmed', close_reason: null });
+    expect(await status(o)).toEqual({ status: 'cancelled', close_reason: 'rescheduled' });
+    const plain = await sql.begin(async (t) => {
+      const [l] = await t<{ id: string }[]>`
+        INSERT INTO lessons (teacher_id, student_id, subject, starts_at, minutes, status, proposed_by)
+        VALUES (${f.teacher}, ${f.child}, 'maths', ${at(3 * DAY)}, 30, 'proposed', ${f.teacher}) RETURNING id`;
+      return l!.id;
+    });
+    await expect(
+      sql`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'original_cancelled' WHERE id = ${plain}`,
+    ).rejects.toThrow(/lessons_original_cancelled_change_only/);
+  });
+});
+
 describe('Audit table and integrity (AC-22, AC-26, AC-27)', () => {
   it('AC-22: mapping rows cannot be written, changed or removed outside a move', async () => {
     const f = await family();
