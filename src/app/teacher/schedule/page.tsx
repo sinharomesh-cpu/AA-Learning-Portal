@@ -255,7 +255,7 @@ export default async function TeacherSchedulePage({
                 // TL-4 (review F-14): a move removes the old time's meeting link (0030); the new lesson
                 // has none until the teacher adds one. Never copied or invented.
                 <p
-                  className="m-0 rounded-[16px] border border-warning-border bg-warning-container px-4 py-3 text-[15px] leading-[22px] text-on-warning-container"
+                  className="m-0 rounded-[16px] border border-warning-border bg-warning-container px-4 py-3 text-[15px] leading-[22px] text-on-warning-container md:max-w-xs"
                   data-testid="move-link-prompt"
                 >
                   {l.meeting.allowed
