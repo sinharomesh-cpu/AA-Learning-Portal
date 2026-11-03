@@ -388,7 +388,7 @@ export interface ProposalReview {
    * TL-4 (DEF-TL4-09, PO 3 Nov 2026): for a move, the lesson as booked now, so the review shows the
    * old and new time, length and price side by side. Information only (D-TLS-12).
    */
-  moving: { startsAt: Date; endsAt: Date; minutes: number; priceMinor: number; currency: string } | null;
+  moving?: { startsAt: Date; endsAt: Date; minutes: number; priceMinor: number; currency: string } | null;
 }
 
 export type ReviewResult = { ok: true; review: ProposalReview } | { ok: false; reason: ProposeReason };
@@ -449,7 +449,8 @@ export async function reviewProposal(
       price,
       planned: c.planned.map((p) => ({ label: options.get(p.chapterId)!, intent: p.intent })),
       material: c.description ? { description: c.description, note: c.materialNote } : null,
-      moving: c.target ? await movingDetail(sql, c.target.id) : null,
+      // Only for a move, so an ordinary TL-3 review is exactly as before.
+      ...(c.target ? { moving: await movingDetail(sql, c.target.id) } : {}),
     },
   };
 }
