@@ -66,7 +66,12 @@ test('request, accept, see and cancel a lesson', async ({ browser }, info) => {
   }).format(new Date(Date.now() + 86_400_000));
   await expect(grid.getByRole('heading', { level: 3, name: firstMonth })).toBeVisible();
   const days = grid.getByRole('link');
-  await expect(days.first()).toHaveAccessibleName(/^\w+day \d{1,2} \w+, 4 free times$/);
+  // TEST-CLOCK-1: the first day with free times depends on the time of day the test runs. Lessons
+  // need 24 hours' notice, so between about 4 and 6 pm IST tomorrow's earlier times have already
+  // gone and the first day shows 1 to 3 of its 4 times (or is the day after). Any later day always
+  // offers all four (4:00, 4:30, 5:00 and 5:30 pm), so the exact count is checked there.
+  await expect(days.first()).toHaveAccessibleName(/^\w+day \d{1,2} \w+, [1-4] free times?$/);
+  await expect(days.nth(2)).toHaveAccessibleName(/^\w+day \d{1,2} \w+, 4 free times$/);
   // Keyboard: focus the third free day and open it with Enter.
   await days.nth(2).focus();
   await p.keyboard.press('Enter');
