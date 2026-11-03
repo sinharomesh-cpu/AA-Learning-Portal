@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { startTransition, useActionState } from 'react';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { type PlannableOption, PlannedChapterPicker } from '@/components/lessons/PlannedChapterPicker';
@@ -39,7 +39,18 @@ export function MoveForm({
 }) {
   const [state, action, pending] = useActionState<ScheduleState, FormData>(proposeMoveAction, {});
   return (
-    <form action={action} className="flex flex-col gap-5" data-testid="move-form">
+    <form
+      // DEF-TL4-14: submitted without the form `action` prop, so React does not reset the fields after
+      // a refusal. A reset left the chosen chapters unticked while the picker still counted them, so a
+      // second "Send" could go without the chapters the teacher could see as chosen.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="flex flex-col gap-5"
+      data-testid="move-form"
+    >
       <input type="hidden" name="replacesLessonId" value={lessonId} />
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       <div className="flex flex-wrap items-end gap-4">
