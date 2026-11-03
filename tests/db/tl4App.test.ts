@@ -605,7 +605,7 @@ describe('TL-4 app: expired moves, meeting links, Now/New, DEF-TL4-08/09, F-2 (w
     const f = await family(sql);
     const original = await booked(sql, f, at(3 * 60));
     expect((await allowMeetingLinks(sql, f.parent, f.t, f.child)).ok).toBe(true);
-    expect((await setMeetingLink(sql, f.t, original, 'https://zoom.us/j/1234567890')).ok).toBe(true);
+    expect((await setMeetingLink(sql, f.t, original, 'https://zoom.us/wc/join/81234567890')).ok).toBe(true);
     const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 180));
     if (!p.ok) throw new Error(p.reason);
     expect(await answerProposal(sql, f.parent, p.id, 'accept')).toEqual({ ok: true });
