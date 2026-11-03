@@ -194,9 +194,16 @@ export function LessonCard({
                 </dl>
               ) : null}
             </>
-          ) : l.movedFrom ? (
+          ) : l.movedFrom && (l.status === 'confirmed' || l.status === 'cancelled') ? (
+            // Accepted moves (a lesson is only cancelled after being confirmed).
             <p className="m-0 text-sm leading-5" data-testid="move-note">
               Moved from {formatLessonTime(l.movedFrom, timeZone)}.
+            </p>
+          ) : l.movedFrom ? (
+            // DEF-TL4-15: a move that closed without happening (declined, withdrawn, expired, or its
+            // original cancelled) never moved anything; say what it was for.
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              A new time that was offered for the lesson booked on {formatLessonTime(l.movedFrom, timeZone)}.
             </p>
           ) : null}
           {l.closeReason === 'rescheduled' ? (
