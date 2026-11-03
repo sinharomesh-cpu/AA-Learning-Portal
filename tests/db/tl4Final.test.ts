@@ -116,6 +116,8 @@ async function change(f: Family, original: string, start: Date, chapters: string
 }
 async function accept(c: Q, f: Family, original: string, replacement: string) {
   await c`SELECT 1 FROM teacher_student_links WHERE id = ${f.link} FOR SHARE`;
+  // The application's order (F-3 / R2-4): link, then the teacher and child time locks, then the pair.
+  await c`SELECT lessons_lock_times(${f.teacher}, ${f.child})`;
   await c`SELECT lessons_lock_pair(${original}, ${replacement})`;
   if ((await c`SELECT 1 FROM lessons WHERE id = ${replacement} AND status = 'requested'`).length)
     return c`UPDATE lessons SET status = 'confirmed' WHERE id = ${replacement} RETURNING id`;
