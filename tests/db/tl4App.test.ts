@@ -669,7 +669,7 @@ describe('TL-4 app: expired moves, meeting links, Now/New, DEF-TL4-08/09, F-2 (w
     ).toBe(true);
   });
 
-  it('DEF-TL4-08: a parent cancels the original: the teacher’s open move closes in the same step as original_cancelled; one notice to the teacher; history kept', async () => {
+  it('DEF-TL4-08: a parent cancels the original: the teacher’s open move closes in the same step as original_cancelled; one notice to the teacher and to the other parent (R3-1); history kept', async () => {
     const f = await family(sql);
     const original = await booked(sql, f, at(6 * 60));
     const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 360));
@@ -687,9 +687,10 @@ describe('TL-4 app: expired moves, meeting links, Now/New, DEF-TL4-08/09, F-2 (w
       expect(v.canAnswer || v.canWithdraw).toBe(false);
     }
     expect((await notices(sql, f.t, p.id)).map((n) => n.type)).toEqual(['lesson_change_closed']);
-    // The proposer's side only: no "move closed" notice to the parents (the cancellation has its own).
-    for (const who of [f.parent, f.parent2])
-      expect((await notices(sql, who, p.id)).map((n) => n.type)).not.toContain('lesson_change_closed');
+    // Review R3-1: the other parent, who had the move to answer, is told once; the parent who
+    // cancelled is not.
+    expect((await notices(sql, f.parent2, p.id)).filter((n) => n.type === 'lesson_change_closed')).toHaveLength(1);
+    expect((await notices(sql, f.parent, p.id)).map((n) => n.type)).not.toContain('lesson_change_closed');
     expect((await notices(sql, f.t, original)).map((n) => n.type)).toContain('lesson_cancelled');
     expect(await answerProposal(sql, f.parent2, p.id, 'accept')).toMatchObject({ ok: false });
   });
@@ -716,9 +717,7 @@ describe('TL-4 app: expired moves, meeting links, Now/New, DEF-TL4-08/09, F-2 (w
     expect(await statusOf(sql, original)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
     expect((await statusOf(sql, p.id)).status).toBe('declined');
     for (const who of [f.parent, f.parent2])
-      expect(
-        (await notices(sql, who, p.id)).filter((n) => n.type === 'lesson_change_closed').length,
-      ).toBeLessThanOrEqual(1);
+      expect((await notices(sql, who, p.id)).filter((n) => n.type === 'lesson_change_closed')).toHaveLength(1);
   });
 
   it('DEF-TL4-08 atomicity: a cancellation and an acceptance racing: exactly one wins, never both; no deadlock reaches the user', async () => {
@@ -784,7 +783,7 @@ describe('TL-4 app vs the consolidated SQL: independent re-review R2-1 and R2-2'
       expect(await statusOf(sql, p.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
       for (const who of [f.parent, f.parent2]) {
         const closedNotes = (await notices(sql, who, p.id)).filter((n) => n.type === 'lesson_change_closed');
-        expect(closedNotes.length).toBeLessThanOrEqual(1);
+        expect(closedNotes).toHaveLength(1);
       }
       return;
     }
@@ -870,4 +869,248 @@ describe('TL-4 app vs the consolidated SQL: independent re-review R2-1 and R2-2'
     await sql.begin((tx) => closeLeftoverOverlaps(tx, new Date()));
     expect(await statusOf(sql, hMove.id)).toEqual({ status: 'declined', close_reason: 'time_no_longer_free' });
   });
+});
+
+// =========================================================================== review R3 (controlled order)
+/**
+ * Independent re-review, findings R3-1 to R3-3, and the R2-1/R2-3 tests with BOTH lesson-id orders
+ * fixed (lessons_lock_pair and the sweep lock the lower id first, so id order decides who waits for
+ * whom). Lessons are written straight to the database with chosen ids; races are forced with a gate
+ * session; deadlocks are counted from pg_stat_database, because retrying() hides them.
+ */
+describe('TL-4 app vs the consolidated SQL: review R3-1 to R3-3, both id orders fixed', () => {
+  const idWith = (first: string) => {
+    const h = (first + uniq() + uniq() + uniq() + uniq()).slice(0, 32);
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+  };
+  const ORDERS = [
+    ['original < move', '1', 'f'],
+    ['move < original', 'f', '1'],
+  ] as const;
+  let slot = 0;
+  /** A fresh start time per lesson, so nothing overlaps between tests. */
+  const next = () => at((2 * DAY) / MIN + (slot += 90));
+  async function confirmedRaw(f: Fam, id: string) {
+    const start = next();
+    await sql`INSERT INTO lessons (id, teacher_id, student_id, subject, starts_at, minutes, status, proposed_by)
+              VALUES (${id}, ${f.t}, ${f.child}, 'maths', ${start}, 30, 'proposed', ${f.t})`;
+    await sql`UPDATE lessons SET status = 'confirmed', confirmed_by = ${f.parent} WHERE id = ${id}`;
+    return id;
+  }
+  async function teacherMoveRaw(f: Fam, o: string, id: string) {
+    await sql`INSERT INTO lessons (id, teacher_id, student_id, subject, starts_at, minutes, status, proposed_by, replaces_lesson_id)
+              VALUES (${id}, ${f.t}, ${f.child}, 'maths', ${next()}, 30, 'proposed', ${f.t}, ${o})`;
+    return id;
+  }
+  async function parentMoveRaw(f: Fam, o: string, id: string) {
+    await sql`INSERT INTO lessons (id, teacher_id, student_id, subject, starts_at, minutes, status, requested_by, replaces_lesson_id)
+              VALUES (${id}, ${f.t}, ${f.child}, 'maths', ${next()}, 30, 'requested', ${f.parent}, ${o})`;
+    return id;
+  }
+  /** Past its reply deadline but not yet swept (database triggers off for this one setup write). */
+  async function makeOverdue(id: string) {
+    await sql.begin(async (t) => {
+      await t.unsafe('SET LOCAL session_replication_role = replica');
+      await t`UPDATE lessons SET requested_at = now() - interval '50 hours', reply_deadline = now() - interval '2 hours'
+              WHERE id = ${id}`;
+    });
+  }
+  const closedNotices = async (entity: string, recipient: string) =>
+    (await notices(sql, recipient, entity)).filter((n) => n.type === 'lesson_change_closed').length;
+  async function deadlocks() {
+    await new Promise((r) => setTimeout(r, 1200)); // statistics are flushed at most once a second
+    await sql`SELECT pg_stat_clear_snapshot()`;
+    return Number(
+      (await sql<{ n: string }[]>`SELECT deadlocks::text AS n FROM pg_stat_database WHERE datname = ${name}`)[0]!.n,
+    );
+  }
+  async function waiting(n: number) {
+    await expect
+      .poll(
+        async () =>
+          (
+            await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM pg_stat_activity
+                                       WHERE datname = ${name} AND wait_event_type = 'Lock'`
+          )[0]!.n,
+        { timeout: 10_000, interval: 25 },
+      )
+      .toBeGreaterThanOrEqual(n);
+  }
+  const settle = <T>(p: Promise<T>) =>
+    p.then(
+      (v) => ({ v }),
+      (e: Error) => ({ e: e.message }),
+    );
+
+  for (const [label, o1, m1] of ORDERS) {
+    it(`R2-1 / R3-1, ${label}: the deactivation sweep closes the original and the teacher's move without abort; each parent is told about the move exactly once`, async () => {
+      const f = await family(sql);
+      const o = await confirmedRaw(f, idWith(o1));
+      const m = await teacherMoveRaw(f, o, idWith(m1));
+      expect(o < m).toBe(label === 'original < move');
+      await sql`UPDATE accounts SET status = 'deactivated' WHERE id = ${f.t}`;
+      await sql.begin((tx) => closeLessonsWithoutLink(tx, { teacherId: f.t }));
+      expect(await statusOf(sql, o)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
+      expect((await statusOf(sql, m)).status).toBe('declined');
+      for (const p of [f.parent, f.parent2]) expect(await closedNotices(m, p)).toBe(1);
+      expect(await closedNotices(m, f.t)).toBe(0); // the deactivated teacher is not told
+    });
+
+    it(`R2-1 / R3-1, ${label}: link removal closes the original and a parent's move without abort; the teacher and each parent are told about the move exactly once`, async () => {
+      const f = await family(sql);
+      const o = await confirmedRaw(f, idWith(o1));
+      const m = await parentMoveRaw(f, o, idWith(m1));
+      await sql.begin(async (tx) => {
+        await tx`UPDATE teacher_student_links SET status = 'removed', removed_at = now()
+                 WHERE teacher_id = ${f.t} AND student_id = ${f.child}`;
+        await closeLessonsWithoutLink(tx, { studentId: f.child });
+      });
+      expect(await statusOf(sql, o)).toEqual({ status: 'cancelled', close_reason: 'link_ended' });
+      expect((await statusOf(sql, m)).status).toBe('declined');
+      for (const p of [f.t, f.parent, f.parent2]) expect(await closedNotices(m, p)).toBe(1);
+    });
+
+    for (const first of ['cancel', 'accept'] as const) {
+      it(`R2-3, ${label}, ${first} first (forced with a gate on the original): no deadlock; exactly one wins`, async () => {
+        const f = await family(sql);
+        const o = await confirmedRaw(f, idWith(o1));
+        const m = await teacherMoveRaw(f, o, idWith(m1));
+        const before = await deadlocks();
+        const g = await sql.reserve();
+        let c: unknown;
+        let a: unknown;
+        try {
+          await g`BEGIN`;
+          await g`SELECT 1 FROM lessons WHERE id = ${o} FOR UPDATE`;
+          const doCancel = () => settle(cancelLesson(sql, { id: f.parent2, role: 'parent' }, o));
+          const doAccept = () => settle(answerProposal(sql, f.parent, m, 'accept'));
+          const p1 = first === 'cancel' ? doCancel() : doAccept();
+          await waiting(1);
+          const p2 = first === 'cancel' ? doAccept() : doCancel();
+          await waiting(2);
+          await g`ROLLBACK`;
+          const [x, y] = await Promise.all([p1, p2]);
+          [c, a] = first === 'cancel' ? [x, y] : [y, x];
+        } finally {
+          await g`ROLLBACK`.catch(() => {});
+          g.release();
+        }
+        if (first === 'cancel') {
+          expect(c).toEqual({ v: { ok: true } });
+          expect(await statusOf(sql, m)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+        } else {
+          expect(a).toEqual({ v: { ok: true } });
+          expect(c).toEqual({ v: { ok: false, reason: 'closed' } });
+          expect(await statusOf(sql, o)).toEqual({ status: 'cancelled', close_reason: 'rescheduled' });
+        }
+        expect(await deadlocks()).toBe(before);
+      });
+    }
+  }
+
+  it('R3-2: a new move proposal that expires an overdue move, racing a cancellation: no deadlock; refused as "changed meanwhile", not "too soon"', async () => {
+    const f = await family(sql);
+    const o = await confirmedRaw(f, idWith('8'));
+    const old = await teacherMoveRaw(f, o, idWith('8'));
+    await makeOverdue(old);
+    const before = await deadlocks();
+    const g = await sql.reserve();
+    let res: unknown;
+    try {
+      // The gate holds the teacher and child time locks, as an acceptance in progress would.
+      await g`BEGIN`;
+      await g`SELECT lessons_lock_times(${f.t}, ${f.child})`;
+      const pc = settle(cancelLesson(sql, { id: f.parent2, role: 'parent' }, o));
+      await waiting(1);
+      const start = next();
+      const pp = settle(
+        proposeLesson(sql, f.t, {
+          replacesLessonId: o,
+          childId: '',
+          subject: '',
+          date: ymd(start),
+          time: hm(start),
+          minutes: '30',
+        }),
+      );
+      await waiting(2);
+      await g`ROLLBACK`;
+      res = await Promise.all([pc, pp]);
+    } finally {
+      await g`ROLLBACK`.catch(() => {});
+      g.release();
+    }
+    expect(res).toEqual([{ v: { ok: true } }, { v: { ok: false, reason: 'original_changed' } }]);
+    expect(await deadlocks()).toBe(before);
+    expect(await statusOf(sql, old)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+  });
+
+  it('R3-2: a parent move request that expires an overdue move, racing a cancellation: no deadlock; refused as "changed meanwhile"', async () => {
+    const f = await family(sql);
+    const o = await confirmedRaw(f, idWith('1'));
+    const old = await teacherMoveRaw(f, o, idWith('f'));
+    await makeOverdue(old);
+    const start = next();
+    const before = await deadlocks();
+    const g = await sql.reserve();
+    let res: unknown;
+    try {
+      await g`BEGIN`;
+      await g`SELECT lessons_lock_times(${f.t}, ${f.child})`;
+      const pc = settle(cancelLesson(sql, { id: f.parent2, role: 'parent' }, o));
+      await waiting(1);
+      const pr = settle(
+        requestLesson(sql, f.parent, {
+          replacesLessonId: o,
+          childId: '',
+          teacherId: '',
+          subject: '',
+          minutes: '30',
+          startsAt: start.toISOString(),
+          priceMinor: '30000',
+          currency: 'INR',
+          basis: 'listed',
+        }),
+      );
+      await waiting(2);
+      await g`ROLLBACK`;
+      res = await Promise.all([pc, pr]);
+    } finally {
+      await g`ROLLBACK`.catch(() => {});
+      g.release();
+    }
+    expect(res).toEqual([{ v: { ok: true } }, { v: { ok: false, reason: 'original_changed' } }]);
+    expect(await deadlocks()).toBe(before);
+  });
+
+  for (const [label, o1, m1] of ORDERS) {
+    it(`R3-3, ${label}: the deactivation sweep and a cancellation, with an OVERDUE open move: no deadlock; one closes the lesson, the other finds it closed`, async () => {
+      const f = await family(sql);
+      const o = await confirmedRaw(f, idWith(o1));
+      const m = await teacherMoveRaw(f, o, idWith(m1));
+      await makeOverdue(m);
+      await sql`UPDATE accounts SET status = 'deactivated' WHERE id = ${f.t}`;
+      const before = await deadlocks();
+      const g = await sql.reserve();
+      let res: unknown;
+      try {
+        // Gate on the original: the sweep queues first, then the cancellation.
+        await g`BEGIN`;
+        await g`SELECT 1 FROM lessons WHERE id = ${o} FOR UPDATE`;
+        const ps = settle(sql.begin((tx) => closeLessonsWithoutLink(tx, { teacherId: f.t })));
+        await waiting(1);
+        const pc = settle(cancelLesson(sql, { id: f.parent2, role: 'parent' }, o));
+        await waiting(2);
+        await g`ROLLBACK`;
+        res = await Promise.all([ps, pc]);
+      } finally {
+        await g`ROLLBACK`.catch(() => {});
+        g.release();
+      }
+      expect(res).toEqual([{ v: 1 }, { v: { ok: false, reason: 'closed' } }]);
+      expect(await statusOf(sql, o)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
+      expect(await statusOf(sql, m)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+      expect(await deadlocks()).toBe(before);
+    });
+  }
 });

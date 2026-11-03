@@ -9,6 +9,7 @@ import {
   closeOverlapping,
   closeOverlapsNow,
   expireOverdueChanges,
+  refineMoveReason,
   insertPlanned,
   isSubject,
   lessonPrice,
@@ -538,7 +539,8 @@ export async function proposeLesson(
   } catch (error) {
     if (error instanceof Refused) return { ok: false, reason: 'material' };
     const reason = proposeReasonFromDb(error);
-    if (reason) return { ok: false, reason };
+    // Review R3-2: "too soon" for a lesson that was cancelled or moved meanwhile says so instead.
+    if (reason) return { ok: false, reason: target ? await refineMoveReason(sql, target.id, reason) : reason };
     throw error;
   }
 }

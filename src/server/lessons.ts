@@ -469,56 +469,76 @@ export async function requestLesson(
   if (!b) return { ok: false, reason: 'not_linked' };
   const endsAt = new Date(startsAt.getTime() + minutes * MIN);
   try {
-    return await sql.begin(async (tx): Promise<RequestResult> => {
-      // Not offered, and refused: a time that overlaps a confirmed lesson of the teacher or child.
-      // TL-4 rule 4: a change may overlap the lesson it moves (that one closes at the swap).
-      const [clash] = await tx`
+    // Review R3-2: retried on a deadlock (40P01), like every other path that can meet a move.
+    return await retrying(() =>
+      sql.begin(async (tx): Promise<RequestResult> => {
+        // TL-4: a move takes the teacher and child time locks first (inside expireOverdueChanges),
+        // before the overlap check and any row lock.
+        if (target) await expireOverdueChanges(tx, target.id, now);
+        // Not offered, and refused: a time that overlaps a confirmed lesson of the teacher or child.
+        // TL-4 rule 4: a change may overlap the lesson it moves (that one closes at the swap).
+        const [clash] = await tx`
         SELECT 1 FROM lessons WHERE status = 'confirmed' AND (teacher_id = ${teacherId} OR student_id = ${childId})
           AND starts_at < ${endsAt} AND ends_at > ${startsAt} AND id <> ${target?.id ?? NIL_UUID} LIMIT 1`;
-      if (clash) return { ok: false, reason: 'busy' };
-      if (target) await expireOverdueChanges(tx, target.id, now);
-      const [row] = target
-        ? await tx<Array<{ id: string }>>`
+        if (clash) return { ok: false, reason: 'busy' };
+        const [row] = target
+          ? await tx<Array<{ id: string }>>`
             INSERT INTO lessons (teacher_id, student_id, requested_by, subject, starts_at, minutes,
                                  currency, price_minor, price_basis, replaces_lesson_id)
             VALUES (${teacherId}, ${childId}, ${parentId}, ${subject}, ${startsAt}, ${minutes},
                     ${currency}, ${priceMinor}, ${basis}, ${target.id})
             RETURNING id`
-        : await tx<Array<{ id: string }>>`
+          : await tx<Array<{ id: string }>>`
             INSERT INTO lessons (teacher_id, student_id, requested_by, subject, starts_at, minutes,
                                  currency, price_minor, price_basis)
             VALUES (${teacherId}, ${childId}, ${parentId}, ${subject}, ${startsAt}, ${minutes},
                     ${currency}, ${priceMinor}, ${basis})
             RETURNING id`;
-      // TL-1: the chosen chapters or topic, in the same database step (0032 refuses them later).
-      for (const [i, chapterId] of chosen.chapterIds.entries()) {
-        await tx`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id)
+        // TL-1: the chosen chapters or topic, in the same database step (0032 refuses them later).
+        for (const [i, chapterId] of chosen.chapterIds.entries()) {
+          await tx`INSERT INTO lesson_chapters (lesson_id, position, book_chapter_id)
                  VALUES (${row!.id}, ${i + 1}, ${chapterId})`;
-      }
-      if (chosen.topic) {
-        await tx`INSERT INTO lesson_chapters (lesson_id, position, topic) VALUES (${row!.id}, 1, ${chosen.topic})`;
-      }
-      await writeAudit(
-        tx,
-        {
-          type: target ? 'LESSON_CHANGE_REQUESTED' : 'LESSON_REQUESTED',
-          outcome: 'success',
-          actorId: parentId,
-          subjectId: teacherId,
-          details: target
-            ? { lesson: row!.id, replaces: target.id, minutes, basis }
-            : { lesson: row!.id, minutes, basis },
-        },
-        now,
-      );
-      await tellAbout(tx, row!.id, target ? 'change_requested' : 'requested', { actorId: parentId }, now);
-      return { ok: true, id: row!.id };
-    });
+        }
+        if (chosen.topic) {
+          await tx`INSERT INTO lesson_chapters (lesson_id, position, topic) VALUES (${row!.id}, 1, ${chosen.topic})`;
+        }
+        await writeAudit(
+          tx,
+          {
+            type: target ? 'LESSON_CHANGE_REQUESTED' : 'LESSON_REQUESTED',
+            outcome: 'success',
+            actorId: parentId,
+            subjectId: teacherId,
+            details: target
+              ? { lesson: row!.id, replaces: target.id, minutes, basis }
+              : { lesson: row!.id, minutes, basis },
+          },
+          now,
+        );
+        await tellAbout(tx, row!.id, target ? 'change_requested' : 'requested', { actorId: parentId }, now);
+        return { ok: true, id: row!.id };
+      }),
+    );
   } catch (error) {
     const reason = reasonFromDb(error);
-    if (reason) return { ok: false, reason };
+    if (reason) return { ok: false, reason: target ? await refineMoveReason(sql, target.id, reason) : reason };
     throw error;
   }
+}
+
+/**
+ * Review R3-2: the database's "only a confirmed lesson at least 30 minutes away can be moved" covers
+ * two cases. If the lesson is no longer booked (cancelled or moved meanwhile, e.g. by the
+ * transaction a retry waited for), say so instead of "starts too soon".
+ */
+export async function refineMoveReason<R extends string>(
+  sql: Db,
+  originalId: string,
+  reason: R,
+): Promise<R | 'original_changed'> {
+  if (reason !== 'too_soon') return reason;
+  const [o] = await sql<Array<{ status: string }>>`SELECT status FROM lessons WHERE id = ${originalId}`;
+  return o && o.status !== 'confirmed' ? 'original_changed' : reason;
 }
 
 // ======================================================================= answering and closing
@@ -763,6 +783,12 @@ export async function moveTarget(
  * as the sweep would, so the new one isn't refused for an expired one.
  */
 export async function expireOverdueChanges(tx: Db, originalId: string, now: Date): Promise<void> {
+  // Review R3-2: the teacher and child time locks come first, before any row lock, in the order a
+  // cancellation and an acceptance take them (time locks, then rows), so starting a new move can't
+  // deadlock with a cancellation of the same lesson. Re-entrant: 0034's insert rule takes them again.
+  const [o] = await tx<Array<{ teacher_id: string; student_id: string }>>`
+    SELECT teacher_id, student_id FROM lessons WHERE id = ${originalId}`;
+  if (o) await lockLessonTimes(tx, o.teacher_id, o.student_id);
   const rows = await tx<Array<{ id: string }>>`
     UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
     WHERE (to_jsonb(lessons) ->> 'replaces_lesson_id') = ${originalId}
@@ -1156,7 +1182,12 @@ export async function closeLessonsWithoutLink(
     const subjects = keepFor.get(childId);
     return subjects === null || subjects!.has(subject);
   };
-  const due = await tx<
+  // Review R3-3: lock, in ONE pass in id order, every lesson due to close AND every open move of a
+  // due lesson (overdue or not: the DEF-TL4-08 trigger closes those too when their original is
+  // cancelled). Cancelling and accepting lock an original and its move in the same id order
+  // (lessons_lock_pair), so this sweep can no longer wait on a move row while holding its original.
+  // Only rows in "due" are acted on below; the extra moves are only locked.
+  const locked = await tx<
     Array<{
       id: string;
       student_id: string;
@@ -1164,25 +1195,35 @@ export async function closeLessonsWithoutLink(
       status: string;
       reason: 'teacher_deactivated' | 'link_ended';
       soon: boolean;
+      is_due: boolean;
     }>
   >`
+    WITH due AS (
+      SELECT l.id, l.student_id FROM lessons l JOIN accounts t ON t.id = l.teacher_id
+      WHERE (${teacherId}::uuid IS NULL OR l.teacher_id = ${teacherId})
+        AND (${studentId}::uuid IS NULL OR l.student_id = ${studentId})
+        -- TL-3 (D-TLS-13): open teacher proposals close the same way as open requests.
+        AND ((l.status IN ('requested', 'proposed') AND l.reply_deadline > now())
+             OR (l.status = 'confirmed' AND l.ends_at > now()))
+        AND (t.status = 'deactivated' OR NOT EXISTS (
+              SELECT 1 FROM teacher_student_links k
+              WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
+                AND l.subject = ANY (k.subjects)))
+        -- OC-53: a kept lesson stays, unless its teacher is deactivated (D3A-13).
+        AND (t.status = 'deactivated' OR NOT EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id))
+    ), moves AS (
+      SELECT x.id FROM lessons x JOIN due d ON x.student_id = d.student_id
+      WHERE x.status IN ('requested', 'proposed') AND (to_jsonb(x) ->> 'replaces_lesson_id') = d.id::text
+    )
     SELECT l.id, l.student_id, l.subject, l.status,
            CASE WHEN t.status = 'deactivated' THEN 'teacher_deactivated' ELSE 'link_ended' END AS reason,
-           lessons_kept_window_ok(l.starts_at, l.ends_at, now()) AS soon
+           lessons_kept_window_ok(l.starts_at, l.ends_at, now()) AS soon,
+           l.id IN (SELECT id FROM due) AS is_due
     FROM lessons l JOIN accounts t ON t.id = l.teacher_id
-    WHERE (${teacherId}::uuid IS NULL OR l.teacher_id = ${teacherId})
-      AND (${studentId}::uuid IS NULL OR l.student_id = ${studentId})
-      -- TL-3 (D-TLS-13): open teacher proposals close the same way as open requests.
-      AND ((l.status IN ('requested', 'proposed') AND l.reply_deadline > now())
-           OR (l.status = 'confirmed' AND l.ends_at > now()))
-      AND (t.status = 'deactivated' OR NOT EXISTS (
-            SELECT 1 FROM teacher_student_links k
-            WHERE k.teacher_id = l.teacher_id AND k.student_id = l.student_id AND k.status = 'active'
-              AND l.subject = ANY (k.subjects)))
-      -- OC-53: a kept lesson stays, unless its teacher is deactivated (D3A-13).
-      AND (t.status = 'deactivated' OR NOT EXISTS (SELECT 1 FROM lessons_kept kp WHERE kp.lesson_id = l.id))
+    WHERE l.id IN (SELECT id FROM due UNION SELECT id FROM moves)
     ORDER BY l.id
     FOR UPDATE OF l`;
+  const due = locked.filter((l) => l.is_due);
   let closed = 0;
   for (const l of due) {
     if (keep && l.status === 'confirmed' && l.reason === 'link_ended' && l.soon && inScope(l.student_id, l.subject)) {
@@ -1586,23 +1627,25 @@ export async function tellAbout(
         );
         return;
       case 'original_cancelled':
-        // DEF-TL4-08: one notice, to the side that proposed the move (the cancellation itself has
-        // its own notice on the original). Never the person who cancelled.
-        if (proposal) {
-          await teacherNote(
-            'lesson_change_closed',
-            'update',
-            `Move closed: the lesson on ${formatLessonTime(f.orig_starts, f.teacher_zone)} was cancelled`,
-            `${subject}, ${f.grade ? `Grade ${Number(f.grade)}` : 'grade not set'}. Nothing else changed.`,
-          );
-        } else {
-          await parentNotes(
-            'lesson_change_closed',
-            (z) =>
-              `The request to move ${f.child_name}'s ${subject} lesson to ${when(z)} is closed: the lesson on ${from(z)} was cancelled`,
-            'Nothing else changed.',
-          );
-        }
+        // DEF-TL4-08 / review R3-1: one notice to each side, the one that proposed the move and the
+        // one that had it to answer, whoever cancelled and whatever the order the database closed
+        // things in. Never the person who cancelled (teacherNote and parentNotes skip the actor),
+        // never a teacher who is no longer active (deactivated). The cancellation itself has its own
+        // notice on the original.
+        await teacherNote(
+          'lesson_change_closed',
+          'update',
+          `Move closed: the lesson on ${formatLessonTime(f.orig_starts, f.teacher_zone)} was cancelled`,
+          `${subject}, ${f.grade ? `Grade ${Number(f.grade)}` : 'grade not set'}. Nothing else changed.`,
+        );
+        await parentNotes(
+          'lesson_change_closed',
+          (z) =>
+            proposal
+              ? `The new time offered for ${f.child_name}'s ${subject} lesson (${when(z)}) is closed: the lesson on ${from(z)} was cancelled`
+              : `The request to move ${f.child_name}'s ${subject} lesson to ${when(z)} is closed: the lesson on ${from(z)} was cancelled`,
+          'Nothing else changed.',
+        );
         return;
       case 'time_taken':
       case 'closed_by_aa_pro':
