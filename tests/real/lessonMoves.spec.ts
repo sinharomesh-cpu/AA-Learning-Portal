@@ -45,6 +45,39 @@ async function setUp() {
   return { parent, parent2, teacher, child, lesson: l!.id };
 }
 
+/** With the TL-4 SQL: a book with two chapters, the lesson planned on the first, and two open
+ *  material requests (one about that chapter, one described), raised one after the other. */
+async function withChaptersAndRequests(s: Awaited<ReturnType<typeof setUp>>) {
+  const [b] = await sql<{ id: string }[]>`
+    INSERT INTO books (owner_id, title, subject, form, status) VALUES (${s.parent.id}, 'Maths Book 5', 'maths', 'chapter_files', 'published') RETURNING id`;
+  const ch: string[] = [];
+  for (const [i, title] of ['Fractions', 'Decimals'].entries())
+    ch.push(
+      (
+        await sql<{ id: string }[]>`
+          INSERT INTO book_chapters (book_id, number, title) VALUES (${b!.id}, ${i + 1}, ${title}) RETURNING id`
+      )[0]!.id,
+    );
+  await sql`INSERT INTO book_children (book_id, student_id) VALUES (${b!.id}, ${s.child.id})`;
+  // Planned chapters are added with the proposal, so this lesson is booked afresh with its chapter.
+  const l = await sql.begin(async (tx) => {
+    const [x] = await tx<{ id: string }[]>`
+      INSERT INTO lessons (teacher_id, student_id, subject, starts_at, minutes, status, proposed_by)
+      VALUES (${s.teacher.id}, ${s.child.id}, 'maths', ${new Date(start().getTime() + 86_400_000)}, 30, 'proposed', ${s.teacher.id})
+      RETURNING id`;
+    await tx`INSERT INTO lesson_chapters (lesson_id, position, source, book_chapter_id, intent)
+             VALUES (${x!.id}, 1, 'planned', ${ch[0]!}, 'new')`;
+    return x!.id;
+  });
+  await sql`UPDATE lessons SET status = 'confirmed', confirmed_by = ${s.parent.id} WHERE id = ${l}`;
+  await sql`INSERT INTO material_requests (lesson_id, raised_by, lesson_position, note)
+            VALUES (${l}, ${s.teacher.id}, 1, 'Worksheet pages for this chapter')`;
+  await sql`INSERT INTO material_requests (lesson_id, raised_by, description) VALUES (${l}, ${s.teacher.id}, 'A ruler and squared paper')`;
+  // The first booked lesson isn't needed for this journey: the parent cancels it now (no move open).
+  await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${s.parent.id} WHERE id = ${s.lesson}`;
+  return { lesson: l, chapters: ch };
+}
+
 test('without the TL-4 SQL, nothing offers a move and the move pages say so', async ({ browser }, info) => {
   test.skip(await tl4Applied(), 'The TL-4 SQL is applied to this database.');
   const phone = info.project.name === 'phone';
@@ -73,7 +106,10 @@ test('with the TL-4 SQL: a parent asks to move, the teacher accepts; the teacher
 }, info) => {
   test.skip(!(await tl4Applied()), 'The TL-4 SQL is not applied (it is not a migration yet).');
   const phone = info.project.name === 'phone';
-  const { parent, parent2, teacher, child, lesson } = await setUp();
+  const s = await setUp();
+  const { parent, parent2, teacher, child } = s;
+  const { lesson, chapters } = await withChaptersAndRequests(s);
+  const requestOrder = ['Maths Book 5 · 1. Fractions', 'A ruler and squared paper'];
 
   // A parent asks to move it: Family calendar → Move lesson → a time → Ask to move.
   const p = await (await browser.newContext()).newPage();
@@ -94,38 +130,84 @@ test('with the TL-4 SQL: a parent asks to move, the teacher accepts; the teacher
   await k.goto('/student/schedule');
   await expect(k.getByRole('heading', { name: `Maths with ${teacher.name}` })).toHaveCount(1);
 
-  // The teacher accepts it from Requests to answer.
+  // The teacher sees the request with Now / New (time, length, price) and accepts it.
   const t = await (await browser.newContext()).newPage();
   await signInAs(t, teacher.email);
   await t.goto('/teacher/schedule');
   const requests = t.getByRole('region', { name: 'Requests to answer' });
   await expect(requests.getByTestId('move-note')).toContainText('A new time for the lesson booked on');
+  await expect(requests.getByTestId('move-compare')).toContainText(/Now.*30 min · ₹300/);
+  await expect(requests.getByTestId('move-compare')).toContainText(/New.*30 min · ₹300/);
   await check(t, phone);
   await requests.getByRole('button', { name: /^Accept:/ }).click();
-  await expect(t.getByText('Accepted. The family has been told.')).toBeVisible();
+  await expect(
+    t.getByText(/^Moved\. The lesson is booked at the new time and the family has been told\./),
+  ).toBeVisible();
   const [moved] = await sql<{ id: string }[]>`
     SELECT replacement_lesson_id AS id FROM lesson_reschedules WHERE original_lesson_id = ${lesson}`;
   expect(moved?.id).toBeTruthy();
 
-  // The parent sees "Moved from" on the new lesson and "Moved" on the old one.
+  // Teacher: the new lesson is Confirmed, "Moved from …", with the meeting-link prompt and the
+  // chapter and requests in their original order; the old one is "Moved", "Moved to …".
+  const upcomingT = t.getByRole('region', { name: 'Upcoming lessons' });
+  const newCard = upcomingT.getByRole('article').filter({ has: t.getByTestId('move-note') });
+  await expect(newCard.getByText('Confirmed', { exact: true })).toBeVisible();
+  await expect(newCard.getByTestId('move-note')).toContainText(/^Moved from /);
+  await expect(upcomingT.getByTestId('move-link-prompt')).toContainText(/meeting link for the old time was removed/);
+  await expect(newCard.getByTestId('material-request')).toHaveCount(2);
+  for (const [i, what] of requestOrder.entries())
+    await expect(newCard.getByTestId('material-request').nth(i)).toContainText(what);
+  const pastT = t.getByRole('region', { name: 'Past and closed' });
+  const oldCard = pastT.getByRole('article').filter({ hasText: 'Moved to' });
+  await expect(oldCard.getByText('Moved', { exact: true })).toBeVisible();
+  await expect(oldCard.getByTestId('move-note')).toContainText(/^Moved to /);
+  await expect(oldCard.getByText('Moved to the new lesson')).toHaveCount(2);
+  await check(t, phone);
+
+  // The parent: "Moved from" on the new lesson, "Moved" on the old one, and one "moved" notice.
   await p.goto('/parent/calendar');
   await expect(p.getByRole('region', { name: 'Upcoming lessons' }).getByTestId('move-note')).toContainText(
     /^Moved from /,
   );
   await expect(p.getByText('Moved', { exact: true })).toBeVisible();
   await check(p, phone);
+  await p.goto('/parent/notifications');
+  await expect(p.getByText(/Kiran's Maths lesson with Ms Priya Rao moved from /)).toHaveCount(1);
+  // No per-request notices for the carried requests (the seeded requests were raised directly in
+  // the database, so the only material wording on the page is the move notice's own line).
+  await expect(p.getByText(/asked for material|no longer needed/i)).toHaveCount(0);
+  await expect(p.getByText('Chapters and open material requests moved with it.')).toHaveCount(1);
+  // The teacher was told of the request (one notice) and not of the move they made themselves.
+  await t.goto('/teacher/notifications');
+  await expect(t.getByText(/^Request to move a lesson: /)).toHaveCount(1);
+  await expect(t.getByText(/^Lesson moved: /)).toHaveCount(0);
 
-  // The teacher proposes a new time for the moved lesson; the other parent accepts on booking details.
+  // The teacher proposes a new time for the moved lesson. A chapter that drops the requested one is
+  // refused at the review, and the entries stay (DEF-TL4-13/14); then reviewed (DEF-TL4-09) and sent.
   await t.goto('/teacher/schedule');
   await t
     .getByRole('region', { name: 'Upcoming lessons' })
     .getByRole('link', { name: /^Move lesson/ })
     .click();
   const form = t.getByTestId('move-form');
-  await form.getByLabel('New day').fill(dayIn(new Date(start().getTime() + 2 * 86_400_000)));
+  await form.getByLabel('New day').fill(dayIn(new Date(start().getTime() + 3 * 86_400_000)));
   await form.getByLabel('New start time').fill('17:05');
+  await form.getByLabel('Length').selectOption('40');
+  await t.locator(`input[name="planned"][value="${chapters[1]}"]`).check();
+  await form.getByRole('button', { name: 'Review new time' }).click();
+  await expect(t.getByText(/a chapter you haven’t chosen/)).toBeVisible();
+  await expect(t.locator(`input[name="planned"][value="${chapters[1]}"]`)).toBeChecked();
+  await expect(form.getByLabel('New start time')).toHaveValue('17:05');
+  await expect(form.getByLabel('Length')).toHaveValue('40');
+  await t.locator(`input[name="planned"][value="${chapters[1]}"]`).uncheck();
+  await form.getByRole('button', { name: 'Review new time' }).click();
+  const review = t.getByTestId('move-review');
+  await expect(review.getByRole('heading', { name: 'Check the new time' })).toBeFocused();
+  await expect(review).toContainText(/Booked now.*30 min · ₹300/);
+  await expect(review).toContainText(/New time.*40 min/);
+  await expect(review).toContainText(/New price₹400 for 40 min/);
   await check(t, phone);
-  await form.getByRole('button', { name: 'Send new time' }).click();
+  await review.getByRole('button', { name: 'Send new time' }).click();
   await expect(t.getByText(/^New time sent to the parents\./)).toBeVisible();
 
   const [change] = await sql<{ id: string }[]>`
@@ -134,11 +216,18 @@ test('with the TL-4 SQL: a parent asks to move, the teacher accepts; the teacher
   await signInAs(q, parent2.email);
   await q.goto(`/parent/bookings/${change!.id}`);
   await expect(q.getByRole('heading', { level: 1, name: 'A teacher proposed a new time' })).toBeVisible();
+  // Before accepting: the booked and the new time, length and price side by side.
+  await expect(q.getByTestId('move-compare')).toContainText(/Now.*30 min · ₹300/);
+  await expect(q.getByTestId('move-compare')).toContainText(/New.*40 min · ₹400/);
   await check(q, phone);
   await q.getByRole('button', { name: /^Accept:/ }).click();
   await expect(q.getByRole('dialog', { name: 'Move the lesson to this time?' })).toBeVisible();
   await q.getByRole('dialog').getByRole('button', { name: 'Accept' }).click();
   await expect(q.getByText(/^Moved\. The lesson is booked at the new time/)).toBeVisible();
+  // The teacher is told once, with the meeting-link prompt in the notice.
+  await t.goto('/teacher/notifications');
+  await expect(t.getByText(/^Lesson moved: /)).toHaveCount(1);
+  await expect(t.getByText(/Add your meeting link for the new time/)).toHaveCount(1);
 
   // The child sees exactly one lesson, the current one.
   await k.goto('/student/schedule');

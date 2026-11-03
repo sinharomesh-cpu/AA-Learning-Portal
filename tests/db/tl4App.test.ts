@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   answerLesson,
   cancelLesson,
+  closeLeftoverOverlaps,
   closeLessonsWithoutLink,
   freeTimes,
   lessonForParent,
@@ -765,5 +766,108 @@ describe('TL-4 app: expired moves, meeting links, Now/New, DEF-TL4-08/09, F-2 (w
     expect(moveFailureFromDb(err)).toBe('move_chapters');
     expect(await statusOf(sql, original)).toEqual({ status: 'confirmed', close_reason: null });
     expect(await answerLesson(sql, f.t, r.id, 'accept')).toEqual({ ok: true });
+  });
+});
+
+describe('TL-4 app vs the consolidated SQL: independent re-review R2-1 and R2-2', () => {
+  it('R2-1: removing the teacher (deactivation sweep) when the original sorts BEFORE its open move: no abort; both close; the move once', async () => {
+    // Repeat until the uuid order is original < move (the order that aborted before the fix).
+    for (let i = 0; i < 12; i += 1) {
+      const f = await family(sql);
+      const original = await booked(sql, f, at(18 * 60));
+      const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 1080));
+      if (!p.ok) throw new Error(p.reason);
+      if (original > p.id) continue;
+      await sql`UPDATE accounts SET status = 'deactivated' WHERE id = ${f.t}`;
+      await sql.begin((tx) => closeLessonsWithoutLink(tx, { teacherId: f.t }));
+      expect(await statusOf(sql, original)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
+      expect(await statusOf(sql, p.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+      for (const who of [f.parent, f.parent2]) {
+        const closedNotes = (await notices(sql, who, p.id)).filter((n) => n.type === 'lesson_change_closed');
+        expect(closedNotes.length).toBeLessThanOrEqual(1);
+      }
+      return;
+    }
+    throw new Error('no original < move order produced in 12 tries');
+  });
+
+  it('R2-1: a parent removing the link (link_ended) closes a parent’s open move and its original without abort, in either order', async () => {
+    for (let i = 0; i < 4; i += 1) {
+      const f = await family(sql);
+      const original = await booked(sql, f, at(20 * 60 + i * 60));
+      const r = await moveByParent(sql, f, original, at(DAY / MIN + 1200 + i * 60));
+      if (!r.ok) throw new Error(r.reason);
+      await sql`UPDATE teacher_student_links SET status = 'removed', removed_at = now() WHERE teacher_id = ${f.t} AND student_id = ${f.child}`;
+      await sql.begin((tx) => closeLessonsWithoutLink(tx, { teacherId: f.t }));
+      expect((await statusOf(sql, original)).status).toBe('cancelled');
+      expect((await statusOf(sql, r.id)).status).toBe('declined');
+    }
+  });
+
+  it('R2-3: cancelling a lesson with an open move takes the acceptance lock order (time locks before any row), so it can’t deadlock with an acceptance', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(24 * 60));
+    const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 1440));
+    if (!p.ok) throw new Error(p.reason);
+    // Session A holds the teacher and child time locks, as an acceptance does first.
+    const a = await sql.reserve();
+    const probe = await sql.reserve();
+    try {
+      await a`BEGIN`;
+      await a`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.teacher:${f.t}`}, 0))`;
+      await a`SELECT pg_advisory_xact_lock(hashtextextended(${`aa_pro.lesson_times.child:${f.child}`}, 0))`;
+      const cancel = cancelLesson(sql, { id: f.parent, role: 'parent' }, original);
+      // The cancellation waits on the time locks...
+      let waiting = false;
+      for (let i = 0; i < 50 && !waiting; i += 1) {
+        const [w] = await probe<{ n: number }[]>`
+          SELECT count(*)::int AS n FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`;
+        waiting = w!.n > 0;
+        if (!waiting) await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(waiting).toBe(true);
+      // ...holding no row lock yet: an acceptance could take both rows now.
+      await probe`BEGIN`;
+      await expect(
+        probe`SELECT 1 FROM lessons WHERE id IN (${original}, ${p.id}) FOR UPDATE NOWAIT`,
+      ).resolves.toHaveLength(2);
+      await probe`ROLLBACK`;
+      await a`ROLLBACK`;
+      expect(await cancel).toEqual({ ok: true });
+    } finally {
+      await a`ROLLBACK`.catch(() => {});
+      await probe`ROLLBACK`.catch(() => {});
+      a.release();
+      probe.release();
+    }
+    expect(await statusOf(sql, p.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+  });
+
+  it('R2-2: the overlap sweep leaves a move that overlaps only its own original (teacher DEF-TL4-07, and a parent’s); another overlap still closes', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(26 * 60), 40);
+    const teacherMove = await moveByTeacher(sql, f, original, at(26 * 60 + 30));
+    if (!teacherMove.ok) throw new Error(teacherMove.reason);
+    const g = await family(sql);
+    const gOriginal = await booked(sql, g, at(28 * 60), 40);
+    const parentMove = await moveByParent(sql, g, gOriginal, at(28 * 60 + 30));
+    if (!parentMove.ok) throw new Error(parentMove.reason);
+    await sql.begin((tx) => closeLeftoverOverlaps(tx, new Date()));
+    expect((await statusOf(sql, teacherMove.id)).status).toBe('proposed');
+    expect((await statusOf(sql, parentMove.id)).status).toBe('requested');
+    // Both can still be accepted and swap.
+    expect(await answerProposal(sql, f.parent, teacherMove.id, 'accept')).toEqual({ ok: true });
+    expect(await answerLesson(sql, g.t, parentMove.id, 'accept')).toEqual({ ok: true });
+    // A move over ANOTHER confirmed lesson (here: of the same child, another teacher) still closes.
+    const h = await family(sql);
+    const hOriginal = await booked(sql, h, at(30 * 60), 30);
+    const hMove = await moveByParent(sql, h, hOriginal, at(DAY / MIN + 1800));
+    if (!hMove.ok) throw new Error(hMove.reason);
+    const otherTeacher = await teacher(sql, 'Mr Iyer');
+    await activeLink(sql, { teacher: otherTeacher, child: h.child, parent: h.parent, subjects: ['maths'] });
+    const blocker = await booked(sql, { ...h, t: otherTeacher }, at(DAY / MIN + 1800), 30);
+    expect((await statusOf(sql, blocker)).status).toBe('confirmed');
+    await sql.begin((tx) => closeLeftoverOverlaps(tx, new Date()));
+    expect(await statusOf(sql, hMove.id)).toEqual({ status: 'declined', close_reason: 'time_no_longer_free' });
   });
 });

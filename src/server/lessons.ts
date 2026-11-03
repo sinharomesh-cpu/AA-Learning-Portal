@@ -627,6 +627,7 @@ export async function closeOverlapping(
                  WHERE status IN ('requested', 'proposed') AND id <> ${l.id}
                    AND (teacher_id = ${l.teacher_id} OR student_id = ${l.student_id})
                    AND starts_at < ${l.ends_at} AND ends_at > ${l.starts_at}
+                   AND (to_jsonb(lessons) ->> 'replaces_lesson_id') IS DISTINCT FROM ${l.id}::text
                  ORDER BY id
                  FOR UPDATE SKIP LOCKED)
     RETURNING id`;
@@ -1207,7 +1208,11 @@ export async function closeLessonsWithoutLink(
         WHERE id = ${l.id} AND status IN ('requested', 'proposed') RETURNING id`;
       if (!still) continue;
     } else {
-      await tx`UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
+      // R2-1: only a lesson still confirmed (status-guarded like the move branch above).
+      const [still] = await tx<Array<{ id: string }>>`
+        UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = ${l.reason}
+        WHERE id = ${l.id} AND status = 'confirmed' RETURNING id`;
+      if (!still) continue;
       // CR-17 PR 7: a reminder for a lesson that won't happen is no longer true.
       await dropLessonReminders(tx, l.id);
       await tellMovesClosed(tx, l.id, undefined, now);
@@ -1243,7 +1248,9 @@ export async function closeLeftoverOverlaps(tx: Db, now: Date): Promise<number> 
                    AND EXISTS (SELECT 1 FROM lessons c
                                WHERE c.status = 'confirmed' AND c.id <> r.id
                                  AND (c.teacher_id = r.teacher_id OR c.student_id = r.student_id)
-                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at)
+                                 AND c.starts_at < r.ends_at AND c.ends_at > r.starts_at
+                                 -- R2-2 / DEF-TL4-07: a move may overlap the lesson it moves (only that one).
+                                 AND c.id::text IS DISTINCT FROM (to_jsonb(r) ->> 'replaces_lesson_id'))
                  ORDER BY r.id
                  LIMIT 200
                  FOR UPDATE OF r SKIP LOCKED)
@@ -1281,6 +1288,7 @@ export async function closeOverlapsNow(sql: Sql, lessonId: string, actorId: stri
                        WHERE r.status IN ('requested', 'proposed') AND r.id <> c.id
                          AND (r.teacher_id = c.teacher_id OR r.student_id = c.student_id)
                          AND r.starts_at < c.ends_at AND r.ends_at > c.starts_at
+                         AND c.id::text IS DISTINCT FROM (to_jsonb(r) ->> 'replaces_lesson_id')
                        ORDER BY r.id
                        FOR UPDATE OF r)
           RETURNING id`;
