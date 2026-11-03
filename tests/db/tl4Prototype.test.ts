@@ -120,6 +120,8 @@ async function change(f: Family, original: string, start: Date) {
 /** The parent accepts a change in the TL-4 lock order: link, both lessons (lower id first), confirm. */
 async function accept(c: Q, f: Family, original: string, replacement: string) {
   await c`SELECT 1 FROM teacher_student_links WHERE id = ${f.link} FOR SHARE`;
+  // The application's order (F-3 / R2-4): link, then the teacher and child time locks, then the pair.
+  await c`SELECT lessons_lock_times(${f.teacher}, ${f.child})`;
   await c`SELECT lessons_lock_pair(${original}, ${replacement})`;
   return c`UPDATE lessons SET status = 'confirmed', confirmed_by = ${f.parent}
            WHERE id = ${replacement} AND status = 'proposed' RETURNING id`;

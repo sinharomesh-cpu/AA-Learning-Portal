@@ -142,8 +142,11 @@ CREATE TRIGGER lesson_reschedules_before_write BEFORE INSERT OR UPDATE OR DELETE
   FOR EACH ROW EXECUTE FUNCTION lesson_reschedules_before_write();
 
 -- ---------------------------------------------------------------- deterministic row locks
--- The application locks the teacher-child link first (FOR SHARE, as TL-3), then calls this, then
--- confirms the change. Two separate statements, lower id first: the order does not depend on a
+-- The application's order to accept a change (review F-3, R2-4): the teacher-child link FOR SHARE
+-- (as TL-3), then lessons_lock_times(teacher, child) (0034's advisory locks, re-entrant), then this,
+-- then the confirming UPDATE. A second change proposal takes the time locks first too (0034's insert
+-- rule), so the two can't wait on each other in opposite orders. A cancellation of an original with
+-- an open change also takes this pair before its UPDATE (R2-3, application). Two separate statements, lower id first: the order does not depend on a
 -- plan's sort or on the order the ids are passed in.
 CREATE FUNCTION lessons_lock_pair(p_a uuid, p_b uuid) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
