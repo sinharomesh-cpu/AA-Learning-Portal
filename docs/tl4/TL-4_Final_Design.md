@@ -47,7 +47,8 @@
 - production;
 - real-family access.
 
-## Review fixes (branch `tl4-def-fixes`, 3 Nov 2026; pending decision, not yet in #142)
+## Review fixes (folded into #142 on 3 Nov 2026)
+**PO decisions of 3 Nov 2026 (received 21:17 IST):** DEF-TL4-07 Option B (F-1) and DEF-TL4-08 Option B (F-5) approved; F-2 confirmed as a move-specific clarification of D-E2E-3 (b): a move's chapters come only from the move itself, and ordinary lesson planning is unchanged. F-4, F-6, F-7 and F-8 are technical fixes that need no business decision. The human technical review stays deferred to the full-portal delivery gate (owner decision); the review below is an AI review.
 Independent AI review of the SQL (a separate Claude agent; not a human review). Each fix has a test in `tests/db/tl4ReviewFixes.test.ts` (or `tl4Final.test.ts` for F-5), and each test failed against the reviewed draft.
 
 | Finding | Change |

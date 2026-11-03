@@ -1,9 +1,11 @@
--- TL-4 FINAL DESIGN SQL FOR TECHNICAL REVIEW (local draft, NOT a migration). No number is assigned
--- (0036 is proposed, not approved) and this file is outside db/migrations, so no migration run, gate
+-- TL-4 CONSOLIDATED SQL FOR TECHNICAL REVIEW (local draft, NOT a migration). No number is assigned
+-- (0036 is reserved conditionally, not approved) and this file is outside db/migrations, so no migration run, gate
 -- or checksum sees it. It implements the signed-off TL-4 specification: Evidence Pack revisions
 -- 4.1 to 4.3 (BA sign-off 2 Nov 2026, 22:57 IST; PO decisions D1-D4, Q-A, Q-B, R1-R3, PO-D5 to
--- PO-D8). Applying it anywhere other than a throw-away database needs the numbering, review, CI,
--- push and apply gates; none is granted by this file.
+-- PO-D8), plus the PO decisions of 3 Nov 2026 (received 21:17 IST): DEF-TL4-07 Option B,
+-- DEF-TL4-08 Option B and F-2 (a move's chapters come only with the move). 0036 is reserved for it
+-- conditionally (PO, 3 Nov 2026); that is not migration approval. Applying it anywhere other than a
+-- throw-away database needs the review, CI, push and apply gates; none is granted by this file.
 --
 -- 0033 and 0034 are NOT edited. TL-4 adds its OWN triggers (BEFORE triggers fire in name order, so
 -- *_tl4 runs after the 0029/0033/0034 trigger of the same table) and replaces exactly two earlier
