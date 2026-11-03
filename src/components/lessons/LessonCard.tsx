@@ -167,6 +167,27 @@ export function LessonCard({
               {viewer === 'teacher' ? '.' : ' to answer. Nothing is booked until they accept.'}
             </p>
           ) : null}
+          {/* TL-4: where a moved lesson came from or went to, and a move waiting for an answer. */}
+          {l.movedFrom && (l.status === 'requested' || l.status === 'proposed') ? (
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              A new time for the lesson booked on {formatLessonTime(l.movedFrom, timeZone)}. That lesson stays booked
+              unless this is accepted.
+            </p>
+          ) : l.movedFrom ? (
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              Moved from {formatLessonTime(l.movedFrom, timeZone)}.
+            </p>
+          ) : null}
+          {l.closeReason === 'rescheduled' ? (
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              {l.movedTo ? `Moved to ${formatLessonTime(l.movedTo, timeZone)}.` : 'Moved to a new time.'}
+            </p>
+          ) : null}
+          {l.changePending ? (
+            <p className="m-0 text-sm leading-5" data-testid="move-pending">
+              A move to a new time is waiting for an answer. Until then, this lesson stays booked.
+            </p>
+          ) : null}
           {reason && l.closedBy === 'aa_pro' ? <p className="m-0 text-sm leading-5">{reason}</p> : null}
           {l.kept && l.status === 'confirmed' ? (
             <p className="m-0 text-sm leading-5" data-testid="kept-note">

@@ -8,12 +8,19 @@ import {
   type ChapterIntent,
   closeOverlapping,
   closeOverlapsNow,
+  expireOverdueChanges,
   insertPlanned,
   isSubject,
   lessonPrice,
   line,
   lockLesson,
+  lockChangePair,
   lockLinkFirst,
+  type MoveFailure,
+  moveFailureFromDb,
+  type MoveRefusal,
+  type MoveTarget,
+  moveTarget,
   NOTICE_HOURS,
   parentOwns,
   type PlannedChapter,
@@ -26,6 +33,7 @@ import {
   validMinutes,
   WINDOW_DAYS,
 } from './lessons';
+import { dropLessonReminders } from './lessonReminders';
 import { MAX_DESCRIPTION_LENGTH, MAX_NOTE_LENGTH, requestMaterial } from './materialRequests';
 import { askForMeetingPermission } from './meetingLinks';
 
@@ -212,6 +220,12 @@ export interface ProposeInput {
    * database refuses the proposal if its own price snapshot differs (0034, as for a request).
    */
   shown?: { basis?: unknown; priceMinor?: unknown };
+  /**
+   * TL-4: the confirmed lesson this proposal would move (the teacher's change, proposal rules).
+   * The child and subject then come from that lesson; no material request is sent with a move
+   * (the lesson's open ones are carried at the swap).
+   */
+  replacesLessonId?: unknown;
 }
 
 export type ProposeReason =
@@ -227,14 +241,21 @@ export type ProposeReason =
   | 'no_rate'
   | 'chapters'
   | 'material'
-  | 'price_changed';
+  | 'price_changed'
+  // TL-4: moving a confirmed lesson.
+  | MoveRefusal
+  | MoveFailure;
 
 export type ProposeResult = { ok: true; id: string } | { ok: false; reason: ProposeReason };
 
 /** Maps a database refusal (0034) to a plain reason. */
 function proposeReasonFromDb(error: unknown): ProposeReason | null {
-  const e = error as { code?: string; message?: string; table_name?: string };
+  const e = error as { code?: string; message?: string; table_name?: string; constraint_name?: string };
   const m = e.message ?? '';
+  // TL-4 first: some of its messages mention chapters.
+  const moved = moveFailureFromDb(error);
+  if (moved) return moved;
+  if (e.constraint_name === 'lessons_one_open_change') return 'change_open';
   if (e.table_name === 'lesson_chapters' || /chapter|topic/.test(m)) return 'chapters';
   if (e.code === '23505') return 'duplicate';
   if (e.code === '42501') return m.includes('linked') ? 'not_linked' : 'not_allowed';
@@ -278,6 +299,8 @@ interface Checked {
   description: string;
   materialNote: string;
   timeZone: string;
+  /** TL-4: the confirmed lesson being moved, if this is a change. */
+  target: MoveTarget | null;
 }
 
 /**
@@ -291,8 +314,15 @@ async function checkProposal(
   now: Date,
 ): Promise<{ ok: true; c: Checked } | { ok: false; reason: ProposeReason }> {
   if (!UUID.test(teacherId)) return { ok: false, reason: 'not_allowed' };
-  const childId = line(input.childId);
-  const subject = line(input.subject);
+  let target: MoveTarget | null = null;
+  if (input.replacesLessonId !== undefined) {
+    const m = await moveTarget(sql, { id: teacherId, role: 'teacher' }, line(input.replacesLessonId), now);
+    if (!m.ok) return m;
+    target = m.lesson;
+    if (input.material?.description || input.material?.note) return { ok: false, reason: 'material' };
+  }
+  const childId = target ? target.childId : line(input.childId);
+  const subject = target ? target.subject : line(input.subject);
   const minutes = typeof input.minutes === 'number' ? input.minutes : Number(line(input.minutes));
   const planned = plannedChoices(input.planned);
   if (!planned) return { ok: false, reason: 'chapters' };
@@ -324,6 +354,7 @@ async function checkProposal(
       description,
       materialNote,
       timeZone: options.timeZone,
+      target,
     },
   };
 }
@@ -414,7 +445,7 @@ export async function proposeLesson(
 ): Promise<ProposeResult> {
   const checked = await checkProposal(sql, teacherId, input, now);
   if (!checked.ok) return checked;
-  const { childId, subject, minutes, startsAt, planned, description, materialNote } = checked.c;
+  const { childId, subject, minutes, startsAt, planned, description, materialNote, target } = checked.c;
   // The price shown on the review step, if any: the database refuses the proposal if it differs.
   const shownBasis = input.shown?.basis === 'agreed' || input.shown?.basis === 'listed' ? input.shown.basis : null;
   const shownRaw =
@@ -430,25 +461,35 @@ export async function proposeLesson(
   try {
     return await retrying(() =>
       sql.begin(async (tx): Promise<ProposeResult> => {
-        const [row] = await tx<Array<{ id: string }>>`
-          INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, status,
-                               price_basis, price_minor)
-          VALUES (${teacherId}, ${childId}, ${teacherId}, ${subject}, ${startsAt}, ${minutes}, 'proposed',
-                  ${shownBasis}, ${shownPrice})
-          RETURNING id`;
+        if (target) await expireOverdueChanges(tx, target.id, now);
+        const [row] = target
+          ? await tx<Array<{ id: string }>>`
+              INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, status,
+                                   price_basis, price_minor, replaces_lesson_id)
+              VALUES (${teacherId}, ${childId}, ${teacherId}, ${subject}, ${startsAt}, ${minutes}, 'proposed',
+                      ${shownBasis}, ${shownPrice}, ${target.id})
+              RETURNING id`
+          : await tx<Array<{ id: string }>>`
+              INSERT INTO lessons (teacher_id, student_id, proposed_by, subject, starts_at, minutes, status,
+                                   price_basis, price_minor)
+              VALUES (${teacherId}, ${childId}, ${teacherId}, ${subject}, ${startsAt}, ${minutes}, 'proposed',
+                      ${shownBasis}, ${shownPrice})
+              RETURNING id`;
         await insertPlanned(tx, row!.id, planned, 0);
         await writeAudit(
           tx,
           {
-            type: 'LESSON_PROPOSED',
+            type: target ? 'LESSON_CHANGE_PROPOSED' : 'LESSON_PROPOSED',
             outcome: 'success',
             actorId: teacherId,
             subjectId: childId,
-            details: { lesson: row!.id, minutes, plannedChapters: planned.length },
+            details: target
+              ? { lesson: row!.id, replaces: target.id, minutes, plannedChapters: planned.length }
+              : { lesson: row!.id, minutes, plannedChapters: planned.length },
           },
           now,
         );
-        await tellAbout(tx, row!.id, 'proposed', { actorId: teacherId }, now);
+        await tellAbout(tx, row!.id, target ? 'change_proposed' : 'proposed', { actorId: teacherId }, now);
         if (description) {
           // The same function and rules as on My schedule (TL-2); all or nothing with the proposal.
           const m = await requestMaterial(tx, teacherId, { lessonId: row!.id, description, note: materialNote }, now);
@@ -497,7 +538,8 @@ export async function proposalBusyTimes(
 // ======================================================================= answering and withdrawing
 
 export type ProposalAnswerResult =
-  { ok: true } | { ok: false; reason: 'not_found' | 'closed' | 'expired' | 'time_taken' | 'not_linked' | 'invalid' };
+  | { ok: true }
+  | { ok: false; reason: 'not_found' | 'closed' | 'expired' | 'time_taken' | 'not_linked' | 'invalid' | MoveFailure };
 
 /**
  * A parent of the child accepts or declines a teacher's proposal (OC-45, D-TLS-2, TL3-5). Two
@@ -521,6 +563,8 @@ export async function answerProposal(
   const result = await retrying(() =>
     sql.begin(async (tx): Promise<ProposalAnswerResult> => {
       await lockLinkFirst(tx, lessonId); // the same lock order as link removal (see lessons.lockLinkFirst)
+      // TL-4: a change locks its original too (lower id first), before either row.
+      const original = await lockChangePair(tx, lessonId);
       const l = await lockLesson(tx, lessonId);
       if (!l || l.origin !== 'teacher_proposal' || !(await parentOwns(tx, parentId, l))) {
         return { ok: false, reason: 'not_found' };
@@ -546,6 +590,9 @@ export async function answerProposal(
         );
       } catch (error) {
         const e = error as { code?: string; message?: string; constraint_name?: string };
+        // TL-4: the swap refused; nothing changed and the change stays open.
+        const moved = moveFailureFromDb(error);
+        if (moved) return { ok: false, reason: moved };
         if (e.code === '23P01') {
           // TL3-4: another lesson was confirmed at an overlapping time first.
           await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'time_no_longer_free'
@@ -567,17 +614,36 @@ export async function answerProposal(
         throw error;
       }
       await closeOverlapping(tx, l, parentId, now);
-      await writeAudit(
-        tx,
-        { type: 'LESSON_PROPOSAL_ACCEPTED', outcome: 'success', actorId: parentId, details: { lesson: l.id } },
-        now,
-      );
-      await tellAbout(tx, l.id, 'proposal_accepted', { actorId: parentId }, now);
+      if (original) {
+        // TL-4: the original closed at the swap; its reminder goes with it. One "moved" notice.
+        await dropLessonReminders(tx, original);
+        await writeAudit(
+          tx,
+          {
+            type: 'LESSON_MOVED',
+            outcome: 'success',
+            actorId: parentId,
+            details: { lesson: l.id, replaces: original },
+          },
+          now,
+        );
+        await tellAbout(tx, l.id, 'moved', { actorId: parentId }, now);
+      } else {
+        await writeAudit(
+          tx,
+          { type: 'LESSON_PROPOSAL_ACCEPTED', outcome: 'success', actorId: parentId, details: { lesson: l.id } },
+          now,
+        );
+        await tellAbout(tx, l.id, 'proposal_accepted', { actorId: parentId }, now);
+      }
       // As for a request (D3A-1): the parents are asked to allow the teacher's meeting links if needed.
       await askForMeetingPermission(tx, l.id, now);
       return { ok: true };
     }),
   ).catch((error) => {
+    // TL-4: the two-way and mapping checks run at commit (deferred); nothing was committed.
+    const moved = moveFailureFromDb(error);
+    if (moved) return { ok: false, reason: moved } as const;
     // The deadline is also checked by the database clock at commit time (lessons_confirm_in_time).
     if ((error as { constraint_name?: string }).constraint_name === 'lessons_confirm_in_time') {
       return { ok: false, reason: 'expired' } as const;

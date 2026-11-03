@@ -33,6 +33,8 @@ const DONE: Record<string, { tone: 'success' | 'info' | 'warning'; text: string 
   not_linked: { tone: 'info', text: 'This teacher is no longer linked to your child for this subject.' },
   closed: { tone: 'info', text: 'This proposal is no longer open: it was already answered, withdrawn or closed.' },
   not_found: { tone: 'info', text: 'This proposal is no longer open.' },
+  // TL-4: accepting a move.
+  moved: { tone: 'success', text: 'Moved. The lesson is booked at the new time and the teacher has been told.' },
   // Material answered here (TL3-1); the same wording as on the Family calendar.
   material_shared: { tone: 'success', text: 'Shared. The teacher sees it in AA Pro, view only.' },
   material_unavailable: {
@@ -83,6 +85,8 @@ export default async function BookingDetailPage({
   const subject = SUBJECTS[lesson.subject].name;
   const summary = `${lesson.childName}’s ${subject} lesson with ${lesson.teacherName}, ${formatLessonTime(lesson.startsAt, tz)}, ${lesson.minutes} min`;
   const proposal = lesson.origin === 'teacher_proposal';
+  // TL-4: a teacher's proposal to move a booked lesson.
+  const move = lesson.movedFrom && lesson.status === 'proposed' ? formatLessonTime(lesson.movedFrom, tz) : null;
 
   return (
     <div className="mx-auto flex max-w-[860px] flex-col gap-6">
@@ -91,7 +95,11 @@ export default async function BookingDetailPage({
       </Link>
       <div className="flex flex-col gap-2">
         <h1 className="text-headline-lg-mobile lg:text-headline-lg">
-          {proposal && lesson.status === 'proposed' ? 'A teacher proposed a lesson' : 'Booking details'}
+          {move
+            ? 'A teacher proposed a new time'
+            : proposal && lesson.status === 'proposed'
+              ? 'A teacher proposed a lesson'
+              : 'Booking details'}
         </h1>
         <p className="m-0 text-body-md text-on-surface-variant">
           Times are in your time zone ({formatZoneName(now.toISOString(), { timeZone: tz })}, {tz}).
@@ -102,7 +110,7 @@ export default async function BookingDetailPage({
         lesson={lesson}
         viewer="parent"
         timeZone={tz}
-        actions={lesson.canAnswer ? <AnswerProposal lessonId={lesson.id} summary={summary} /> : null}
+        actions={lesson.canAnswer ? <AnswerProposal lessonId={lesson.id} summary={summary} movedFrom={move} /> : null}
       >
         <MaterialRequestList
           lessonId={lesson.id}

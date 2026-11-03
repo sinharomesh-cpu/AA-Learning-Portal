@@ -14,7 +14,7 @@ import { formatZoneName } from '@/lib/time';
 import { requireRole } from '@/server/authz';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { type LessonItem, lessonsForParent } from '@/server/lessons';
+import { type LessonItem, lessonChangesReady, lessonsForParent } from '@/server/lessons';
 import { materialRequestsFor, type ShareOption, shareOptions } from '@/server/materialRequests';
 import { rolePlaceholder } from '@/server/placeholder';
 import { ParentLessonButton } from './LessonForms';
@@ -35,6 +35,11 @@ const DONE: Record<string, { tone: 'success' | 'info'; text: string }> = {
     text: 'Saved. The teacher sees that it isn’t available. The lesson doesn’t change.',
   },
   material_closed: { tone: 'info', text: 'That material request is no longer open.' },
+  // TL-4: a parent's request to move a confirmed lesson.
+  move_requested: {
+    tone: 'success',
+    text: 'Move request sent. The lesson stays booked at its current time until the teacher accepts the new one.',
+  },
 };
 
 const DemoPlaceholder = rolePlaceholder(
@@ -62,6 +67,8 @@ export default async function FamilyCalendarPage({
   const tz = access.viewer.timeZone;
   const now = clockNow();
   const all = await lessonsForParent(db(), access.viewer.id, now);
+  // TL-4: moving is offered only once the TL-4 database change is in place.
+  const canMoveLessons = await lessonChangesReady(db());
   // TL-2: the teachers' material requests on these lessons, and what this parent may share for each
   // open one (only books the lesson's teacher can already view; checked again on sharing).
   const materials = await materialRequestsFor(
@@ -122,6 +129,15 @@ export default async function FamilyCalendarPage({
                       aria-label={`Allow meeting links: ${describe(l)}`}
                     >
                       Allow meeting links
+                    </LinkButton>
+                  ) : null}
+                  {l.canMove ? (
+                    <LinkButton
+                      href={`/parent/calendar/move/${l.id}`}
+                      variant="secondary"
+                      aria-label={`Move lesson: ${describe(l)}`}
+                    >
+                      Move lesson
                     </LinkButton>
                   ) : null}
                   {l.canCancel ? <ParentLessonButton lessonId={l.id} kind="cancel" label={describe(l)} /> : null}
@@ -213,7 +229,10 @@ export default async function FamilyCalendarPage({
           </EmptyState>
         )}
         <p className="m-0 text-sm leading-5 text-on-surface-variant">
-          Lessons can be cancelled up to 30 minutes before the start. To move one, cancel it and request a new time.
+          Lessons can be cancelled up to 30 minutes before the start.{' '}
+          {canMoveLessons
+            ? 'To move one, choose Move lesson: it stays booked until the teacher accepts the new time.'
+            : 'To move one, cancel it and request a new time.'}{' '}
           Prices are for information: AA Pro takes no payment.
         </p>
       </section>

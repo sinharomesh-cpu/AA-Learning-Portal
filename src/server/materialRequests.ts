@@ -46,6 +46,8 @@ export interface MaterialRequestView {
   sharedNoLongerVisible: boolean;
   answerNote: string | null;
   closedBy: 'parent' | 'teacher' | 'aa_pro' | null;
+  /** TL-4: closed here because the lesson moved; the request continues on the new lesson. */
+  carriedForward: boolean;
   /** Actions the viewer may take now (the server and the database check again). */
   canAnswer: boolean;
   canWithdraw: boolean;
@@ -63,6 +65,7 @@ interface Row {
   shared_chapter_id: string | null;
   answer_note: string | null;
   closed_by: MaterialRequestView['closedBy'];
+  close_reason: string | null;
   lesson_live: boolean;
   teacher_can_view: boolean;
 }
@@ -104,6 +107,7 @@ function toView(r: Row, viewer: 'parent' | 'teacher'): MaterialRequestView {
     sharedNoLongerVisible: viewer === 'teacher' && r.status === 'shared' && !visible,
     answerNote: r.answer_note,
     closedBy: r.closed_by,
+    carriedForward: r.close_reason === 'carried_forward',
     canAnswer: viewer === 'parent' && status === 'open',
     canWithdraw: viewer === 'teacher' && status === 'open',
   };
@@ -131,7 +135,7 @@ export async function materialRequestsFor(
                       AND p.role = 'parent' AND p.status = 'active')`;
   const rows = await sql<Row[]>`
     SELECT m.id, m.lesson_id, m.status, coalesce(lc.label, m.description) AS what, m.note, m.created_at,
-           m.shared_label, m.shared_book_id, m.shared_chapter_id, m.answer_note, m.closed_by,
+           m.shared_label, m.shared_book_id, m.shared_chapter_id, m.answer_note, m.closed_by, m.close_reason,
            ${live(sql, now)} AS lesson_live,
            (m.shared_book_id IS NOT NULL
             AND material_requests_teacher_can_view(l.teacher_id, l.student_id, l.subject, m.shared_book_id)

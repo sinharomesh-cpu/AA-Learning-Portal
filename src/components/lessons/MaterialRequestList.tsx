@@ -36,7 +36,10 @@ export function MaterialRequestList({
       </p>
       <ul aria-labelledby={headingId} className="m-0 flex list-none flex-col gap-2 p-0">
         {requests.map((r) => {
-          const s = STATUS[r.status];
+          // TL-4: a request carried to the new lesson when the lesson moved (it continues there).
+          const s = r.carriedForward
+            ? { kind: 'neutral' as const, parent: 'Moved to the new lesson', teacher: 'Moved to the new lesson' }
+            : STATUS[r.status];
           return (
             <li
               key={r.id}

@@ -42,6 +42,7 @@ export function RequestForm({
   chapters,
   childName,
   subjectName,
+  replacesLessonId,
 }: {
   childId: string;
   teacherId: string;
@@ -53,6 +54,11 @@ export function RequestForm({
   chapters: ChapterOption[];
   childName: string;
   subjectName: string;
+  /**
+   * TL-4 "Move lesson": the booked lesson this request would move. No chapters chosen = the
+   * lesson's own chapters move with it (Q-B).
+   */
+  replacesLessonId?: string;
 }) {
   const [state, action, pending] = useActionState<LessonFormState, FormData>(requestLessonAction, {});
   const [picked, setPicked] = useState<string[]>([]);
@@ -65,6 +71,7 @@ export function RequestForm({
       <input type="hidden" name="teacherId" value={teacherId} />
       <input type="hidden" name="subject" value={subject} />
       <input type="hidden" name="minutes" value={minutes} />
+      {replacesLessonId ? <input type="hidden" name="replacesLessonId" value={replacesLessonId} /> : null}
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       <fieldset className="m-0 border-0 p-0">
         <legend className="mb-3 text-[17px] font-bold">Start time on {dayName}</legend>
@@ -92,7 +99,9 @@ export function RequestForm({
           {chapters.length
             ? `Choose up to ${MAX_CHAPTERS} chapters from your books shared with ${childName} for ${subjectName}, or type a topic instead.`
             : `None of your published books for ${subjectName} is shared with ${childName} yet. You can type a topic instead.`}{' '}
-          The teacher sees your choice with the request.
+          {replacesLessonId
+            ? 'Choose nothing to keep the lesson’s own chapters.'
+            : 'The teacher sees your choice with the request.'}
         </p>
         {chapters.length ? (
           <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Chapters">
@@ -147,7 +156,7 @@ export function RequestForm({
       <p className="m-0 rounded-[18px] bg-surface-container-low px-4 py-3 text-[15px] leading-[22px]">{summary}</p>
       <div>
         <Button type="submit" inactive={pending}>
-          {pending ? 'Sending…' : 'Send request'}
+          {pending ? 'Sending…' : replacesLessonId ? 'Ask to move' : 'Send request'}
         </Button>
       </div>
     </form>

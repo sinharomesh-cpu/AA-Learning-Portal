@@ -7,7 +7,13 @@ import type { ChipKind } from '@/components/StatusChip';
 
 export type LessonStatusName =
   'requested' | 'proposed' | 'confirmed' | 'declined' | 'withdrawn' | 'expired' | 'cancelled';
-export type CloseReason = 'time_no_longer_free' | 'teacher_deactivated' | 'link_ended' | null;
+export type CloseReason =
+  | 'time_no_longer_free'
+  | 'teacher_deactivated'
+  | 'link_ended'
+  // TL-4: the original of a lesson that was moved to a new time.
+  | 'rescheduled'
+  | null;
 export type ClosedBy = 'parent' | 'teacher' | 'aa_pro' | null;
 
 /** "Tue 4 Nov, 4:00 pm" in a time zone. */
@@ -96,6 +102,8 @@ export function lessonStatusText(
       if (l.closeReason === 'time_no_longer_free') return { text: 'Time no longer free', kind: 'neutral' };
       return { text: 'Closed by AA Pro', kind: 'neutral' };
     case 'cancelled':
+      // TL-4: not a cancellation for the family; the lesson moved to its replacement.
+      if (l.closeReason === 'rescheduled') return { text: 'Moved', kind: 'neutral' };
       if (l.closedBy === 'aa_pro') return { text: 'Cancelled by AA Pro', kind: 'error' };
       if (l.closedBy === 'parent') {
         if (viewer === 'teacher') return { text: 'Cancelled by the parent', kind: 'error' };

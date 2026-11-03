@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isMoveReason, MOVE_TEXT } from '@/lib/moveText';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
@@ -73,6 +74,8 @@ export async function answerLessonAction(_prev: ScheduleState, fd: FormData): Pr
     };
   }
   if (r.reason === 'time_taken' || r.reason === 'expired' || r.reason === 'not_linked') return back(r.reason);
+  // TL-4: a move the database refused leaves everything as it was; say why beside the buttons.
+  if (isMoveReason(r.reason)) return { error: MOVE_TEXT[r.reason] };
   return back('closed');
 }
 
@@ -92,6 +95,8 @@ const PROPOSE_TEXT: Record<ProposeReason, string> = {
   material:
     'Describe the material you need (up to 200 characters); the note can be up to 300 characters. Nothing was sent.',
   price_changed: 'The price has changed since you reviewed this proposal. Nothing was sent. Review it again.',
+  // TL-4: moving a confirmed lesson.
+  ...MOVE_TEXT,
 };
 
 /**
@@ -154,6 +159,30 @@ export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): P
   if (r.ok) {
     revalidatePath('/teacher/propose');
     return back('proposed');
+  }
+  return { error: PROPOSE_TEXT[r.reason] };
+}
+
+/**
+ * TL-4: "Move lesson". The teacher proposes a new time for a confirmed lesson (proposal rules: any
+ * 5-minute start, 24 hours to 4 weeks ahead), optionally with their own planned chapters (Q-B C2;
+ * otherwise the lesson's chapters are carried). Nothing changes until a parent accepts.
+ */
+export async function proposeMoveAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await proposeLesson(db(), id, {
+    replacesLessonId: str(fd, 'replacesLessonId'),
+    // Taken from the lesson being moved, never from the form.
+    childId: '',
+    subject: '',
+    date: str(fd, 'date'),
+    time: str(fd, 'time'),
+    minutes: str(fd, 'minutes'),
+    planned: plannedFrom(fd),
+  });
+  if (r.ok) {
+    revalidatePath('/teacher/schedule');
+    return back('move_proposed');
   }
   return { error: PROPOSE_TEXT[r.reason] };
 }

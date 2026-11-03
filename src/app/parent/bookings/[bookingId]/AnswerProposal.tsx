@@ -13,7 +13,16 @@ import { answerProposalAction, type LessonFormState } from '../../calendar/actio
  * Accept repeats the time in the parent's own time zone; Decline takes an optional reason (up to
  * 200 characters) that the teacher sees on the lesson and that is never copied into a notice.
  */
-export function AnswerProposal({ lessonId, summary }: { lessonId: string; summary: string }) {
+export function AnswerProposal({
+  lessonId,
+  summary,
+  movedFrom = null,
+}: {
+  lessonId: string;
+  summary: string;
+  /** TL-4: when the lesson this proposal would move is booked now (the parent's time zone). */
+  movedFrom?: string | null;
+}) {
   const [state, action, pending] = useActionState<LessonFormState, FormData>(answerProposalAction, {});
   const [open, setOpen] = useState<'accept' | 'decline' | null>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -29,6 +38,7 @@ export function AnswerProposal({ lessonId, summary }: { lessonId: string; summar
     <form ref={form} id={formId} action={action} className="flex flex-col gap-3" data-testid="answer-proposal">
       <input type="hidden" name="lessonId" value={lessonId} />
       <input ref={answer} type="hidden" name="answer" value="accept" />
+      {movedFrom ? <input type="hidden" name="move" value="1" /> : null}
       {state.error ? <FormMessage tone="error">{state.error}</FormMessage> : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" inactive={pending} onClick={() => setOpen('accept')} aria-label={`Accept: ${summary}`}>
@@ -46,25 +56,29 @@ export function AnswerProposal({ lessonId, summary }: { lessonId: string; summar
       </div>
       <ConfirmDialog
         open={open === 'accept'}
-        title="Accept this lesson?"
+        title={movedFrom ? 'Move the lesson to this time?' : 'Accept this lesson?'}
         confirmLabel="Accept"
         cancelLabel="Go back"
         onCancel={() => setOpen(null)}
         onConfirm={() => submit('accept')}
       >
-        {summary}. It is booked once you accept, and the teacher is told. You or the teacher can cancel up to 30 minutes
-        before the start.
+        {movedFrom
+          ? `${summary}. The lesson on ${movedFrom} moves to this time, with its chapters and open material requests, and the teacher is told.`
+          : `${summary}. It is booked once you accept, and the teacher is told.`}{' '}
+        You or the teacher can cancel up to 30 minutes before the start.
       </ConfirmDialog>
       <ConfirmDialog
         open={open === 'decline'}
-        title="Decline this lesson?"
+        title={movedFrom ? 'Decline the new time?' : 'Decline this lesson?'}
         confirmLabel="Decline"
         cancelLabel="Go back"
         onCancel={() => setOpen(null)}
         onConfirm={() => submit('decline')}
       >
         <span className="flex flex-col gap-2">
-          <span>{summary}. The teacher is told.</span>
+          <span>
+            {summary}. The teacher is told.{movedFrom ? ` The lesson stays booked on ${movedFrom}.` : ''}
+          </span>
           <label htmlFor={reasonId} className="text-sm font-bold text-on-surface">
             Reason for the teacher (optional)
           </label>
