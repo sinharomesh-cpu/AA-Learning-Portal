@@ -1749,6 +1749,11 @@ export interface LessonItem {
    * replacement starts.
    */
   movedFrom: Date | null;
+  /**
+   * TL-4 (parents and teachers only): the length and price of the lesson a change would move, for
+   * the "Now → New" comparison shown before anyone answers. Information only (D-TLS-12).
+   */
+  movedFromLesson: { minutes: number; priceMinor: number; currency: string } | null;
   movedTo: Date | null;
   /** TL-4: a confirmed lesson with a change waiting for an answer (it stays booked meanwhile). */
   changePending: boolean;
@@ -1848,6 +1853,7 @@ interface ListRow {
   link_set_at: Date | null;
   join_open: boolean;
   moved_from: Date | null;
+  moved_from_detail: { minutes: number; price_minor: number | string; currency: string } | null;
   moved_to: Date | null;
   change_pending: boolean;
   changes_ready: boolean;
@@ -1879,6 +1885,8 @@ const LIST_COLUMNS = (sql: Db) => sql`
   (now() >= l.starts_at - interval '10 minutes' AND now() < l.ends_at) AS join_open,
   -- TL-4, read through to_jsonb so the same query works before the TL-4 SQL is applied.
   (SELECT o.starts_at FROM lessons o WHERE o.id::text = to_jsonb(l) ->> 'replaces_lesson_id') AS moved_from,
+  (SELECT json_build_object('minutes', o.minutes, 'price_minor', o.price_minor, 'currency', o.currency)
+   FROM lessons o WHERE o.id::text = to_jsonb(l) ->> 'replaces_lesson_id') AS moved_from_detail,
   CASE WHEN l.close_reason = 'rescheduled' THEN
     (SELECT r.starts_at FROM lessons r WHERE r.student_id = l.student_id AND r.status = 'confirmed'
        AND (to_jsonb(r) ->> 'replaces_lesson_id') = l.id::text) END AS moved_to,
@@ -1927,6 +1935,14 @@ function toItem(r: ListRow, viewer: 'parent' | 'teacher' | 'student', viewerId: 
     closeReason: r.close_reason as LessonItem['closeReason'],
     closeNote: viewer === 'student' ? null : r.close_note,
     movedFrom: viewer === 'student' ? null : r.moved_from,
+    movedFromLesson:
+      viewer === 'student' || !r.moved_from_detail
+        ? null
+        : {
+            minutes: Number(r.moved_from_detail.minutes),
+            priceMinor: Number(r.moved_from_detail.price_minor),
+            currency: r.moved_from_detail.currency,
+          },
     movedTo: viewer === 'student' ? null : r.moved_to,
     changePending: viewer !== 'student' && r.change_pending,
     canMove:

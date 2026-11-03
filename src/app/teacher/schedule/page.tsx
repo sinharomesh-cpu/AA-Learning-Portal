@@ -67,6 +67,10 @@ const DONE: Record<string, { tone: 'success' | 'info' | 'warning'; text: string 
   material_withdrawn: { tone: 'success', text: 'Material request withdrawn.' },
   material_closed: { tone: 'info', text: 'That lesson or material request is no longer open.' },
   // TL-4: the teacher proposed a new time for a confirmed lesson.
+  move_accepted: {
+    tone: 'success',
+    text: 'Moved. The lesson is booked at the new time and the family has been told. Any meeting link for the old time was removed: add your meeting link for the new time below.',
+  },
   move_proposed: {
     tone: 'success',
     text: 'New time sent to the parents. The lesson stays booked at its current time until one of them accepts.',
@@ -247,6 +251,18 @@ export default async function TeacherSchedulePage({
                 size="md"
                 label={describe(l)}
               />
+              {l.movedFrom && !l.meeting.added ? (
+                // TL-4 (review F-14): a move removes the old time's meeting link (0030); the new lesson
+                // has none until the teacher adds one. Never copied or invented.
+                <p
+                  className="m-0 rounded-[16px] border border-warning-border bg-warning-container px-4 py-3 text-[15px] leading-[22px] text-on-warning-container"
+                  data-testid="move-link-prompt"
+                >
+                  {l.meeting.allowed
+                    ? 'This lesson moved to a new time. Any meeting link for the old time was removed: add your meeting link for the new time so Join can open.'
+                    : 'This lesson moved to a new time. Any meeting link for the old time was removed. Once a parent allows your meeting links, add one for the new time.'}
+                </p>
+              ) : null}
               {l.meeting.allowed ? (
                 <MeetingLinkForm lessonId={l.id} label={describe(l)} added={l.meeting.added} />
               ) : null}

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { isMoveReason, MOVE_TEXT } from '@/lib/moveText';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
+import { answerLesson, cancelLesson, recordOutcome, replacedLessonId } from '@/server/lessons';
 import { requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
 import { setMeetingLink } from '@/server/meetingLinks';
 import { SUBJECTS } from '@/fixtures/subjects';
@@ -66,7 +66,10 @@ export async function answerLessonAction(_prev: ScheduleState, fd: FormData): Pr
   const r = await answerLesson(db(), id, str(fd, 'lessonId'), answer, str(fd, 'note'), new Date(), {
     planned: answer === 'accept' ? plannedFrom(fd) : [],
   });
-  if (r.ok) return back(answer === 'accept' ? 'accepted' : 'declined');
+  if (r.ok) {
+    if (answer === 'accept' && (await replacedLessonId(db(), str(fd, 'lessonId')))) return back('move_accepted');
+    return back(answer === 'accept' ? 'accepted' : 'declined');
+  }
   if (r.reason === 'chapters') {
     return {
       error:
