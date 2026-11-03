@@ -8,6 +8,10 @@
 -- Running it on any shared database needs its own written approval and a restore point.
 DO $rb$
 BEGIN
+  -- Review F-4: lock first, so no change or move can commit between the check and the removals; one
+  -- in flight is waited for, then seen by the check.
+  LOCK TABLE lessons, material_requests, lesson_reschedules, lesson_reschedule_requests, lesson_chapters
+    IN ACCESS EXCLUSIVE MODE;
   IF EXISTS (SELECT 1 FROM lesson_reschedules)
      OR EXISTS (SELECT 1 FROM lessons WHERE replaces_lesson_id IS NOT NULL OR close_reason = 'rescheduled')
      OR EXISTS (SELECT 1 FROM material_requests WHERE close_reason = 'carried_forward' OR logical_request_id <> id) THEN
@@ -33,6 +37,8 @@ BEGIN
   DROP FUNCTION lessons_lock_pair(uuid, uuid);
   DROP FUNCTION material_requests_before_write_tl4();
   DROP FUNCTION tl4_parent_rule_check(uuid, integer);
+  DROP FUNCTION tl4_parent_verify(jsonb);
+  DROP FUNCTION tl4_parent_snapshot(uuid);
   DROP FUNCTION tl4_parent_open_count(uuid);
 
   DROP INDEX material_requests_one_open_logical;
@@ -153,6 +159,164 @@ BEGIN
   ELSE
     NEW.topic := btrim(NEW.topic);    -- an empty topic then fails the length check
     NEW.label := NEW.topic;
+  END IF;
+  RETURN NEW;
+END ;
+END $function$
+$q$;
+
+  -- 0034's lessons_before_insert, exactly as main defines it (review F-1 replaced it).
+  EXECUTE $q$CREATE OR REPLACE FUNCTION public.lessons_before_insert()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  tl3_open int;
+  tl3_p record;
+BEGIN
+  -- TL-3: a teacher's proposal. A parent's request skips this block and runs 0029's rules below.
+  IF NEW.status = 'proposed' THEN
+    NEW.origin := 'teacher_proposal';
+    IF NEW.requested_by IS NOT NULL OR NEW.proposed_by IS NULL OR NEW.proposed_by <> NEW.teacher_id
+       OR NEW.confirmed_by IS NOT NULL THEN
+      RAISE EXCEPTION 'a proposal is made by the lesson''s own teacher' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    -- Times come from the database clock, never from the caller.
+    NEW.requested_at := now();
+    NEW.ends_at := NEW.starts_at + make_interval(mins => NEW.minutes);
+    -- D-TLS-5 (as D3A-5): any deadline sent by the caller is replaced.
+    NEW.reply_deadline := LEAST(NEW.requested_at + interval '48 hours', NEW.starts_at - interval '2 hours');
+    -- D-TLS-3: 24 hours to 4 weeks ahead, any 5-minute start, not limited to the usual times.
+    IF NEW.starts_at < now() + interval '24 hours' THEN
+      RAISE EXCEPTION 'a lesson must be proposed at least 24 hours ahead' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.starts_at > now() + interval '28 days' THEN
+      RAISE EXCEPTION 'a lesson can be proposed at most 4 weeks ahead' USING ERRCODE = 'check_violation';
+    END IF;
+    IF extract(minute FROM NEW.starts_at)::int % 5 <> 0 THEN
+      RAISE EXCEPTION 'a proposed lesson starts on a 5-minute step' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM accounts WHERE id = NEW.student_id AND role = 'student' AND status = 'active') THEN
+      RAISE EXCEPTION 'lessons are for an active child account' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT lessons_teacher_link_ok(NEW.teacher_id, NEW.student_id, NEW.subject) THEN
+      RAISE EXCEPTION 'the teacher must be approved, active and linked to the child in this subject'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    -- D-TLS-12: the same price snapshot as for a request (0029); no hourly price, no proposal.
+    tl3_p := lessons_price_for(NEW.teacher_id, NEW.student_id, NEW.subject, NEW.starts_at, NEW.minutes);
+    IF (NEW.price_basis IS NOT NULL AND NEW.price_basis <> tl3_p.basis)
+       OR (NEW.rate_minor IS NOT NULL AND NEW.rate_minor <> tl3_p.rate)
+       OR (NEW.currency IS NOT NULL AND NEW.currency <> tl3_p.cur)
+       OR (NEW.agreement_id IS NOT NULL AND NEW.agreement_id IS DISTINCT FROM tl3_p.agreement)
+       OR (NEW.price_minor IS NOT NULL AND NEW.price_minor <> (tl3_p.rate * NEW.minutes * 2 + 60) / 120) THEN
+      RAISE EXCEPTION 'the lesson price has changed' USING ERRCODE = 'check_violation';
+    END IF;
+    NEW.price_basis := tl3_p.basis;
+    NEW.rate_minor := tl3_p.rate;
+    NEW.currency := tl3_p.cur;
+    NEW.agreement_id := tl3_p.agreement;
+    NEW.price_minor := (tl3_p.rate * NEW.minutes * 2 + 60) / 120;
+
+    -- An overdue proposal for the same teacher, child and start is expired now, so it never blocks
+    -- the slot even if no sweep has run.
+    UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
+    WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND starts_at = NEW.starts_at
+      AND status = 'proposed' AND reply_deadline <= now();
+
+    -- D-TLS-3: never over a confirmed lesson of the teacher or of the child, checked after taking
+    -- the time locks so an overlapping confirmation still in flight is waited for and then seen.
+    -- (After that, a proposal still holds no time, TL3-4: a later confirmation may overlap it, and
+    -- its acceptance is then refused by 0029's no-overlap rules.)
+    PERFORM lessons_lock_times(NEW.teacher_id, NEW.student_id);
+    IF EXISTS (SELECT 1 FROM lessons x
+               WHERE x.status = 'confirmed' AND (x.teacher_id = NEW.teacher_id OR x.student_id = NEW.student_id)
+                 AND tstzrange(x.starts_at, x.ends_at, '[)') && tstzrange(NEW.starts_at, NEW.ends_at, '[)')) THEN
+      RAISE EXCEPTION 'the time overlaps a confirmed lesson' USING ERRCODE = 'check_violation';
+    END IF;
+
+    -- D-TLS-5: at most 10 open proposals per teacher and child. A per-pair transaction lock makes
+    -- two proposals sent at the same moment count one after the other. Overdue ones don't count.
+    PERFORM pg_advisory_xact_lock(hashtextextended(
+      'aa_pro.lesson_proposals:' || NEW.teacher_id::text || ':' || NEW.student_id::text, 0));
+    SELECT count(*) INTO tl3_open FROM lessons
+    WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND status = 'proposed'
+      AND reply_deadline > now();
+    IF tl3_open >= 10 THEN
+      RAISE EXCEPTION 'at most 10 open lesson proposals per teacher and child' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- A parent's request: 0029's rules, unchanged (byte for byte), as a labelled sub-block. In
+  -- PL/pgSQL a sub-block (DECLARE ... BEGIN ... END;) is itself a statement, so its own DECLARE
+  -- section may follow other statements; its variables exist only inside it.
+  <<parent_request_0029>>
+
+DECLARE
+  open_count int;
+  p record;
+BEGIN
+  IF NEW.status <> 'requested' THEN
+    RAISE EXCEPTION 'a lesson starts as a request' USING ERRCODE = 'check_violation';
+  END IF;
+  -- Times come from the database clock, never from the caller.
+  NEW.requested_at := now();
+  NEW.ends_at := NEW.starts_at + make_interval(mins => NEW.minutes);
+  -- D3A-5: any deadline sent by the caller is replaced.
+  NEW.reply_deadline := LEAST(NEW.requested_at + interval '48 hours', NEW.starts_at - interval '2 hours');
+  -- D3A-3 and D3A-2: at least 24 hours ahead, at most 4 weeks ahead.
+  IF NEW.starts_at < now() + interval '24 hours' THEN
+    RAISE EXCEPTION 'a lesson must be requested at least 24 hours ahead' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.starts_at > now() + interval '28 days' THEN
+    RAISE EXCEPTION 'a lesson can be requested at most 4 weeks ahead' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM accounts WHERE id = NEW.student_id AND role = 'student' AND status = 'active') THEN
+    RAISE EXCEPTION 'lessons are for an active child account' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT lessons_parent_ok(NEW.requested_by, NEW.student_id) THEN
+    RAISE EXCEPTION 'only a parent linked to the child can request a lesson' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF NOT lessons_teacher_link_ok(NEW.teacher_id, NEW.student_id, NEW.subject) THEN
+    RAISE EXCEPTION 'the teacher must be approved, active and linked to the child in this subject'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT lessons_in_usual_time(NEW.teacher_id, NEW.starts_at, NEW.minutes) THEN
+    RAISE EXCEPTION 'the lesson must start on the 30-minute grid and fit inside the teacher''s usual times'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- The price is worked out here. A caller may send the price it showed; if any part differs
+  -- (the listing or agreement changed meanwhile) the request is refused so it can be shown again.
+  p := lessons_price_for(NEW.teacher_id, NEW.student_id, NEW.subject, NEW.starts_at, NEW.minutes);
+  IF (NEW.price_basis IS NOT NULL AND NEW.price_basis <> p.basis)
+     OR (NEW.rate_minor IS NOT NULL AND NEW.rate_minor <> p.rate)
+     OR (NEW.currency IS NOT NULL AND NEW.currency <> p.cur)
+     OR (NEW.agreement_id IS NOT NULL AND NEW.agreement_id IS DISTINCT FROM p.agreement)
+     OR (NEW.price_minor IS NOT NULL AND NEW.price_minor <> (p.rate * NEW.minutes * 2 + 60) / 120) THEN
+    RAISE EXCEPTION 'the lesson price has changed' USING ERRCODE = 'check_violation';
+  END IF;
+  NEW.price_basis := p.basis;
+  NEW.rate_minor := p.rate;
+  NEW.currency := p.cur;
+  NEW.agreement_id := p.agreement;
+  NEW.price_minor := (p.rate * NEW.minutes * 2 + 60) / 120;
+
+  -- D3A-5: an overdue request for the same child, teacher and start is expired now, so it never
+  -- blocks the slot even if no sweep has run.
+  UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
+  WHERE teacher_id = NEW.teacher_id AND student_id = NEW.student_id AND starts_at = NEW.starts_at
+    AND status = 'requested' AND reply_deadline <= now();
+
+  -- At most 10 open requests per parent (D3A-17). A per-parent transaction lock makes two requests
+  -- sent at the same moment count one after the other, without locking the account row itself.
+  -- Requests past their deadline don't count.
+  PERFORM pg_advisory_xact_lock(hashtextextended('aa_pro.lesson_requests:' || NEW.requested_by::text, 0));
+  SELECT count(*) INTO open_count FROM lessons
+  WHERE requested_by = NEW.requested_by AND status = 'requested' AND reply_deadline > now();
+  IF open_count >= 10 THEN
+    RAISE EXCEPTION 'at most 10 open lesson requests per parent' USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
 END ;

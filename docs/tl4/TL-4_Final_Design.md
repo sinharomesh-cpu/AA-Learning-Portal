@@ -46,3 +46,18 @@
 - merge after technical review, CI and dependency checks;
 - production;
 - real-family access.
+
+## Review fixes (branch `tl4-def-fixes`, 3 Nov 2026; pending decision, not yet in #142)
+Independent AI review of the SQL (a separate Claude agent; not a human review). Each fix has a test in `tests/db/tl4ReviewFixes.test.ts` (or `tl4Final.test.ts` for F-5), and each test failed against the reviewed draft.
+
+| Finding | Change |
+|---|---|
+| F-1 / DEF-TL4-07 | `lessons_before_insert` is replaced with 0034's body plus one predicate, so a move's busy check ignores its own original. 0029's no-overlap constraints still guard the final state. The rollback restores 0034's exact body |
+| F-2 | No planned chapter can be added to a move after it is created. A move's chapters are either its own or the original's copied (Q-B), never a mix |
+| F-4 | The rollback locks the TL-4 tables before its check, so a change in flight is waited for and then refused |
+| F-5 / DEF-TL4-08 | An open move closes as `original_cancelled` when its original is cancelled another way |
+| F-6 | An overdue, unswept move is expired before a new move for the same lesson is created |
+| F-7 | The swap re-counts each parent after its writes, under the same locks, and checks `after <= max(5, before)` on the real counts. Copies and closures are counted separately |
+| F-8 | The swap's chapter-copy exception applies only to a move with no chapters of its own |
+
+F-3, the acceptance lock order (`lessons_lock_times` before `lessons_lock_pair`), is application work in #143.
