@@ -789,6 +789,15 @@ export async function expireOverdueChanges(tx: Db, originalId: string, now: Date
   const [o] = await tx<Array<{ teacher_id: string; student_id: string }>>`
     SELECT teacher_id, student_id FROM lessons WHERE id = ${originalId}`;
   if (o) await lockLessonTimes(tx, o.teacher_id, o.student_id);
+  // Review R4-1: an overdue open move and its original are locked together, lower id first
+  // (lessons_lock_pair), before the move is expired: the same id order as the AA Pro sweep
+  // (closeLessonsWithoutLink), so starting a new move can't deadlock with a teacher deactivation or
+  // a link removal. (Locking the move first, then the original through 0034's insert rule, could.)
+  const overdue = await tx<Array<{ id: string }>>`
+    SELECT id FROM lessons
+    WHERE (to_jsonb(lessons) ->> 'replaces_lesson_id') = ${originalId}
+      AND status IN ('requested', 'proposed') AND reply_deadline <= now()`;
+  for (const m of overdue) await tx`SELECT lessons_lock_pair(${originalId}::uuid, ${m.id}::uuid)`;
   const rows = await tx<Array<{ id: string }>>`
     UPDATE lessons SET status = 'expired', closed_by = 'aa_pro'
     WHERE (to_jsonb(lessons) ->> 'replaces_lesson_id') = ${originalId}

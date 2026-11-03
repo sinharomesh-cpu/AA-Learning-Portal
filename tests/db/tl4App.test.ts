@@ -1113,4 +1113,51 @@ describe('TL-4 app vs the consolidated SQL: review R3-1 to R3-3, both id orders 
       expect(await deadlocks()).toBe(before);
     });
   }
+  for (const [label, o1, m1] of ORDERS) {
+    it(`R4-1, ${label}: a new move that expires an overdue one, racing the deactivation sweep: no deadlock; the sweep completes`, async () => {
+      const f = await family(sql);
+      const o = await confirmedRaw(f, idWith(o1));
+      const old = await teacherMoveRaw(f, o, idWith(m1));
+      expect(o < old).toBe(label === 'original < move');
+      await makeOverdue(old);
+      const before = await deadlocks();
+      const g = await sql.reserve();
+      let res: unknown;
+      try {
+        // The gate holds 0034's per-teacher-and-child proposal lock, which the new move's INSERT takes
+        // after the app has expired the overdue move. Before R4-1 the move row was then held while the
+        // sweep, locking in id order, took the original: a cycle when the original's id sorts first.
+        await g`BEGIN`;
+        await g`SELECT pg_advisory_xact_lock(hashtextextended(${'aa_pro.lesson_proposals:' + f.t + ':' + f.child}, 0))`;
+        const start = next();
+        const pp = settle(
+          proposeLesson(sql, f.t, {
+            replacesLessonId: o,
+            childId: '',
+            subject: '',
+            date: ymd(start),
+            time: hm(start),
+            minutes: '30',
+          }),
+        );
+        await waiting(1);
+        const ps = settle(
+          sql.begin(async (tx) => {
+            await tx`UPDATE accounts SET status = 'deactivated' WHERE id = ${f.t}`;
+            return closeLessonsWithoutLink(tx, { teacherId: f.t });
+          }),
+        );
+        await waiting(2);
+        await g`ROLLBACK`;
+        res = { sweep: await ps, propose: await pp };
+      } finally {
+        await g`ROLLBACK`.catch(() => {});
+        g.release();
+      }
+      expect((res as { sweep: { e?: string } }).sweep.e).toBeUndefined();
+      expect(await deadlocks()).toBe(before);
+      expect(await statusOf(sql, o)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
+      expect((await statusOf(sql, old)).status).toBe('expired');
+    });
+  }
 });
