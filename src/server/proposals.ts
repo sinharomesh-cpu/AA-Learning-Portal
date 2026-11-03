@@ -384,6 +384,11 @@ export interface ProposalReview {
   price: { basis: 'agreed' | 'listed'; currency: string; rateMinor: number; priceMinor: number };
   planned: Array<{ label: string; intent: ChapterIntent | null }>;
   material: { description: string; note: string } | null;
+  /**
+   * TL-4 (DEF-TL4-09, PO 3 Nov 2026): for a move, the lesson as booked now, so the review shows the
+   * old and new time, length and price side by side. Information only (D-TLS-12).
+   */
+  moving: { startsAt: Date; endsAt: Date; minutes: number; priceMinor: number; currency: string } | null;
 }
 
 export type ReviewResult = { ok: true; review: ProposalReview } | { ok: false; reason: ProposeReason };
@@ -412,6 +417,8 @@ export async function reviewProposal(
       SELECT 1 FROM lessons
       WHERE status = 'confirmed' AND (teacher_id = ${teacherId} OR student_id = ${c.childId})
         AND tstzrange(starts_at, starts_at + make_interval(mins => minutes)) && tstzrange(${c.startsAt}, ${endsAt})
+        -- DEF-TL4-07 (PO 3 Nov 2026): a move may overlap only the lesson it moves.
+        AND id IS DISTINCT FROM ${c.target?.id ?? null}::uuid
     ) AS busy`;
   if (busy?.busy) return { ok: false, reason: 'busy' };
   let price: ProposalReview['price'];
@@ -442,8 +449,24 @@ export async function reviewProposal(
       price,
       planned: c.planned.map((p) => ({ label: options.get(p.chapterId)!, intent: p.intent })),
       material: c.description ? { description: c.description, note: c.materialNote } : null,
+      moving: c.target ? await movingDetail(sql, c.target.id) : null,
     },
   };
+}
+
+async function movingDetail(sql: Sql, lessonId: string): Promise<ProposalReview['moving']> {
+  const [o] = await sql<
+    Array<{ starts_at: Date; ends_at: Date; minutes: number; price_minor: string; currency: string }>
+  >`SELECT starts_at, ends_at, minutes, price_minor, currency FROM lessons WHERE id = ${lessonId}`;
+  return o
+    ? {
+        startsAt: o.starts_at,
+        endsAt: o.ends_at,
+        minutes: Number(o.minutes),
+        priceMinor: Number(o.price_minor),
+        currency: o.currency,
+      }
+    : null;
 }
 
 /**

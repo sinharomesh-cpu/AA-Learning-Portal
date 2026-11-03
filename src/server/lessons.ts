@@ -770,12 +770,20 @@ export async function expireOverdueChanges(tx: Db, originalId: string, now: Date
   for (const r of rows) await tellAbout(tx, r.id, 'expired', {}, now);
 }
 
-export type MoveFailure = 'move_unmappable' | 'move_limit' | 'move_parent_limit' | 'original_changed' | 'too_soon';
+export type MoveFailure =
+  | 'move_unmappable'
+  | 'move_limit'
+  | 'move_parent_limit'
+  | 'original_changed'
+  | 'too_soon'
+  // F-2 (PO 3 Nov 2026): a move's chapters come only with the move itself.
+  | 'move_chapters';
 
 /** Maps a refusal of the TL-4 SQL (a change, or its swap at acceptance) to a plain reason. */
 export function moveFailureFromDb(error: unknown): MoveFailure | null {
   const m = (error as { message?: string }).message ?? '';
   if (m.includes('material_request_unmappable')) return 'move_unmappable';
+  if (m.includes('chapters come with the move itself')) return 'move_chapters';
   if (m.includes('material_request_parent_limit')) return 'move_parent_limit';
   if (m.includes('material_request_limit')) return 'move_limit';
   if (m.includes('cancelled or changed meanwhile')) return 'original_changed';
@@ -840,7 +848,9 @@ export async function answerLesson(
       if (l.overdue) return { ok: false, reason: 'expired' };
       // TL-4 (Q-B): a move carries the original's chapters, or the parent's own; the teacher plans
       // chapters on a move by proposing it, not when accepting one.
-      if (original && planned.length) return { ok: false, reason: 'chapters' };
+      // F-2 (PO 3 Nov 2026): a move's chapters come only with the move itself; never added at
+      // acceptance (the database refuses it too). Ordinary requests keep D-E2E-3 (b) unchanged.
+      if (original && planned.length) return { ok: false, reason: 'move_chapters' };
       // W-3 / D-TLS-6: a request with a parent's topic takes no planned chapters; checked first.
       const [had] = await tx<Array<{ n: number; topic: boolean }>>`
         SELECT count(*)::int AS n, bool_or(topic IS NOT NULL) AS topic FROM lesson_chapters WHERE lesson_id = ${l.id}`;
@@ -891,6 +901,8 @@ export async function answerLesson(
           await tx.savepoint((sp) => insertPlanned(sp, l.id, planned, had?.n ?? 0));
         } catch (error) {
           const e = error as { code?: string };
+          const moved = moveFailureFromDb(error);
+          if (moved) throw new Refused(moved);
           if (e.code === '23514' || e.code === '42501' || e.code === '23505' || e.code === '23503')
             throw new Refused('chapters');
           throw error;
@@ -976,6 +988,45 @@ export async function withdrawLesson(
  * 30:00 allowed, 29:59 refused). The database clock decides; rescheduling is cancel and request
  * again (D3A-6).
  */
+/**
+ * DEF-TL4-08: before cancelling a confirmed lesson, lock its open move (if any) in the acceptance
+ * order: teacher and child time locks, then both rows, lower id first (lessons_lock_pair). Nothing
+ * to do without the TL-4 SQL or without an open move.
+ */
+async function lockOpenChangeOf(tx: Db, lessonId: string): Promise<void> {
+  const [c] = await tx<Array<{ id: string; teacher_id: string; student_id: string }>>`
+    SELECT x.id, x.teacher_id, x.student_id FROM lessons o JOIN lessons x ON x.student_id = o.student_id
+    WHERE o.id = ${lessonId} AND x.status IN ('requested', 'proposed')
+      AND (to_jsonb(x) ->> 'replaces_lesson_id') = o.id::text`;
+  if (!c) return;
+  await lockLessonTimes(tx, c.teacher_id, c.student_id);
+  await tx`SELECT lessons_lock_pair(${lessonId}::uuid, ${c.id}::uuid)`;
+}
+
+/**
+ * DEF-TL4-08: the database closed the cancelled lesson's open move in this transaction
+ * ('original_cancelled'); tell the side that proposed it, once. The move row stays as history.
+ */
+async function tellMovesClosed(tx: Db, originalId: string, actorId: string | undefined, now: Date): Promise<void> {
+  const closed = await tx<Array<{ id: string }>>`
+    SELECT x.id FROM lessons o JOIN lessons x ON x.student_id = o.student_id
+    WHERE o.id = ${originalId} AND x.close_reason = 'original_cancelled' AND x.closed_at = now()
+      AND (to_jsonb(x) ->> 'replaces_lesson_id') = o.id::text`;
+  for (const c of closed) {
+    await writeAudit(
+      tx,
+      {
+        type: 'LESSON_CHANGE_CLOSED',
+        outcome: 'success',
+        actorId,
+        details: { lesson: c.id, reason: 'original_cancelled' },
+      },
+      now,
+    );
+    await tellAbout(tx, c.id, 'original_cancelled', { actorId }, now);
+  }
+}
+
 export async function cancelLesson(
   sql: Sql,
   actor: { id: string; role: 'parent' | 'teacher' },
@@ -984,23 +1035,35 @@ export async function cancelLesson(
 ): Promise<CloseResult> {
   if (!UUID.test(actor.id) || !UUID.test(lessonId)) return { ok: false, reason: 'not_found' };
   try {
-    return await sql.begin(async (tx): Promise<CloseResult> => {
-      const l = await lockLesson(tx, lessonId);
-      const mine = actor.role === 'teacher' ? await teacherOwns(tx, actor.id, l) : await parentOwns(tx, actor.id, l);
-      if (!l || !mine) return { ok: false, reason: 'not_found' };
-      if (l.status !== 'confirmed') return { ok: false, reason: 'closed' };
-      if (!l.cancellable) return { ok: false, reason: 'too_late' };
-      await tx`UPDATE lessons SET status = 'cancelled', closed_by = ${actor.role}, closed_by_account = ${actor.id}
+    return await retrying(() =>
+      sql.begin(async (tx): Promise<CloseResult> => {
+        // DEF-TL4-08: cancelling closes the lesson's open move in the same transaction (the TL-4
+        // SQL). Take the same locks, in the same order, as accepting that move (time locks, then
+        // both rows, lower id first), so a cancellation and an acceptance can't deadlock.
+        await lockOpenChangeOf(tx, lessonId);
+        const l = await lockLesson(tx, lessonId);
+        const mine = actor.role === 'teacher' ? await teacherOwns(tx, actor.id, l) : await parentOwns(tx, actor.id, l);
+        if (!l || !mine) return { ok: false, reason: 'not_found' };
+        if (l.status !== 'confirmed') return { ok: false, reason: 'closed' };
+        if (!l.cancellable) return { ok: false, reason: 'too_late' };
+        await tx`UPDATE lessons SET status = 'cancelled', closed_by = ${actor.role}, closed_by_account = ${actor.id}
                WHERE id = ${l.id}`;
-      await dropLessonReminders(tx, l.id);
-      await writeAudit(
-        tx,
-        { type: 'LESSON_CANCELLED', outcome: 'success', actorId: actor.id, details: { lesson: l.id, by: actor.role } },
-        now,
-      );
-      await tellAbout(tx, l.id, 'cancelled', { actorId: actor.id }, now);
-      return { ok: true };
-    });
+        await dropLessonReminders(tx, l.id);
+        await writeAudit(
+          tx,
+          {
+            type: 'LESSON_CANCELLED',
+            outcome: 'success',
+            actorId: actor.id,
+            details: { lesson: l.id, by: actor.role },
+          },
+          now,
+        );
+        await tellAbout(tx, l.id, 'cancelled', { actorId: actor.id }, now);
+        await tellMovesClosed(tx, l.id, actor.id, now);
+        return { ok: true };
+      }),
+    );
   } catch (error) {
     // The cut-off passed between the check and the change: the database refuses (0029).
     if ((error as { constraint_name?: string }).constraint_name === 'lessons_status_fields') {
@@ -1137,11 +1200,17 @@ export async function closeLessonsWithoutLink(
       continue;
     }
     if (l.status === 'requested' || l.status === 'proposed') {
-      await tx`UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
+      // DEF-TL4-08: a move whose original was closed earlier in this loop is already closed by
+      // the database ('original_cancelled'); it is told about there, not again here.
+      const [still] = await tx<Array<{ id: string }>>`
+        UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = ${l.reason}
+        WHERE id = ${l.id} AND status IN ('requested', 'proposed') RETURNING id`;
+      if (!still) continue;
     } else {
       await tx`UPDATE lessons SET status = 'cancelled', closed_by = 'aa_pro', close_reason = ${l.reason} WHERE id = ${l.id}`;
       // CR-17 PR 7: a reminder for a lesson that won't happen is no longer true.
       await dropLessonReminders(tx, l.id);
+      await tellMovesClosed(tx, l.id, undefined, now);
     }
     await writeAudit(
       tx,
@@ -1237,7 +1306,7 @@ export async function lessonMaintenance(sql: Sql, now: Date = new Date()): Promi
       SELECT l.id FROM lessons l
       WHERE l.status = 'expired' AND l.closed_at > now() - interval '7 days'
         AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.entity_type = 'lesson' AND n.entity_id = l.id
-                        AND n.type IN ('lesson_expired', 'lesson_proposal_expired'))
+                        AND n.type IN ('lesson_expired', 'lesson_proposal_expired', 'lesson_change_expired'))
       LIMIT 200`;
     const ids = new Set([...expired.map((r) => r.id), ...missed.map((r) => r.id)]);
     for (const id of ids) await tellAbout(tx, id, 'expired', {}, now);
@@ -1282,7 +1351,9 @@ export type LessonEvent =
   // TL-4: moving a confirmed lesson (a parent's change request, a teacher's change proposal, the swap).
   | 'change_requested'
   | 'change_proposed'
-  | 'moved';
+  | 'moved'
+  // DEF-TL4-08: the database closed an open move because its original was cancelled.
+  | 'original_cancelled';
 
 interface LessonFacts {
   id: string;
@@ -1505,6 +1576,25 @@ export async function tellAbout(
           (z) => `No answer in time: moving ${f.child_name}'s ${subject} lesson to ${when(z)} has expired`,
           stays,
         );
+        return;
+      case 'original_cancelled':
+        // DEF-TL4-08: one notice, to the side that proposed the move (the cancellation itself has
+        // its own notice on the original). Never the person who cancelled.
+        if (proposal) {
+          await teacherNote(
+            'lesson_change_closed',
+            'update',
+            `Move closed: the lesson on ${formatLessonTime(f.orig_starts, f.teacher_zone)} was cancelled`,
+            `${subject}, ${f.grade ? `Grade ${Number(f.grade)}` : 'grade not set'}. Nothing else changed.`,
+          );
+        } else {
+          await parentNotes(
+            'lesson_change_closed',
+            (z) =>
+              `The request to move ${f.child_name}'s ${subject} lesson to ${when(z)} is closed: the lesson on ${from(z)} was cancelled`,
+            'Nothing else changed.',
+          );
+        }
         return;
       case 'time_taken':
       case 'closed_by_aa_pro':
@@ -1741,7 +1831,8 @@ export interface LessonItem {
   status: LessonStatus;
   replyDeadline: Date;
   closedBy: 'parent' | 'teacher' | 'aa_pro' | null;
-  closeReason: 'time_no_longer_free' | 'teacher_deactivated' | 'link_ended' | 'rescheduled' | null;
+  closeReason:
+    'time_no_longer_free' | 'teacher_deactivated' | 'link_ended' | 'rescheduled' | 'original_cancelled' | null;
   closeNote: string | null;
   /**
    * TL-4 (parents and teachers only; a child sees only the lesson as it is now, D3): for a change

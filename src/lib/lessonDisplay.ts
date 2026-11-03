@@ -13,6 +13,8 @@ export type CloseReason =
   | 'link_ended'
   // TL-4: the original of a lesson that was moved to a new time.
   | 'rescheduled'
+  // TL-4 (DEF-TL4-08, PO 3 Nov 2026): a move closed because the lesson it would move was cancelled.
+  | 'original_cancelled'
   | null;
 export type ClosedBy = 'parent' | 'teacher' | 'aa_pro' | null;
 
@@ -100,6 +102,7 @@ export function lessonStatusText(
         return { text: l.closedByName ? `Declined by ${l.closedByName}` : 'Declined by a parent', kind: 'neutral' };
       }
       if (l.closeReason === 'time_no_longer_free') return { text: 'Time no longer free', kind: 'neutral' };
+      if (l.closeReason === 'original_cancelled') return { text: 'Closed: lesson cancelled', kind: 'neutral' };
       return { text: 'Closed by AA Pro', kind: 'neutral' };
     case 'cancelled':
       // TL-4: not a cancellation for the family; the lesson moved to its replacement.
@@ -128,5 +131,6 @@ export function closeReasonText(reason: CloseReason): string | null {
   if (reason === 'time_no_longer_free') return 'Another lesson was confirmed at an overlapping time.';
   if (reason === 'teacher_deactivated') return 'The teacher is no longer available on AA Pro.';
   if (reason === 'link_ended') return 'The teacher is no longer linked to this child for this subject.';
+  if (reason === 'original_cancelled') return 'Closed: the lesson it would move was cancelled. Nothing else changed.';
   return null;
 }

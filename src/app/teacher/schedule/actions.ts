@@ -126,6 +126,8 @@ export interface ProposalReviewView {
   priceMinor: string;
   planned: string[];
   material: { description: string; note: string } | null;
+  /** TL-4 (DEF-TL4-09): a move's booked lesson in words: "Fri 6 Nov, 4:30 pm–5:00 pm · 30 min · ₹300". */
+  now: string | null;
 }
 
 /**
@@ -133,8 +135,20 @@ export interface ProposalReviewView {
  * by the server; nothing is written. "Send proposal" then sends the price shown here.
  */
 export async function reviewProposalAction(fd: FormData): Promise<{ review?: ProposalReviewView; error?: string }> {
+  return reviewFor(fd);
+}
+
+/** Not exported (not a server action): the review shared by proposals and moves. */
+async function reviewFor(
+  fd: FormData,
+  move?: { replacesLessonId: string; childId: string; subject: string },
+): Promise<{ review?: ProposalReviewView; error?: string }> {
   const id = await teacherId();
-  const r = await reviewProposal(db(), id, proposalInput(fd));
+  const r = await reviewProposal(
+    db(),
+    id,
+    move ? { ...proposalInput(fd), ...move, material: undefined } : proposalInput(fd),
+  );
   if (!r.ok) return { error: PROPOSE_TEXT[r.reason] };
   const v = r.review;
   const rate = formatMoney(v.price.rateMinor, v.price.currency);
@@ -149,8 +163,22 @@ export async function reviewProposalAction(fd: FormData): Promise<{ review?: Pro
       priceMinor: String(v.price.priceMinor),
       planned: v.planned.map((p) => (p.intent ? `${p.label} · ${intentText(p.intent)}` : p.label)),
       material: v.material,
+      now: v.moving
+        ? `${formatLessonTime(v.moving.startsAt, v.timeZone)}–${formatClock(v.moving.endsAt, v.timeZone)} · ${
+            v.moving.minutes
+          } min · ${formatMoney(v.moving.priceMinor, v.moving.currency)}`
+        : null,
     },
   };
+}
+
+/**
+ * TL-4 (DEF-TL4-09, PO 3 Nov 2026): "Review new time" for a move: the TL-3 review step reused.
+ * Checked and priced by the server, nothing written; "Send new time" then sends the price shown, and
+ * the database refuses it if the price changed meanwhile. Information only; no new pricing rule.
+ */
+export async function reviewMoveAction(fd: FormData): Promise<{ review?: ProposalReviewView; error?: string }> {
+  return reviewFor(fd, { replacesLessonId: str(fd, 'replacesLessonId'), childId: '', subject: '' });
 }
 
 export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
@@ -182,6 +210,8 @@ export async function proposeMoveAction(_prev: ScheduleState, fd: FormData): Pro
     time: str(fd, 'time'),
     minutes: str(fd, 'minutes'),
     planned: plannedFrom(fd),
+    // DEF-TL4-09: the price shown on the review; the database refuses the move if it changed.
+    shown: { basis: str(fd, 'priceBasis'), priceMinor: str(fd, 'priceMinor') },
   });
   if (r.ok) {
     revalidatePath('/teacher/schedule');

@@ -1,12 +1,12 @@
 'use client';
 
-import { startTransition, useActionState } from 'react';
+import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/Button';
 import { FormMessage } from '@/components/forms/FormMessage';
 import { type PlannableOption, PlannedChapterPicker } from '@/components/lessons/PlannedChapterPicker';
 import { INPUT } from '@/components/ui/styles';
 import { cx } from '@/lib/cx';
-import { proposeMoveAction, type ScheduleState } from '../../actions';
+import { type ProposalReviewView, proposeMoveAction, reviewMoveAction, type ScheduleState } from '../../actions';
 
 /**
  * TL-4 "Move lesson" for the teacher: a new day and time in the teacher's own time zone (proposal
@@ -38,13 +38,45 @@ export function MoveForm({
   busy: Array<{ when: string; whose: 'you' | 'child' }>;
 }) {
   const [state, action, pending] = useActionState<ScheduleState, FormData>(proposeMoveAction, {});
+  const form = useRef<HTMLFormElement>(null);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  // DEF-TL4-09 (PO 3 Nov 2026): the TL-3 review step, reused. The review belongs to the send state it
+  // was made under: a refused send (for example a changed price) needs a fresh review.
+  const [reviewed, setReviewed] = useState<{ view: ProposalReviewView; under: ScheduleState } | null>(null);
+  const review = reviewed && reviewed.under === state ? reviewed.view : null;
+  const setReview = (view: ProposalReviewView | null) => setReviewed(view ? { view, under: state } : null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [checking, startChecking] = useTransition();
+  useEffect(() => {
+    if (review) reviewHeading.current?.focus();
+  }, [review]);
+  function check() {
+    const f = form.current;
+    if (!f || !f.reportValidity()) return;
+    const fd = new FormData(f);
+    startChecking(async () => {
+      const r = await reviewMoveAction(fd);
+      setReviewError(r.error ?? null);
+      setReview(r.review ?? null);
+    });
+  }
   return (
     <form
+      ref={form}
+      onChange={() => {
+        setReview(null);
+        setReviewError(null);
+      }}
       // DEF-TL4-14: submitted without the form `action` prop, so React does not reset the fields after
       // a refusal. A reset left the chosen chapters unticked while the picker still counted them, so a
       // second "Send" could go without the chapters the teacher could see as chosen.
       onSubmit={(e) => {
         e.preventDefault();
+        // DEF-TL4-09: a move is always reviewed first (Enter in a field opens the review too).
+        if (!review) {
+          check();
+          return;
+        }
         const fd = new FormData(e.currentTarget);
         startTransition(() => action(fd));
       }}
@@ -134,11 +166,65 @@ export function MoveForm({
         booked at its current time. They must answer within 48 hours, and at least 30 minutes before the lesson. The
         price for the new time is worked out as for any lesson and shown to them.
       </p>
-      <div>
-        <Button type="submit" inactive={pending}>
-          {pending ? 'Sending…' : 'Send new time'}
-        </Button>
-      </div>
+      {review ? (
+        <section
+          aria-labelledby="move-review-heading"
+          className="flex flex-col gap-4 rounded-[18px] border-2 border-primary p-4 sm:p-5"
+          data-testid="move-review"
+        >
+          <h3
+            id="move-review-heading"
+            ref={reviewHeading}
+            tabIndex={-1}
+            className="m-0 text-[19px] font-bold leading-[26px]"
+          >
+            Check the new time
+          </h3>
+          <dl className="m-0 grid grid-cols-1 gap-x-4 gap-y-2 text-[15px] leading-[22px] sm:grid-cols-[max-content_1fr]">
+            <dt className="font-bold">For</dt>
+            <dd className="m-0">{review.forWhom}</dd>
+            <dt className="font-bold">Booked now</dt>
+            <dd className="m-0">
+              {review.now} <span className="text-on-surface-variant">(your time zone)</span>
+            </dd>
+            <dt className="font-bold">New time</dt>
+            <dd className="m-0">
+              {review.when} <span className="text-on-surface-variant">(your time zone)</span>
+            </dd>
+            <dt className="font-bold">New price</dt>
+            <dd className="m-0">
+              {review.price} <span className="text-on-surface-variant">(information only)</span>
+            </dd>
+            <dt className="font-bold">Chapters</dt>
+            <dd className="m-0 break-words">
+              {review.planned.length ? review.planned.join('; ') : 'The lesson’s own chapters move with it'}
+            </dd>
+          </dl>
+          <p className="m-0 text-sm leading-5 text-on-surface-variant">
+            Nothing changes until one of {childName}’s parents accepts. Until then the lesson stays booked at its
+            current time.
+          </p>
+          <input type="hidden" name="priceBasis" value={review.priceBasis} />
+          <input type="hidden" name="priceMinor" value={review.priceMinor} />
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" inactive={pending}>
+              {pending ? 'Sending…' : 'Send new time'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setReview(null)}>
+              Change details
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {reviewError ? <FormMessage tone="error">{reviewError}</FormMessage> : null}
+          <div>
+            <Button type="button" inactive={checking} onClick={check}>
+              {checking ? 'Checking…' : 'Review new time'}
+            </Button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

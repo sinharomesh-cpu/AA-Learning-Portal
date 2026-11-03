@@ -3,7 +3,11 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   answerLesson,
+  cancelLesson,
+  closeLessonsWithoutLink,
   freeTimes,
+  lessonForParent,
+  lessonMaintenance,
   lessonChangesReady,
   lessonsForParent,
   lessonsForStudent,
@@ -14,7 +18,9 @@ import {
   withdrawLesson,
 } from '@/server/lessons';
 import { materialRequestsFor, requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
-import { answerProposal, proposeLesson, withdrawProposal } from '@/server/proposals';
+import { allowMeetingLinks, setMeetingLink } from '@/server/meetingLinks';
+import { answerProposal, proposeLesson, reviewProposal, withdrawProposal } from '@/server/proposals';
+import { lessonStatusText, closeReasonText } from '@/lib/lessonDisplay';
 import { migrate } from '../../scripts/db-migrate.mjs';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
@@ -459,7 +465,7 @@ describe('with the TL-4 SQL (throw-away database)', () => {
       await answerLesson(sql, f.t, r.id, 'accept', '', new Date(), {
         planned: [{ chapterId: '00000000-0000-4000-8000-000000000001', intent: null }],
       }),
-    ).toEqual({ ok: false, reason: 'chapters' });
+    ).toEqual({ ok: false, reason: 'move_chapters' });
     expect((await statusOf(sql, original)).status).toBe('confirmed');
   });
 
@@ -506,13 +512,21 @@ describe('with the TL-4 SQL (throw-away database)', () => {
     expect(m('the time overlaps a confirmed lesson')).toBeNull();
   });
 
-  it('DEF-TL4-07 (recorded, not decided): a TEACHER move overlapping its own original is refused by 0034 as busy', async () => {
-    // Evidence Pack 4.3 §4 rule 4 says the original is excluded from the overlap check. 0034's
-    // proposal insert rule (unchanged by the TL-4 SQL) still counts it, so this is refused today.
-    // A parent's move overlapping its original is allowed (test above). Escalated, not changed here.
+  it('DEF-TL4-07 (PO decision 3 Nov 2026, Option B): a teacher move may overlap only its own original; any other overlap is still refused', async () => {
     const f = await family(sql);
     const original = await booked(sql, f, at(0), 40);
-    expect(await moveByTeacher(sql, f, original, at(30))).toEqual({ ok: false, reason: 'busy' });
+    // 10:30 overlaps only the lesson being moved (10:00-10:40): allowed, and the swap commits.
+    const p = await moveByTeacher(sql, f, original, at(30));
+    expect(p.ok).toBe(true);
+    if (!p.ok) return;
+    expect(await answerProposal(sql, f.parent, p.id, 'accept')).toEqual({ ok: true });
+    expect(await statusOf(sql, original)).toEqual({ status: 'cancelled', close_reason: 'rescheduled' });
+    expect((await statusOf(sql, p.id)).status).toBe('confirmed');
+    // Another child's confirmed lesson with the same teacher still blocks a move over it.
+    const g = await family(sql, f.t);
+    await booked(sql, g, at(4 * 60), 30);
+    const other = await booked(sql, f, at(6 * 60), 30);
+    expect(await moveByTeacher(sql, f, other, at(4 * 60 + 15))).toEqual({ ok: false, reason: 'busy' });
   });
 });
 
@@ -539,3 +553,217 @@ async function slotFor(f: Fam, start: Date) {
     basis: s.basis,
   };
 }
+
+// =========================================================================== evidence gaps and PO decisions (3 Nov 2026)
+describe('TL-4 app: expired moves, meeting links, Now/New, DEF-TL4-08/09, F-2 (with the TL-4 SQL)', () => {
+  /** Puts an open change past its deadline (as tl4Final AC-5 does; test database only). */
+  const overdue = (id: string) =>
+    sql.begin(async (tx) => {
+      await tx.unsafe(`SET LOCAL session_replication_role = replica`);
+      await tx`UPDATE lessons SET requested_at = now() - interval '50 hours', reply_deadline = now() - interval '3 hours' WHERE id = ${id}`;
+    });
+
+  it('expired move (teacher-proposed): both sides see it expired; accepting is refused as expired; the original stays booked; one expiry notice each, never repeated', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(0));
+    const p = await moveByTeacher(sql, f, original, at(DAY / MIN));
+    if (!p.ok) throw new Error(p.reason);
+    await overdue(p.id);
+    // Before any sweep: shown as expired at once to both sides.
+    const pv = (await lessonsForParent(sql, f.parent)).find((l) => l.id === p.id)!;
+    const tv = (await lessonsForTeacher(sql, f.t)).find((l) => l.id === p.id)!;
+    expect([pv.status, tv.status]).toEqual(['expired', 'expired']);
+    expect(lessonStatusText(pv, 'parent').text).toBe('Expired: no answer in time');
+    expect(pv.canAnswer || tv.canAnswer).toBe(false);
+    expect(await answerProposal(sql, f.parent, p.id, 'accept')).toMatchObject({ ok: false, reason: 'expired' });
+    expect(await statusOf(sql, original)).toEqual({ status: 'confirmed', close_reason: null });
+    const ov = (await lessonsForParent(sql, f.parent)).find((l) => l.id === original)!;
+    expect([ov.status, ov.changePending, ov.canMove]).toEqual(['confirmed', false, true]);
+    // The sweep records it and tells each side once; a second sweep adds nothing.
+    await lessonMaintenance(sql);
+    await lessonMaintenance(sql);
+    expect((await statusOf(sql, p.id)).status).toBe('expired');
+    for (const who of [f.t, f.parent, f.parent2])
+      expect((await notices(sql, who, p.id)).filter((n) => n.type === 'lesson_change_expired')).toHaveLength(1);
+    // A new move can start straight away.
+    expect((await moveByTeacher(sql, f, original, at(DAY / MIN + 60))).ok).toBe(true);
+  });
+
+  it('expired move (parent-requested): the teacher can no longer accept it; the original stays booked', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(2 * 60));
+    const r = await moveByParent(sql, f, original, at(DAY / MIN + 120));
+    if (!r.ok) throw new Error(r.reason);
+    await overdue(r.id);
+    expect((await lessonsForTeacher(sql, f.t)).find((l) => l.id === r.id)?.status).toBe('expired');
+    expect(await answerLesson(sql, f.t, r.id, 'accept')).toMatchObject({ ok: false, reason: 'expired' });
+    expect(await statusOf(sql, original)).toEqual({ status: 'confirmed', close_reason: null });
+  });
+
+  it('meeting link: the move removes the old link; the new lesson has none and the teacher prompt applies; nothing is copied', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(3 * 60));
+    expect((await allowMeetingLinks(sql, f.parent, f.t, f.child)).ok).toBe(true);
+    expect((await setMeetingLink(sql, f.t, original, 'https://zoom.us/j/1234567890')).ok).toBe(true);
+    const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 180));
+    if (!p.ok) throw new Error(p.reason);
+    expect(await answerProposal(sql, f.parent, p.id, 'accept')).toEqual({ ok: true });
+    expect((await sql`SELECT 1 FROM lesson_meeting_links WHERE lesson_id IN (${original}, ${p.id})`).length).toBe(0);
+    const nv = (await lessonsForTeacher(sql, f.t)).find((l) => l.id === p.id)!;
+    // The schedule page shows its prompt exactly when: moved, upcoming, confirmed, no link yet.
+    expect([nv.status, nv.movedFrom !== null, nv.meeting.added, nv.meeting.allowed]).toEqual([
+      'confirmed',
+      true,
+      false,
+      true,
+    ]);
+    const moved = (await notices(sql, f.t, p.id)).find((n) => n.type === 'lesson_moved');
+    expect(moved?.body).toMatch(/meeting link for the new time/);
+  });
+
+  it('Now/New: an open move carries the booked lesson’s length and price; the replacement its own (information only)', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(4 * 60), 30);
+    const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 240), { minutes: '40' });
+    if (!p.ok) throw new Error(p.reason);
+    const v = await lessonForParent(sql, f.parent, p.id);
+    expect(v?.movedFromLesson).toEqual({ minutes: 30, priceMinor: 30000, currency: 'INR' });
+    expect([v?.minutes, v?.price?.priceMinor]).toEqual([40, 40000]);
+    // A child never gets prices or the moved-from details.
+    expect((await lessonsForStudent(sql, f.child)).every((l) => l.movedFromLesson === null)).toBe(true);
+  });
+
+  it('DEF-TL4-09: the review for a move shows the booked lesson and the new time, length and price; nothing is written; a changed price is refused at send', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(5 * 60), 30);
+    const input = {
+      replacesLessonId: original,
+      childId: '',
+      subject: '',
+      date: ymd(at(DAY / MIN + 300)),
+      time: hm(at(DAY / MIN + 300)),
+      minutes: '40',
+    };
+    const before = await sql`SELECT count(*)::int AS n FROM lessons`;
+    const r = await reviewProposal(sql, f.t, input);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.review.moving).toMatchObject({ minutes: 30, priceMinor: 30000, currency: 'INR' });
+    expect([r.review.minutes, r.review.price.priceMinor]).toEqual([40, 40000]);
+    expect(await sql`SELECT count(*)::int AS n FROM lessons`).toEqual(before);
+    // Overlapping only its own original is fine on the review too (DEF-TL4-07).
+    const own = await reviewProposal(sql, f.t, { ...input, date: ymd(at(5 * 60 + 15)), time: hm(at(5 * 60 + 15)) });
+    expect(own.ok).toBe(true);
+    // Sending a price other than the database's is refused, exactly as TL-3.
+    expect(await proposeLesson(sql, f.t, { ...input, shown: { basis: 'listed', priceMinor: '1' } })).toEqual({
+      ok: false,
+      reason: 'price_changed',
+    });
+    expect(
+      (
+        await proposeLesson(sql, f.t, {
+          ...input,
+          shown: { basis: r.review.price.basis, priceMinor: String(r.review.price.priceMinor) },
+        })
+      ).ok,
+    ).toBe(true);
+  });
+
+  it('DEF-TL4-08: a parent cancels the original: the teacher’s open move closes in the same step as original_cancelled; one notice to the teacher; history kept', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(6 * 60));
+    const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 360));
+    if (!p.ok) throw new Error(p.reason);
+    expect(await cancelLesson(sql, { id: f.parent, role: 'parent' }, original)).toEqual({ ok: true });
+    expect(await statusOf(sql, original)).toEqual({ status: 'cancelled', close_reason: null });
+    expect(await statusOf(sql, p.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+    for (const [viewer, list] of [
+      ['parent', await lessonsForParent(sql, f.parent)],
+      ['teacher', await lessonsForTeacher(sql, f.t)],
+    ] as const) {
+      const v = list.find((l) => l.id === p.id)!;
+      expect(lessonStatusText(v, viewer).text).toBe('Closed: lesson cancelled');
+      expect(closeReasonText(v.closeReason)).toMatch(/lesson it would move was cancelled/);
+      expect(v.canAnswer || v.canWithdraw).toBe(false);
+    }
+    expect((await notices(sql, f.t, p.id)).map((n) => n.type)).toEqual(['lesson_change_closed']);
+    // The proposer's side only: no "move closed" notice to the parents (the cancellation has its own).
+    for (const who of [f.parent, f.parent2])
+      expect((await notices(sql, who, p.id)).map((n) => n.type)).not.toContain('lesson_change_closed');
+    expect((await notices(sql, f.t, original)).map((n) => n.type)).toContain('lesson_cancelled');
+    expect(await answerProposal(sql, f.parent2, p.id, 'accept')).toMatchObject({ ok: false });
+  });
+
+  it('DEF-TL4-08: the teacher cancels the original: the parent’s open move closes; both parents are told once; the teacher (who acted) is not', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(7 * 60));
+    const r = await moveByParent(sql, f, original, at(DAY / MIN + 420));
+    if (!r.ok) throw new Error(r.reason);
+    expect(await cancelLesson(sql, { id: f.t, role: 'teacher' }, original)).toEqual({ ok: true });
+    expect(await statusOf(sql, r.id)).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+    for (const who of [f.parent, f.parent2])
+      expect((await notices(sql, who, r.id)).filter((n) => n.type === 'lesson_change_closed')).toHaveLength(1);
+    expect((await notices(sql, f.t, r.id)).map((n) => n.type)).not.toContain('lesson_change_closed');
+  });
+
+  it('DEF-TL4-08: AA Pro closes for a deactivated teacher: the original and its move both close without error, the move once', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(8 * 60));
+    const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 480));
+    if (!p.ok) throw new Error(p.reason);
+    await sql`UPDATE accounts SET status = 'deactivated' WHERE id = ${f.t}`;
+    await sql.begin((tx) => closeLessonsWithoutLink(tx, { teacherId: f.t }));
+    expect(await statusOf(sql, original)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
+    expect((await statusOf(sql, p.id)).status).toBe('declined');
+    for (const who of [f.parent, f.parent2])
+      expect(
+        (await notices(sql, who, p.id)).filter((n) => n.type === 'lesson_change_closed').length,
+      ).toBeLessThanOrEqual(1);
+  });
+
+  it('DEF-TL4-08 atomicity: a cancellation and an acceptance racing: exactly one wins, never both; no deadlock reaches the user', async () => {
+    for (let i = 0; i < 6; i += 1) {
+      const f = await family(sql);
+      const original = await booked(sql, f, at(9 * 60 + i * 60));
+      const p = await moveByTeacher(sql, f, original, at(DAY / MIN + 540 + i * 60));
+      if (!p.ok) throw new Error(p.reason);
+      const [c, a] = await Promise.all([
+        cancelLesson(sql, { id: f.parent2, role: 'parent' }, original),
+        answerProposal(sql, f.parent, p.id, 'accept'),
+      ]);
+      const o = await statusOf(sql, original);
+      const m = await statusOf(sql, p.id);
+      if (c.ok) {
+        expect(a.ok).toBe(false);
+        expect(o).toEqual({ status: 'cancelled', close_reason: null });
+        expect(m).toEqual({ status: 'declined', close_reason: 'original_cancelled' });
+      } else {
+        expect(a).toEqual({ ok: true });
+        expect(c).toEqual({ ok: false, reason: 'closed' });
+        expect(o).toEqual({ status: 'cancelled', close_reason: 'rescheduled' });
+        expect(m.status).toBe('confirmed');
+      }
+    }
+  });
+
+  it('F-2: a parent’s move can’t get planned chapters at acceptance; the database refusal maps to a plain reason; ordinary requests unchanged', async () => {
+    const f = await family(sql);
+    const original = await booked(sql, f, at(16 * 60));
+    const r = await moveByParent(sql, f, original, at(DAY / MIN + 960));
+    if (!r.ok) throw new Error(r.reason);
+    expect(
+      await answerLesson(sql, f.t, r.id, 'accept', '', new Date(), {
+        planned: [{ chapterId: '00000000-0000-4000-8000-000000000001', intent: null }],
+      }),
+    ).toEqual({ ok: false, reason: 'move_chapters' });
+    // Straight to the database (bypassing the app): refused with the F-2 message, mapped the same way.
+    const err = await sql
+      .begin(async (tx) => {
+        await tx`UPDATE lessons SET status = 'confirmed' WHERE id = ${r.id}`;
+        await tx`INSERT INTO lesson_chapters (lesson_id, position, source, topic) VALUES (${r.id}, 5, 'planned', 'x')`;
+      })
+      .catch((e: unknown) => e);
+    expect(moveFailureFromDb(err)).toBe('move_chapters');
+    expect(await statusOf(sql, original)).toEqual({ status: 'confirmed', close_reason: null });
+    expect(await answerLesson(sql, f.t, r.id, 'accept')).toEqual({ ok: true });
+  });
+});
