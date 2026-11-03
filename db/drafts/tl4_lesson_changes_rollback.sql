@@ -16,6 +16,8 @@ BEGIN
   END IF;
 
   DROP TRIGGER lessons_two_way ON lessons;
+  DROP TRIGGER lessons_after_update_tl4 ON lessons;
+  ALTER TABLE lessons DROP CONSTRAINT lessons_original_cancelled_change_only;
   DROP TRIGGER lessons_before_update_tl4 ON lessons;
   DROP TRIGGER lessons_before_insert_tl4 ON lessons;
   DROP TRIGGER material_requests_before_write_tl4 ON material_requests;
@@ -26,6 +28,7 @@ BEGIN
   DROP FUNCTION lesson_reschedules_before_write();
   DROP FUNCTION lessons_two_way();
   DROP FUNCTION lessons_before_update_tl4();
+  DROP FUNCTION lessons_after_update_tl4();
   DROP FUNCTION lessons_before_insert_tl4();
   DROP FUNCTION lessons_lock_pair(uuid, uuid);
   DROP FUNCTION material_requests_before_write_tl4();

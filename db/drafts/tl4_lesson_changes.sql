@@ -32,7 +32,8 @@ ALTER TABLE lessons ADD COLUMN replaces_lesson_id uuid REFERENCES lessons (id);
 -- minutes before its start (requirement 9). Every existing branch is unchanged.
 ALTER TABLE lessons DROP CONSTRAINT lessons_close_reason_check;
 ALTER TABLE lessons ADD CONSTRAINT lessons_close_reason_check
-  CHECK (close_reason IN ('time_no_longer_free', 'teacher_deactivated', 'link_ended', 'rescheduled'));
+  CHECK (close_reason IN ('time_no_longer_free', 'teacher_deactivated', 'link_ended', 'rescheduled',
+                          'original_cancelled'));
 ALTER TABLE lessons DROP CONSTRAINT lessons_status_fields;
 ALTER TABLE lessons ADD CONSTRAINT lessons_status_fields CHECK (
   (status = 'requested' AND origin = 'parent_request' AND confirmed_at IS NULL AND closed_at IS NULL
@@ -303,6 +304,28 @@ BEGIN
 END $$;
 CREATE TRIGGER lessons_before_update_tl4 BEFORE UPDATE ON lessons
   FOR EACH ROW EXECUTE FUNCTION lessons_before_update_tl4();
+
+-- ---------------------------------------------------------------- original cancelled (DEF-TL4-08)
+-- When a confirmed original is cancelled in any other way (by a parent, the teacher, or AA Pro for
+-- a deactivated teacher or an ended link), its open change can never be accepted. Close it at once,
+-- in the same transaction, as declined by AA Pro with the reason 'original_cancelled'. The change
+-- row is kept as history (never deleted); 0033's close trigger closes any material requests raised
+-- on the change itself. A move's own swap ('rescheduled') never reaches this: it closes the
+-- original only while confirming its one change.
+CREATE FUNCTION lessons_after_update_tl4() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.status = 'confirmed' AND NEW.status = 'cancelled' AND NEW.close_reason IS DISTINCT FROM 'rescheduled' THEN
+    UPDATE lessons SET status = 'declined', closed_by = 'aa_pro', close_reason = 'original_cancelled'
+    WHERE replaces_lesson_id = NEW.id AND status IN ('requested', 'proposed');
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER lessons_after_update_tl4 AFTER UPDATE OF status ON lessons
+  FOR EACH ROW EXECUTE FUNCTION lessons_after_update_tl4();
+
+-- 'original_cancelled' is only ever the close reason of a change (a lesson that replaces another).
+ALTER TABLE lessons ADD CONSTRAINT lessons_original_cancelled_change_only
+  CHECK (close_reason IS DISTINCT FROM 'original_cancelled' OR replaces_lesson_id IS NOT NULL);
 
 -- ---------------------------------------------------------------- the two-way rule, at commit
 -- Fires only for an update that CHANGED status or close reason (the transition guard, for both

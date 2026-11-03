@@ -320,13 +320,19 @@ describe('TL-4 prototype: the two-way rule at commit', () => {
     await expect(change(f, o, at(2 * DAY + 16 * HOUR))).rejects.toThrow(/only a confirmed lesson/);
   });
 
-  it('an original cancelled for another reason cannot be moved; the change stays open', async () => {
+  it('an original cancelled for another reason cannot be moved; its open change closes at once (DEF-TL4-08)', async () => {
     const f = await family();
     const o = await confirmed(f, at(18 * HOUR));
     const r = await change(f, o, at(DAY + 18 * HOUR));
     await sql`UPDATE lessons SET status = 'cancelled', closed_by = 'parent', closed_by_account = ${f.parent} WHERE id = ${o}`;
-    await expect(sql.begin((t) => accept(t, f, o, r.id))).rejects.toThrow(/cancelled or changed meanwhile/);
-    expect(await lesson(r.id)).toMatchObject({ status: 'proposed' });
+    expect(await lesson(r.id)).toMatchObject({
+      status: 'declined',
+      closed_by: 'aa_pro',
+      close_reason: 'original_cancelled',
+    });
+    await expect(sql.begin((t) => accept(t, f, o, r.id))).resolves.toHaveLength(0);
+    expect(await lesson(r.id)).toMatchObject({ status: 'declined' });
+    expect(await moves(o)).toHaveLength(0);
     expect(await moves(o)).toHaveLength(0);
   });
 });
@@ -486,7 +492,7 @@ describe('TL-4 prototype: lock order and races (each second party proven to wait
     expect(await lesson(o)).toMatchObject({ status: 'cancelled', closed_by: 'aa_pro', close_reason: 'rescheduled' });
   });
 
-  it('cancellation first, move second: the move waits, re-checks and is refused', async () => {
+  it('cancellation first, move second: the move waits, then finds the change already closed (DEF-TL4-08)', async () => {
     const f = await family();
     const o = await confirmed(f, at(34 * HOUR));
     const r = await change(f, o, at(DAY + 34 * HOUR));
@@ -500,14 +506,16 @@ describe('TL-4 prototype: lock order and races (each second party proven to wait
       const move = accept(q(m.c), f, o, r.id);
       await waitsFor(m.pid, k.pid);
       await k.c.unsafe('COMMIT');
-      await expect(move).rejects.toThrow(/cancelled or changed meanwhile/);
+      // DEF-TL4-08: the cancellation closed the change in its own transaction, so the waiting
+      // acceptance re-reads it and finds no open change to accept.
+      await expect(move).resolves.toHaveLength(0);
     } finally {
       for (const s of [k, m]) {
         await s.c.unsafe('ROLLBACK').catch(() => {});
         s.c.release();
       }
     }
-    expect(await lesson(r.id)).toMatchObject({ status: 'proposed' });
+    expect(await lesson(r.id)).toMatchObject({ status: 'declined', close_reason: 'original_cancelled' });
     expect(await lesson(o)).toMatchObject({ status: 'cancelled', closed_by: 'parent' });
   });
 
