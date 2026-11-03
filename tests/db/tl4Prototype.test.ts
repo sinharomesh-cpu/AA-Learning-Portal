@@ -592,9 +592,15 @@ describe('TL-4 prototype: lock order and races (each second party proven to wait
       const answer =
         p.c`UPDATE material_requests SET status = 'unavailable', closed_by = 'parent', closed_by_account = ${f.parent}
                          WHERE id = ${req}`.execute();
+      // Settle the answer at once: it is refused as soon as the move commits, which can be before
+      // the next line runs (otherwise an unhandled rejection is reported, though the test passes).
+      const settled = answer.then(
+        () => null,
+        (e: unknown) => e as Error,
+      );
       await waitsFor(p.pid, m.pid);
       await m.c.unsafe('COMMIT');
-      await expect(answer).rejects.toThrow(/cannot change/);
+      expect((await settled)?.message).toMatch(/cannot change/);
     } finally {
       for (const s of [m, p]) {
         await s.c.unsafe('ROLLBACK').catch(() => {});
