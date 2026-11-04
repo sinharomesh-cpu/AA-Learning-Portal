@@ -409,7 +409,11 @@ export async function setAccountActive(
       SELECT a.role, a.status, (a.email_verified_at IS NOT NULL OR a.password_hash IS NULL) AS confirmed,
              t.approval_status AS approval
       FROM accounts a LEFT JOIN teacher_profiles t ON t.account_id = a.id
-      WHERE a.id = ${accountId} AND a.role IN ('parent', 'teacher') FOR UPDATE OF a`;
+      WHERE a.id = ${accountId} AND a.role IN ('parent', 'teacher') FOR NO KEY UPDATE OF a`;
+    // R5-1 (independent AI review, 4 Nov 2026): NO KEY UPDATE, not UPDATE. The status change never
+    // touches a key, and FOR UPDATE also blocked the KEY SHARE locks that foreign-key checks take
+    // (for example an acceptance holding its lesson rows), so the two could deadlock and the
+    // deactivation was rolled back. Two status changes of the same account still take turns.
     if (!account) return NOT_FOUND;
     if (input.active) {
       if (account.status !== 'deactivated' && account.status !== 'suspended') return { ok: true as const };
