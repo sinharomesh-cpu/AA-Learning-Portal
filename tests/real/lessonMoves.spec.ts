@@ -105,6 +105,9 @@ test('with the TL-4 SQL: a parent asks to move, the teacher accepts; the teacher
   browser,
 }, info) => {
   test.skip(!(await tl4Applied()), 'The TL-4 SQL is not applied (it is not a migration yet).');
+  // The whole move journey (two moves, both sides, notices) takes 45-55 s locally with desktop and
+  // phone running together, too close to the default 60 s; give it room.
+  test.setTimeout(120_000);
   const phone = info.project.name === 'phone';
   const s = await setUp();
   const { parent, parent2, teacher, child } = s;
