@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isMoveReason, MOVE_TEXT } from '@/lib/moveText';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
 import { cancelLesson, requestLesson, type RequestReason, withdrawLesson } from '@/server/lessons';
@@ -45,6 +46,8 @@ const REQUEST_TEXT: Record<RequestReason, string> = {
   no_rate: 'This teacher hasn’t set an hourly rate yet, so lessons can’t be requested.',
   chapters:
     'Choose up to 5 chapters from the list, or type one topic (up to 120 characters), not both. A chapter may no longer be shared: check the list again.',
+  // TL-4: moving a confirmed lesson.
+  ...MOVE_TEXT,
 };
 
 /** "Send request" on Book a teacher. */
@@ -63,11 +66,13 @@ export async function requestLessonAction(_prev: LessonFormState, fd: FormData):
     // TL-1: optional chapters (checkboxes) or one topic; the server and the database check them.
     chapterIds: fd.getAll('chapter').filter((v): v is string => typeof v === 'string'),
     topic: str(fd, 'topic'),
+    // TL-4: present only on "Move lesson"; the server takes the child, teacher and subject from it.
+    ...(fd.has('replacesLessonId') ? { replacesLessonId: str(fd, 'replacesLessonId') } : {}),
   });
   if (r.ok) {
     revalidatePath('/parent/calendar');
     revalidatePath('/parent');
-    redirect('/parent/calendar?done=requested');
+    redirect(fd.has('replacesLessonId') ? '/parent/calendar?done=move_requested' : '/parent/calendar?done=requested');
   }
   if (!str(fd, 'slot')) return { error: 'Choose a start time.' };
   return { error: REQUEST_TEXT[r.reason] };
@@ -92,9 +97,11 @@ export async function answerProposalAction(_prev: LessonFormState, fd: FormData)
   const answer = str(fd, 'answer') === 'accept' ? 'accept' : 'decline';
   const r = await answerProposal(db(), id, lessonId, answer, str(fd, 'reason'));
   if (!r.ok && r.reason === 'invalid') return { error: 'The reason can be up to 200 characters.' };
+  // TL-4: a move the database refused leaves everything as it was; say why on the same page.
+  if (!r.ok && isMoveReason(r.reason)) return { error: MOVE_TEXT[r.reason] };
   revalidatePath('/parent/calendar');
   revalidatePath('/parent');
-  const done = r.ok ? (answer === 'accept' ? 'accepted' : 'declined') : r.reason;
+  const done = r.ok ? (answer === 'accept' ? (str(fd, 'move') ? 'moved' : 'accepted') : 'declined') : r.reason;
   redirect(`/parent/bookings/${encodeURIComponent(lessonId)}?done=${done}`);
 }
 

@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isMoveReason, MOVE_TEXT } from '@/lib/moveText';
 import { db } from '@/server/db/client';
 import { isDemoMode } from '@/server/demo';
-import { answerLesson, cancelLesson, recordOutcome } from '@/server/lessons';
+import { answerLesson, cancelLesson, recordOutcome, replacedLessonId } from '@/server/lessons';
 import { requestMaterial, withdrawMaterialRequest } from '@/server/materialRequests';
 import { setMeetingLink } from '@/server/meetingLinks';
 import { SUBJECTS } from '@/fixtures/subjects';
@@ -65,7 +66,10 @@ export async function answerLessonAction(_prev: ScheduleState, fd: FormData): Pr
   const r = await answerLesson(db(), id, str(fd, 'lessonId'), answer, str(fd, 'note'), new Date(), {
     planned: answer === 'accept' ? plannedFrom(fd) : [],
   });
-  if (r.ok) return back(answer === 'accept' ? 'accepted' : 'declined');
+  if (r.ok) {
+    if (answer === 'accept' && (await replacedLessonId(db(), str(fd, 'lessonId')))) return back('move_accepted');
+    return back(answer === 'accept' ? 'accepted' : 'declined');
+  }
   if (r.reason === 'chapters') {
     return {
       error:
@@ -73,6 +77,8 @@ export async function answerLessonAction(_prev: ScheduleState, fd: FormData): Pr
     };
   }
   if (r.reason === 'time_taken' || r.reason === 'expired' || r.reason === 'not_linked') return back(r.reason);
+  // TL-4: a move the database refused leaves everything as it was; say why beside the buttons.
+  if (isMoveReason(r.reason)) return { error: MOVE_TEXT[r.reason] };
   return back('closed');
 }
 
@@ -92,6 +98,8 @@ const PROPOSE_TEXT: Record<ProposeReason, string> = {
   material:
     'Describe the material you need (up to 200 characters); the note can be up to 300 characters. Nothing was sent.',
   price_changed: 'The price has changed since you reviewed this proposal. Nothing was sent. Review it again.',
+  // TL-4: moving a confirmed lesson.
+  ...MOVE_TEXT,
 };
 
 /**
@@ -118,6 +126,8 @@ export interface ProposalReviewView {
   priceMinor: string;
   planned: string[];
   material: { description: string; note: string } | null;
+  /** TL-4 (DEF-TL4-09): a move's booked lesson in words: "Fri 6 Nov, 4:30 pm–5:00 pm · 30 min · ₹300". */
+  now: string | null;
 }
 
 /**
@@ -125,8 +135,20 @@ export interface ProposalReviewView {
  * by the server; nothing is written. "Send proposal" then sends the price shown here.
  */
 export async function reviewProposalAction(fd: FormData): Promise<{ review?: ProposalReviewView; error?: string }> {
+  return reviewFor(fd);
+}
+
+/** Not exported (not a server action): the review shared by proposals and moves. */
+async function reviewFor(
+  fd: FormData,
+  move?: { replacesLessonId: string; childId: string; subject: string },
+): Promise<{ review?: ProposalReviewView; error?: string }> {
   const id = await teacherId();
-  const r = await reviewProposal(db(), id, proposalInput(fd));
+  const r = await reviewProposal(
+    db(),
+    id,
+    move ? { ...proposalInput(fd), ...move, material: undefined } : proposalInput(fd),
+  );
   if (!r.ok) return { error: PROPOSE_TEXT[r.reason] };
   const v = r.review;
   const rate = formatMoney(v.price.rateMinor, v.price.currency);
@@ -141,8 +163,22 @@ export async function reviewProposalAction(fd: FormData): Promise<{ review?: Pro
       priceMinor: String(v.price.priceMinor),
       planned: v.planned.map((p) => (p.intent ? `${p.label} · ${intentText(p.intent)}` : p.label)),
       material: v.material,
+      now: v.moving
+        ? `${formatLessonTime(v.moving.startsAt, v.timeZone)}–${formatClock(v.moving.endsAt, v.timeZone)} · ${
+            v.moving.minutes
+          } min · ${formatMoney(v.moving.priceMinor, v.moving.currency)}`
+        : null,
     },
   };
+}
+
+/**
+ * TL-4 (DEF-TL4-09, PO 3 Nov 2026): "Review new time" for a move: the TL-3 review step reused.
+ * Checked and priced by the server, nothing written; "Send new time" then sends the price shown, and
+ * the database refuses it if the price changed meanwhile. Information only; no new pricing rule.
+ */
+export async function reviewMoveAction(fd: FormData): Promise<{ review?: ProposalReviewView; error?: string }> {
+  return reviewFor(fd, { replacesLessonId: str(fd, 'replacesLessonId'), childId: '', subject: '' });
 }
 
 export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
@@ -154,6 +190,32 @@ export async function proposeLessonAction(_prev: ScheduleState, fd: FormData): P
   if (r.ok) {
     revalidatePath('/teacher/propose');
     return back('proposed');
+  }
+  return { error: PROPOSE_TEXT[r.reason] };
+}
+
+/**
+ * TL-4: "Move lesson". The teacher proposes a new time for a confirmed lesson (proposal rules: any
+ * 5-minute start, 24 hours to 4 weeks ahead), optionally with their own planned chapters (Q-B C2;
+ * otherwise the lesson's chapters are carried). Nothing changes until a parent accepts.
+ */
+export async function proposeMoveAction(_prev: ScheduleState, fd: FormData): Promise<ScheduleState> {
+  const id = await teacherId();
+  const r = await proposeLesson(db(), id, {
+    replacesLessonId: str(fd, 'replacesLessonId'),
+    // Taken from the lesson being moved, never from the form.
+    childId: '',
+    subject: '',
+    date: str(fd, 'date'),
+    time: str(fd, 'time'),
+    minutes: str(fd, 'minutes'),
+    planned: plannedFrom(fd),
+    // DEF-TL4-09: the price shown on the review; the database refuses the move if it changed.
+    shown: { basis: str(fd, 'priceBasis'), priceMinor: str(fd, 'priceMinor') },
+  });
+  if (r.ok) {
+    revalidatePath('/teacher/schedule');
+    return back('move_proposed');
   }
   return { error: PROPOSE_TEXT[r.reason] };
 }

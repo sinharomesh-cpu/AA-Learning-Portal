@@ -7,7 +7,15 @@ import type { ChipKind } from '@/components/StatusChip';
 
 export type LessonStatusName =
   'requested' | 'proposed' | 'confirmed' | 'declined' | 'withdrawn' | 'expired' | 'cancelled';
-export type CloseReason = 'time_no_longer_free' | 'teacher_deactivated' | 'link_ended' | null;
+export type CloseReason =
+  | 'time_no_longer_free'
+  | 'teacher_deactivated'
+  | 'link_ended'
+  // TL-4: the original of a lesson that was moved to a new time.
+  | 'rescheduled'
+  // TL-4 (DEF-TL4-08, PO 3 Nov 2026): a move closed because the lesson it would move was cancelled.
+  | 'original_cancelled'
+  | null;
 export type ClosedBy = 'parent' | 'teacher' | 'aa_pro' | null;
 
 /** "Tue 4 Nov, 4:00 pm" in a time zone. */
@@ -94,8 +102,11 @@ export function lessonStatusText(
         return { text: l.closedByName ? `Declined by ${l.closedByName}` : 'Declined by a parent', kind: 'neutral' };
       }
       if (l.closeReason === 'time_no_longer_free') return { text: 'Time no longer free', kind: 'neutral' };
+      if (l.closeReason === 'original_cancelled') return { text: 'Closed: lesson cancelled', kind: 'neutral' };
       return { text: 'Closed by AA Pro', kind: 'neutral' };
     case 'cancelled':
+      // TL-4: not a cancellation for the family; the lesson moved to its replacement.
+      if (l.closeReason === 'rescheduled') return { text: 'Moved', kind: 'neutral' };
       if (l.closedBy === 'aa_pro') return { text: 'Cancelled by AA Pro', kind: 'error' };
       if (l.closedBy === 'parent') {
         if (viewer === 'teacher') return { text: 'Cancelled by the parent', kind: 'error' };
@@ -120,5 +131,6 @@ export function closeReasonText(reason: CloseReason): string | null {
   if (reason === 'time_no_longer_free') return 'Another lesson was confirmed at an overlapping time.';
   if (reason === 'teacher_deactivated') return 'The teacher is no longer available on AA Pro.';
   if (reason === 'link_ended') return 'The teacher is no longer linked to this child for this subject.';
+  if (reason === 'original_cancelled') return 'Closed: the lesson it would move was cancelled. Nothing else changed.';
   return null;
 }

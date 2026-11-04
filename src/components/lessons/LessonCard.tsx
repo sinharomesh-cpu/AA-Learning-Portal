@@ -167,6 +167,55 @@ export function LessonCard({
               {viewer === 'teacher' ? '.' : ' to answer. Nothing is booked until they accept.'}
             </p>
           ) : null}
+          {/* TL-4: where a moved lesson came from or went to, and a move waiting for an answer. */}
+          {l.movedFrom && (l.status === 'requested' || l.status === 'proposed') ? (
+            <>
+              <p className="m-0 text-sm leading-5" data-testid="move-note">
+                A new time for the lesson booked on {formatLessonTime(l.movedFrom, timeZone)}. That lesson stays booked
+                unless this is accepted.
+              </p>
+              {l.movedFromLesson ? (
+                // TL-4: the old and new time, length and price side by side before anyone answers
+                // (information only; both prices are the database's snapshots, D-TLS-12).
+                <dl
+                  className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-[14px] bg-surface-container-low px-3 py-2 text-sm leading-5"
+                  data-testid="move-compare"
+                >
+                  <dt className="font-bold">Now</dt>
+                  <dd className="m-0">
+                    {formatLessonTime(l.movedFrom, timeZone)} · {l.movedFromLesson.minutes} min
+                    {l.price ? ` · ${formatMoney(l.movedFromLesson.priceMinor, l.movedFromLesson.currency)}` : ''}
+                  </dd>
+                  <dt className="font-bold">New</dt>
+                  <dd className="m-0">
+                    {formatLessonTime(l.startsAt, timeZone)} · {l.minutes} min
+                    {l.price ? ` · ${formatMoney(l.price.priceMinor, l.price.currency)}` : ''}
+                  </dd>
+                </dl>
+              ) : null}
+            </>
+          ) : l.movedFrom && (l.status === 'confirmed' || l.status === 'cancelled') ? (
+            // Accepted moves (a lesson is only cancelled after being confirmed).
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              Moved from {formatLessonTime(l.movedFrom, timeZone)}.
+            </p>
+          ) : l.movedFrom ? (
+            // DEF-TL4-15: a move that closed without happening (declined, withdrawn, expired, or its
+            // original cancelled) never moved anything; say what it was for.
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              A new time that was offered for the lesson booked on {formatLessonTime(l.movedFrom, timeZone)}.
+            </p>
+          ) : null}
+          {l.closeReason === 'rescheduled' ? (
+            <p className="m-0 text-sm leading-5" data-testid="move-note">
+              {l.movedTo ? `Moved to ${formatLessonTime(l.movedTo, timeZone)}.` : 'Moved to a new time.'}
+            </p>
+          ) : null}
+          {l.changePending ? (
+            <p className="m-0 text-sm leading-5" data-testid="move-pending">
+              A move to a new time is waiting for an answer. Until then, this lesson stays booked.
+            </p>
+          ) : null}
           {reason && l.closedBy === 'aa_pro' ? <p className="m-0 text-sm leading-5">{reason}</p> : null}
           {l.kept && l.status === 'confirmed' ? (
             <p className="m-0 text-sm leading-5" data-testid="kept-note">
