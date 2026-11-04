@@ -23,6 +23,7 @@ import { allowMeetingLinks, setMeetingLink } from '@/server/meetingLinks';
 import { answerProposal, proposeLesson, reviewProposal, withdrawProposal } from '@/server/proposals';
 import { lessonStatusText, closeReasonText } from '@/lib/lessonDisplay';
 import { migrate } from '../../scripts/db-migrate.mjs';
+import { removeTeacher } from '@/server/teacherLinks';
 import { activeLink, createAdult, createChild, testDb, uniq } from './helpers';
 
 /**
@@ -1158,6 +1159,52 @@ describe('TL-4 app vs the consolidated SQL: review R3-1 to R3-3, both id orders 
       expect(await deadlocks()).toBe(before);
       expect(await statusOf(sql, o)).toEqual({ status: 'cancelled', close_reason: 'teacher_deactivated' });
       expect((await statusOf(sql, old)).status).toBe('expired');
+    });
+  }
+  for (const [label, o1, m1] of ORDERS) {
+    it(`R5-2, ${label}: a new move that expires an overdue one, racing a parent's link removal: no deadlock; all-or-nothing`, async () => {
+      const f = await family(sql);
+      // The gate: the first lesson in the removal sweep's id-ordered pass, held by another session,
+      // so the removal holds the link and waits in its sweep while the new move arrives.
+      const gate = await confirmedRaw(f, idWith('0'));
+      const o = await confirmedRaw(f, idWith(o1));
+      const old = await teacherMoveRaw(f, o, idWith(m1));
+      await makeOverdue(old);
+      const before = await deadlocks();
+      const g = await sql.reserve();
+      let res: unknown;
+      try {
+        await g`BEGIN`;
+        await g`SELECT 1 FROM lessons WHERE id = ${gate} FOR UPDATE`;
+        const pr = settle(removeTeacher(sql, f.parent, f.t));
+        await waiting(1);
+        const start = next();
+        const pm = settle(
+          proposeLesson(sql, f.t, {
+            replacesLessonId: o,
+            childId: '',
+            subject: '',
+            date: ymd(start),
+            time: hm(start),
+            minutes: '30',
+          }),
+        );
+        await new Promise((r) => setTimeout(r, 1500));
+        await g`ROLLBACK`;
+        res = { remove: await pr, move: await pm };
+      } finally {
+        await g`ROLLBACK`.catch(() => {});
+        g.release();
+      }
+      expect(await deadlocks()).toBe(before);
+      const r = res as { remove: { v?: { ok: boolean }; e?: string } };
+      expect(r.remove.e).toBeUndefined();
+      // The removal went through completely: the link ended and its lessons closed.
+      const [link] = await sql<
+        { status: string }[]
+      >`SELECT status FROM teacher_student_links WHERE teacher_id = ${f.t} AND student_id = ${f.child}`;
+      expect(link!.status).not.toBe('active');
+      expect((await statusOf(sql, o)).status).toBe('cancelled');
     });
   }
 });

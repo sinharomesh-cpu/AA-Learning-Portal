@@ -788,6 +788,12 @@ export async function expireOverdueChanges(tx: Db, originalId: string, now: Date
   // deadlock with a cancellation of the same lesson. Re-entrant: 0034's insert rule takes them again.
   const [o] = await tx<Array<{ teacher_id: string; student_id: string }>>`
     SELECT teacher_id, student_id FROM lessons WHERE id = ${originalId}`;
+  // Review R5-2: the teacher-child link FOR SHARE first, as an acceptance takes it (lockLinkFirst),
+  // so starting a move can't deadlock with a link removal that holds the link and then sweeps the
+  // lessons. Then the time locks, then the rows: link → time locks → rows, the order every path uses.
+  if (o)
+    await tx`SELECT id FROM teacher_student_links WHERE teacher_id = ${o.teacher_id} AND student_id = ${o.student_id}
+             ORDER BY id FOR SHARE`;
   if (o) await lockLessonTimes(tx, o.teacher_id, o.student_id);
   // Review R4-1: an overdue open move and its original are locked together, lower id first
   // (lessons_lock_pair), before the move is expired: the same id order as the AA Pro sweep
