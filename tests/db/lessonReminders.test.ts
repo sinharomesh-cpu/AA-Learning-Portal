@@ -166,10 +166,18 @@ describe('PR 7: the bell refresh creates it (and nothing outside AA Pro)', () =>
   it('refreshBell counts the new reminder at once; no email is queued', async () => {
     const f = await family();
     await lesson(f, 6 * 60);
-    const before = (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM email_outbox`)[0]!.n;
+    // TEST-INTERMITTENT-1: count only email to this test's own accounts. Other test files share the
+    // database and run at the same time, so a count of the whole outbox could change under us.
+    const mine = sql`SELECT lower(email) FROM accounts
+                     WHERE id IN (${f.parent}, ${f.parent2}, ${f.child}, ${f.t}) AND email IS NOT NULL`;
+    const outboxForMine = async () =>
+      (
+        await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM email_outbox
+                                   WHERE lower(trim(to_address)) IN (${mine})`
+      )[0]!.n;
+    const before = await outboxForMine();
     const r = await refreshBell(sql, f.child, 'http://localhost');
     expect(r.unread).toBe(1);
-    const after = (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM email_outbox`)[0]!.n;
-    expect(after).toBe(before);
+    expect(await outboxForMine()).toBe(before);
   });
 });
