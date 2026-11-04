@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, describe, expect, inject, it } from 'vitest';
-import { setAccountActive } from '@/server/admin';
+import { decideProfileChange, setAccountActive } from '@/server/admin';
 import { answerProposal, proposeLesson } from '@/server/proposals';
 import { activeLink, createAdult, createChild, uniq } from './helpers';
 
@@ -34,8 +34,8 @@ async function family() {
   const parent = await createAdult(sql, 'parent');
   const child = await createChild(sql, parent);
   await sql`UPDATE student_profiles SET subjects = ${['maths']} WHERE account_id = ${child}`;
-  await activeLink(sql, { teacher: t, child, parent, subjects: ['maths'] });
-  return { t, parent, child, admin: owner };
+  const link = await activeLink(sql, { teacher: t, child, parent, subjects: ['maths'] });
+  return { t, parent, child, admin: owner, link };
 }
 
 async function deadlocks() {
@@ -108,5 +108,49 @@ describe('R5-1: admin deactivation vs a parent accepting a proposal at the same 
     // Whichever finished first, nothing is left open or booked with a deactivated teacher.
     const [l] = await sql<{ status: string }[]>`SELECT status FROM lessons WHERE id = ${p.id}`;
     expect(['declined', 'cancelled']).toContain(l!.status);
+  });
+});
+
+describe("R6-1: an admin approving a teacher's subject change vs that teacher proposing a lesson", () => {
+  it('no deadlock; the approval completes; the proposal is decided cleanly', async () => {
+    const f = await family();
+    await sql`UPDATE teacher_profiles SET pending_subjects = ${['maths']}, pending_grades = ${[5]}, change_submitted_at = now()
+              WHERE account_id = ${f.t}`;
+    const start = next();
+    const before = await deadlocks();
+    const g = await sql.reserve();
+    let res: { admin: unknown; propose: unknown };
+    try {
+      // The gate shares the teacher-child link, so the approval (which locks links FOR UPDATE after
+      // the account and profile rows) waits there while the proposal arrives.
+      await g`BEGIN`;
+      await g`SELECT 1 FROM teacher_student_links WHERE id = ${f.link} FOR SHARE`;
+      const pa = settle(
+        decideProfileChange(sql, f.admin, f.t, { decision: 'approve', note: 'Synthetic ok', baseUrl: '' }),
+      );
+      await waiting(1);
+      const pp = settle(
+        proposeLesson(sql, f.t, {
+          childId: f.child,
+          subject: 'maths',
+          date: ymd(start),
+          time: hm(start),
+          minutes: '30',
+        }),
+      );
+      await new Promise((r) => setTimeout(r, 1500));
+      await g`ROLLBACK`;
+      res = { admin: await pa, propose: await pp };
+    } finally {
+      await g`ROLLBACK`.catch(() => {});
+      g.release();
+    }
+    expect(await deadlocks()).toBe(before);
+    expect(res.admin).toEqual({ v: { ok: true } });
+    const [p] = await sql<
+      { d: string | null }[]
+    >`SELECT change_decision AS d FROM teacher_profiles WHERE account_id = ${f.t}`;
+    expect(p!.d).toBe('approved');
+    expect((res.propose as { e?: string }).e).toBeUndefined();
   });
 });

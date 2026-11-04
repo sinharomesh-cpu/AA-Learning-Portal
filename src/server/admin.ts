@@ -691,7 +691,10 @@ export async function decideProfileChange(
       FROM accounts a JOIN teacher_profiles p ON p.account_id = a.id
       WHERE a.id = ${teacherId} AND a.role = 'teacher' AND a.status = 'active'
         AND p.approval_status = 'approved' AND p.change_submitted_at IS NOT NULL
-      FOR UPDATE OF a, p`;
+      FOR NO KEY UPDATE OF a, p`;
+    // R6-1 (independent AI review, 4 Nov 2026): NO KEY UPDATE, as in setAccountActive (R5-1). The
+    // decision changes no key; FOR UPDATE also blocked the foreign-key KEY SHARE locks a teacher's
+    // proposal takes, so a proposal holding its link and the decision could deadlock.
     if (!t) return NOT_FOUND;
     const decision = input.decision === 'approve' ? 'approved' : 'declined';
     if (decision === 'approved') {
