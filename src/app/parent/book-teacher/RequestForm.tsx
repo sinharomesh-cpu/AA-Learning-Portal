@@ -130,9 +130,10 @@ export function RequestForm({
             id="lesson-topic"
             name="topic"
             value={topic}
-            maxLength={MAX_TOPIC}
             disabled={picked.length > 0}
-            onChange={(e) => setTopic(e.target.value)}
+            // Not maxLength: browsers count UTF-16 units, so an emoji would count twice (TL-F7). This
+            // stops at MAX_TOPIC characters, as the server and the database count them.
+            onChange={(e) => setTopic([...e.target.value].slice(0, MAX_TOPIC).join(''))}
             placeholder="For example: fractions revision"
             className={`${INPUT} min-h-12`}
             aria-describedby="topic-help"

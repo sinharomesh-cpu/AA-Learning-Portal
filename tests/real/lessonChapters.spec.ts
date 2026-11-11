@@ -179,6 +179,9 @@ test('TL-1: with no shared book the parent may type one topic; the teacher sees 
   const cover = p.getByRole('group', { name: 'What should the lesson cover? (optional)' });
   await expect(cover.getByRole('checkbox')).toHaveCount(0);
   await expect(cover).toContainText('None of your published books for Maths is shared with Kiran yet.');
+  // TL-F7: the field stops at 120 characters, counting an emoji as one (not two UTF-16 units).
+  await cover.getByLabel('Topic').fill('\u{1F600}'.repeat(121));
+  expect([...(await cover.getByLabel('Topic').inputValue())].length).toBe(120);
   await cover.getByLabel('Topic').fill('Long division revision');
   await check(p, phone);
   await p.getByRole('button', { name: 'Send request' }).click();
