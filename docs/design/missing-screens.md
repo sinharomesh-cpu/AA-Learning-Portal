@@ -1,5 +1,7 @@
 # AA Pro missing-screen designs — approval record (D-32)
 
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** This record was last updated at canvas version 62. Boards approved later by decisions in the register (for example HW0–HW9 and WB0–WB5, OC-95, and the later Phase 2 and Phase 3A boards) are not yet listed below; the canvas itself is not in the repository. From 11 Nov 2026 Claude owns ongoing UI/UX design (RPD-3); the D-32 approval rule still applies to new boards. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+
 - **Design canvas:** "AA Pro — Missing Screens (G1 Review)", a private claude.ai design artifact owned by the project owner. It is not reproduced in this repository.
 - **Approval rule:** a board is a design reference **only** after the owner approves it explicitly. Approval of documentation is not design approval.
 - **Approval given:** 14 Oct 2026, 13:39 IST. The owner's wording, in reply to the per-board review index (G1-09 §1): "All approved you can begin with phase 1". Recorded as OC-24 in the decision register.

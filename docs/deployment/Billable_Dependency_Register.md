@@ -1,5 +1,7 @@
 # AA Pro — Billable Dependency Register and Zero-Budget Rules
 
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** Since version 1.0: Resend sending is switched on in `aa-pro-test` with only the Super Admin's address allowed (OC-140 to OC-142); human-teacher Zoom links that teachers create and paste are built (migration 0030, OC-123) with still no Zoom API, account or paid plan. The $0 budget and every rule in section 1 are unchanged. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+
 **Version:** 1.0 · 18 Oct 2026 · **Decision:** OC-91 (owner, 18 Oct 2026, 00:42 IST)
 
 > **Approved budget: $0.** No expenditure, paid integration or billable test activity is authorised until the owner explicitly approves that specific service and budget in writing. Silence, approval of the project, a feature, an architecture or a technical recommendation is **not** consent to spend. Budget alerts are not spending protection.

@@ -1,5 +1,7 @@
 # AA Pro — G1-10 Phase 1 Implementation Plan: Design System and Role-Separated UI Shell
 
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** This plan was authorised (OC-30) and Phase 1 is complete; see `docs/phase1/P1-02_Phase1_Completion_Report.md`. The "not started" status and "0 of 52 boards approved" are historical (boards approved by OC-24). The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+
 **Version:** 1.0 · 14 Oct 2026 · **Status: PLAN FOR APPROVAL — not started.**
 - No application code has been written. No dependency has been installed and nothing has been committed.
 - Phase 1 begins only after your explicit "begin Phase 1" and once the gates in §9 are clear.

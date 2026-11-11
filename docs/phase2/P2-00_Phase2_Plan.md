@@ -1,5 +1,7 @@
 # AA Pro — P2-00 Phase 2 Plan: Sign-in, accounts and permissions
 
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** Phase 2 was authorised by OC-40 (on plan version 1.2) and has been built: real accounts, child sign-in, teacher approval, Super Admin MFA and the hosted test environment. The "for owner approval" status in the header is historical. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+
 **Version:** 1.4 · 14 Oct 2026 · **Status:** for owner approval · **Baseline:** FRD v1.1 + change request CR-01 (OC-36)
 **Decisions this plan relies on:** OC-21, OC-23, OC-35 (D-23a, D-37), OC-36 (D-09, parent-added teachers), OC-37 (D-11b).
 
