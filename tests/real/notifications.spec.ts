@@ -502,7 +502,9 @@ test('AC-44, AC-74: an active user sees an expiry notification within 65 s while
   const teacher = await seedTeacher(sql);
   const otherParent = await seedParent(sql);
   const child = await seedChild(sql, parent.id);
-  const soon = new Date(Date.now() + 4_000);
+  // Owner approval (30 Oct 2026): the records expire 15 s from now, not 4 s, so both sign-ins and
+  // the pre-expiry checks below finish first even on a slow run; the test then proves it did.
+  const soon = new Date(Date.now() + 15_000);
   // The parent's own records: an enquiry, a link request and a rate proposal (with the teacher).
   const enquiry = await seedEnquiry(sql, parent.id, teacher.id, soon);
   const link = await seedLinkRequest(sql, teacher.id, child.id, parent.id, soon);
@@ -523,10 +525,13 @@ test('AC-44, AC-74: an active user sees an expiry notification within 65 s while
   const tMenu = t.getByRole('navigation', { name: 'Teacher menu' });
   await expect(tMenu.getByRole('link', { name: 'Students, 1 waiting for you' })).toBeVisible();
   await expect(tMenu.getByRole('link', { name: 'Enquiries, 3 waiting for you' })).toBeVisible();
+  // The pre-expiry state was really seen before the records expired (otherwise the rest proves
+  // nothing): fail here with a clear message rather than later at random.
+  expect(Date.now(), 'the pre-expiry checks finished before the records expired').toBeLessThan(soon.getTime());
 
   // No shared sweep may run: it is held inside its minute from just before the expiry E.
   const held = await holdSharedSweep(sql);
-  await expect.poll(() => Date.now() > soon.getTime() + 500, { timeout: 10_000 }).toBe(true);
+  await expect.poll(() => Date.now() > soon.getTime() + 500, { timeout: 20_000 }).toBe(true);
   // Badges never wait for any sweep (AC-74, §4.2): at the next refresh they are already 0.
 
   // The parent's first refresh at or after E runs the user-scoped check over the parent's own
@@ -801,10 +806,28 @@ test('AC-39, AC-60: load and refresh failures, a failed Mark as read and offline
   await page.clock.pauseAt(new Date(Date.now() + 5_000));
   await expect(bellCount(page)).toHaveText('1');
 
+  // Test-only (owner approval 30 Oct 2026, 22:07 IST, D): learn the bell refresh's own server action.
+  // It is the only call that sends no arguments (body "[]"); the panel sends [{"view":"panel"}] and
+  // Mark as read sends the notification's id. One minute on the clock runs one refresh.
+  let bellAction: string | undefined;
+  page.on('request', (r) => {
+    const id = r.headers()['next-action'];
+    if (!bellAction && id && r.method() === 'POST' && r.postData() === '[]') bellAction = id;
+  });
+  await page.clock.runFor(60_000);
+  await expect.poll(() => bellAction, { message: 'the bell refresh was seen' }).toBeTruthy();
+  await expect(bellCount(page)).toHaveText('1');
+
   // The panel's list fails once: an error with Try again; the page and menu still work.
   let failNext = true;
+  let failBell = false;
   await page.route('**/*', async (route) => {
     const r = route.request();
+    // The refresh step fails only the bell refresh, every time, until the bell has shown its failure.
+    if (failBell && r.method() === 'POST' && r.headers()['next-action'] === bellAction) {
+      await route.fulfill({ status: 500, body: 'error' });
+      return;
+    }
     if (failNext && r.method() === 'POST' && r.headers()['next-action']) {
       failNext = false;
       await route.fulfill({ status: 500, body: 'error' });
@@ -840,9 +863,10 @@ test('AC-39, AC-60: load and refresh failures, a failed Mark as read and offline
     entityType: 'enquiry',
     entityId: enquiry,
   });
-  failNext = true;
+  failBell = true;
   await page.clock.runFor(60_000);
   await expect(bell(page)).toHaveAccessibleName('Notifications');
+  failBell = false;
   await expect(bellCount(page)).toHaveCount(0);
   await expect(
     page.getByRole('navigation', { name: 'Parent menu' }).getByRole('link', { name: 'Children' }),
