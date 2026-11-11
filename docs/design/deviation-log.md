@@ -1,5 +1,7 @@
 # AA Pro — implementation deviation log
 
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, OC-146).** From 11 Nov 2026 (OC-145) the design baseline is the approved AA Pro boards and the AA Pro design tokens (`src/styles/`). Google Stitch was used only for the initial design and is no longer an ongoing reference; entries that compare against Stitch remain as history. Brand guardrails: `docs/design/Design_Ownership_and_Brand_Guardrails.md`. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+
 Every place where the implementation differs from an approved board (OC-24) or from the Stitch design tokens, with the reason. New entries are added in the pull request that introduces them.
 
 | ID | Where | Approved design / source | Implementation | Reason | Introduced |

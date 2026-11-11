@@ -1,5 +1,7 @@
 # AA Pro — G1-06 Repository and Project Isolation Plan
 
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, OC-146).** The "PROPOSED, nothing committed" status is historical. The bootstrap commit `0a42216` was pushed under OC-25 and the repository has been in active use since. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+
 **Version:** G1 v1.2 · 14 Oct 2026 · **Status:** PROPOSED. Nothing has been committed, pushed or created in the repository. v1.2 adds §6, the exact bootstrap plan, and re-verifies the repository state.
 
 ## 1. Repository of record (OC-08)

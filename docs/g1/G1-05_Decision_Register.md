@@ -1,6 +1,7 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.97 · 25 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.98 · 11 Nov 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Current project status and roadmap:** `docs/status/AA_Pro_Project_Status_and_Roadmap.md` (RP-0, 11 Nov 2026). Where this register and that document differ, this register wins.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +15,15 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v1.98 changes (owner, 11 Nov 2026 — commercial direction, typography, design ownership, Roadmap Phase 0):**
+- **OC-143** OC-03 stays unchanged for the current scope. The future commercial direction (Academy subscription model; first two chapters free; quarterly, half-yearly and yearly options) is recorded for a later phase after a separate business decision. No payment functionality now. New open item **D-46**.
+- **OC-144** existing typography and brand retained: Outfit headings, Plus Jakarta Sans portal body text, Inter on public pages, primary colour #006194; design tokens preserved unless the owner approves a change.
+- **OC-145** Claude owns ongoing UI/UX design and frontend implementation; Google Stitch was used only for the initial design and is not an ongoing design dependency. OC-02 and OC-20 otherwise unchanged.
+- **OC-146** Roadmap Phase 0 (housekeeping) approved: documentation only, on branch `claude/bold-tesla-4zg5wc`, nothing to `main`. Forward plan numbered RP-0 … RP-7 to avoid confusion with the historical delivery phases.
+- New **Summary: status on 11 Nov 2026** added above the 14 Oct summary, which is kept unchanged as history.
+- Not changed: every earlier OC, every open decision (D-05b, D-10, D-17, D-24, D-26, D-28, D-45, D-01a, OD-B), the pre-launch list PL-01 to PL-05 and the $0 budget (OC-91).
+- Known register housekeeping left as it is to keep the history intact: the v1.2 and v1.78 change entries sit above the newer entries, and change entries for v1.67–v1.72, v1.79–v1.82 and v1.84 are not present.
 
 **v1.97 changes (owner, 25 Oct 2026, 13:18 IST — OD-A decided; OD-B open; B1–B4):**
 - **OD-A decided:** OC-53 Option A applies when a parent removes a teacher **or removes one child's link** to that teacher (that child's lessons with the teacher), and when a parent **unticks one subject** (only that child's lessons in that subject). Unrelated children, subjects and lessons are not affected; a lesson whose link ended by some other, earlier event is never kept by the parent's change. Preserved lessons keep the explicit, lesson-scoped Join Class permission model of v1.96.
@@ -522,6 +532,10 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **OC-140** | **Email settings added, sending still off.** The owner created a Resend API key (sending access, `mail.aaprolearn.com` only; never shared in chat) and added to Vercel `aa-pro-test`, Production only: `EMAIL_PROVIDER_API_KEY` (Secret), `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS` (sender "AA Pro", mailbox `no-reply` on `mail.aaprolearn.com`), `EMAIL_ALLOWED_RECIPIENTS` (the owner's own address only) and `APP_BASE_URL` (`https://test.aaprolearn.com`), all Config except the key. The owner confirmed names, values and Production-only, and that `EMAIL_SENDING` and `EMAIL_ALLOW_ALL_RECIPIENTS` are absent. Vercel's redeploy prompt was dismissed; the settings take effect at the next deployment. Nothing added to `aa-learning-portal`. | Owner, 23 Oct 2026, 00:07–00:20 IST | Done; PR #120 not merged |
 | **OC-141** | **PR #120 merged (email code, sending off).** Approved 00:36 IST after the branch was updated with `main` and all 11 checks passed. Merged as `726c97a`; `aa-pro-test` and `aa-learning-portal` production rebuilt successfully; CI on `main` green; no migration. With `EMAIL_SENDING` unset, emails stay in the test mailbox; links now use `APP_BASE_URL` (`https://test.aaprolearn.com`). The demo cannot send. Switching sending on for one test needs separate approval. | Owner, 23 Oct 2026, 00:36 IST | Done |
 | **OC-142** | **Friends & Family email testing model (documentation only).** (1) `EMAIL_SENDING` remains enabled in `aa-pro-test`. (2) `EMAIL_ALLOWED_RECIPIENTS` remains unchanged: only the currently listed Super Admin address receives real email through Resend. (3) Friends & Family testers use the existing test mailbox (`/dev/mailbox`) and the shared test-site credentials to test account confirmation, Forgot Password, password reset and teacher invitations. (4) The owner accepts the current shared mailbox access for this controlled demo-testing phase, including that testers may see emails and links belonging to other demo accounts. (5) Email limits remain unchanged; the owner considers the current daily limit sufficient and will say if needs change. For reference: Resend's free plan allows 100 emails a day and 3,000 a month; AA Pro's own caps stop at 90 a day and 2,900 a month (defaults, `EMAIL_DAILY_LIMIT` / `EMAIL_MONTHLY_LIMIT` not set). (6) No mailbox restriction, code change, environment-variable change, recipient-list change, redeployment or other implementation change is approved by this decision; the mailbox restriction proposed on 23 Oct is not adopted. (7) Additional budget remains ₹0; no paid plan or service is approved. (8) Before moving beyond Friends & Family testing or introducing real user data, mailbox access controls and privacy requirements are reassessed. Existing safeguards unchanged: emails to addresses not on the list stay in the outbox and are never sent; `EMAIL_ALLOW_ALL_RECIPIENTS` stays unset. Advice given, not a requirement: testers use invented `@example.com` addresses and invented data. | Owner, 23 Oct 2026, 11:02 and 11:04 IST | Recorded |
+| **OC-143** | **Commercial model: OC-03 unchanged; future direction recorded.** (1) OC-03 stays in force for the current development scope: no payments, credits or subscriptions are designed or built. (2) The future commercial direction of AA Pro is preserved: an **Academy subscription model**, with the **first two chapters free** and **quarterly, half-yearly and yearly** subscription options. (3) Payments and subscriptions are implemented only in a future phase (RP-6), after a separate business decision and approval. (4) No existing commercial decision is changed (the OC-79 survey-only rule and the OC-76(8) / OC-77(4) "AA Pro does not process payments" rules in CR-13 are unchanged). Open details are tracked as D-46. | Owner, 11 Nov 2026 | Recorded; nothing to build |
+| **OC-144** | **Typography and brand retained.** Outfit for headings, Plus Jakarta Sans for portal body text, Inter for public pages (as OC-11 and OC-83). Primary brand colour **#006194**. The existing brand identity and design tokens (`src/styles/`) are preserved unless the owner explicitly approves a change. Guardrails: `docs/design/Design_Ownership_and_Brand_Guardrails.md`. | Owner, 11 Nov 2026 | Recorded; no change to code |
+| **OC-145** | **Design ownership.** Google Stitch was used only for the initial design and is not an ongoing design dependency. From 11 Nov 2026 Claude is responsible for ongoing UI/UX design, design improvements, responsive layouts, design consistency and frontend implementation, with the owner approving designs and decisions. The design baseline is the AA Pro implementation (tokens, UI kit, approved boards). The redacted Stitch files in `design-reference/` stay read-only as historical reference (OC-20); OC-02's "FRD is the requirements baseline" is unchanged. | Owner, 11 Nov 2026 | Recorded |
+| **OC-146** | **Roadmap Phase 0 (housekeeping) approved, documentation only.** On branch `claude/bold-tesla-4zg5wc`: update documentation to reflect the actual implementation and future roadmap. Not allowed: changes to application source, migrations, configuration, authentication, APIs or business logic; installing packages; running migrations; environment variables or secrets; hosting, Vercel, Neon or GitHub settings; committing, merging or pushing to `main`. All architectural decisions and open decision references are preserved. RP-1 and any functional work wait for the owner's explicit approval of the RP-0 outcome. | Owner, 11 Nov 2026 | Done on branch; awaiting owner review |
 
 ## Part B — Resolved in favour of the FRD (no approval needed; you may override)
 
@@ -576,6 +590,7 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 | **D-28** | Data residency, hosting region and retention | Decide before any deployment with real data | — | Provider/region, legal | **Yes** | Pre-production |
 | ~~D-35~~ | **Closed → OC-44.** | | | | | |
 | **D-01a** | Final AI tutor display name | Keep "AA Pro AI Tutor" / "AI Tutor" | A persona label under AA Pro | Copy only (central config) | **Yes**, non-blocking | None |
+| **D-46** | Commercial model details for the future Academy subscription (OC-143): what a "chapter" is for the free allowance (AI Tutor course content, parents' books, or both); prices and currency; plan lengths (quarterly, half-yearly, yearly) and renewal; what a subscription unlocks (AI sessions, human-teacher lessons, library); family vs per-child plans; payment provider, taxes and refunds; how the existing OC-76(8) / OC-77(4) "AA Pro does not process payments" rules (CR-13) would change | No recommendation until the business decision is opened | — | Data model, entitlements, legal, payment provider cost | **Yes** | RP-6 (future phase) |
 | ~~D-42~~ | **Closed → OC-53.** | | | | | |
 | ~~D-43~~ | **Closed → OC-54.** | | | | | |
 | ~~D-44~~ | **Closed → OC-58.** | | | | | |
@@ -600,7 +615,27 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
   5. applies branch protection on `main` (A-03), which private repositories need GitHub Pro for;
   6. records the change in this register.
 
+## Summary: status on 11 Nov 2026 (RP-0)
+
+| Item | State |
+|---|---|
+| Delivery Phases 0, G1, 1 | **Complete** |
+| Phase 2 (accounts and permissions) and follow-on CR-12 point 1, CR-13, CR-15 Phase A, CR-16 | **Built** (migrations 0001–0026) |
+| Phase 3A / CR-17 (human teaching and homework) | **Built through TL-3** (migrations 0027–0034; latest merge PR #134, 31 Oct 2026). Open: D-45, OD-B, CR-12 point 2 (trial lesson) |
+| Phase 4 (uploads and library) | Largely built early (stored files, teacher resources, parents' books). D-17, D-26 open |
+| Phase 5 (AI classroom) | Session rules and a provider-independent controller only; no provider (R-AI-1, OD-10) |
+| Phase 6 (Zoom) | Teacher-pasted links with parent permission only; D-10, PL-03 open |
+| Phase 7 (notifications) | In-app built; email via Resend to the Super Admin only (OC-142); WhatsApp not built (PL-04) |
+| Phase 8 / production | Not started; D-28, PL-02 open. Public domain shows the Launching Soon page only |
+| Forward plan | Roadmap Phases RP-0 … RP-7 (`docs/status/AA_Pro_Project_Status_and_Roadmap.md` §8). RP-0 done on branch, awaiting review |
+| Commercial model | OC-03 in force; future Academy subscription recorded (OC-143); D-46 open |
+| Design | Claude owns ongoing UI/UX (OC-145); brand and tokens retained (OC-144) |
+| Owner actions still open | A-01 (project instructions), A-03 / A-08 (private repository, branch protection) |
+| Open, not decided | D-05b, D-10, D-17, D-24, D-26, D-28, D-45, D-46, D-01a, OD-B; pre-launch PL-01 to PL-05 |
+
 ## Summary: status on 14 Oct 2026 (about 19:40 IST)
+
+*Historical snapshot, kept unchanged. D-25 has since closed (OC-61); see the 11 Nov 2026 summary above for the current state.*
 
 | ID | State |
 |---|---|
