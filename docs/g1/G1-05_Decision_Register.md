@@ -1,6 +1,6 @@
 # AA Pro — G1-05 Decision Register
 
-**Version:** G1 v1.97 · 25 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
+**Version:** G1 v1.98 · 29 Oct 2026 · **Baseline:** FRD v1.1 · **Status:** for owner review.
 This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are kept from Phase 0 (D-01 … D-31), so nothing is renumbered. New items start at D-32.
 
 **v1.2 changes:**
@@ -14,6 +14,29 @@ This register replaces section 12 of the Phase 0 Audit Report. Decision IDs are 
 - **OC-122** CR-16 AC-75: option (c) — current performance accepted, no migration 0027 now, teacher rate-proposal index reassessed before launch (pre-launch action PL-01). AC-75 is an accepted deviation, deferred — not closed.
 - **OC-123 / OC-124 / OC-125** Phase 3A (CR-17): human lessons 10–40 minutes, teacher-created Zoom links, packages deferred, adults and invented children only, in-app notifications as a testing limitation; Zoom/child-safety review before real children and Vercel free plan as a launch dependency; D3A-19 migration gate and PR 1 only approved. PRs 2–8 and migrations M1–M4 not approved.
 - **OC-126** V-2 verified (0001–0026 in the test database); reliable 12-month homework deletion recorded as launch requirement PL-05.
+
+**v1.98 changes (owner, 29 Oct 2026, 14:25 IST — TL-3 teacher proposals: business decisions and rollback policy; documentation only):**
+- **Numbering note.** Owner decisions approved since v1.97 carry provisional numbers in the RTM (OC-143 to OC-154, 23–24 Oct) or only their decision IDs (CR-17 D3A-x, TL-1/TL-2 D-TLS-x and TL2-x, OD-A). They still need a separate catch-up entry. To avoid clashing numbers, the TL-3 decisions below are recorded under **their own decision IDs**, with OC numbers to be assigned in that catch-up.
+- **TL-3 Part B approved as recommended** (`TL-3_Owner_Decision_Checklist.md`, after Mateusz's BA review). Approving the decisions does **not** approve SQL, implementation, merging, migration or deployment; each needs its own approval.
+  1. **D-TLS-1:** a teacher-proposed lesson is never confirmed without the parent accepting that lesson (OC-45). TL-3 is single proposals only. Recurring classes stay in phase RS; **RS-1 to RS-6 are not decided**.
+  2. **D-TLS-2:** an eligible, linked, approved, active teacher may propose, only in a ticked subject. Either active parent may accept or decline. The teacher may withdraw their own proposal. Students make none of these decisions.
+  3. **D-TLS-3:** 10–40 minutes in 5-minute steps; 24 hours to 4 weeks ahead; any 5-minute start, not limited to the teacher's usual times; never over an already confirmed lesson.
+  4. **D-TLS-5:** a proposal expires after 48 hours, or 2 hours before the start if sooner. At most 10 open proposals per teacher per child; one open proposal per time slot.
+  5. **D-TLS-12:** the applicable hourly price is shown before acceptance, using the request price-snapshot rule. A teacher without an applicable hourly price can't propose. Information only: no payment processing (OC-03).
+  6. **D-TLS-13:** outstanding proposals close as "link ended" when the teacher's link or subject ends. OC-53 is unchanged.
+  7. **D-E2E-2:** at most five chapters in total per lesson.
+  8. **D-E2E-3:** option (b). Teacher-planned chapters are saved with the proposal, and when the teacher accepts a parent's request. The parent is notified under the approved in-app behaviour; no external messaging. *(The owner's wording says "save … when the parent accepts the proposal"; Mateusz is asked to confirm that this matches option (b) as the checklist defines it.)*
+  9. **D-E2E-4:** option (b). The teacher's scheduling form shows past lessons (chapters; took place or did not), reusing authorised records and access rules.
+  10. **TL3-1:** material requests are allowed on proposals and close when the proposal closes.
+  11. **TL3-2:** no free-text teacher-to-family messages while the OD-B safeguarding controls aren't built and approved.
+  12. **TL3-3:** children never see a pending proposal, only confirmed lessons (D3A-23).
+  13. **TL3-4:** an open proposal doesn't reserve the time. The first valid acceptance wins; concurrent acceptance can never confirm two conflicting lessons.
+  14. **TL3-5:** a booking-details page for the parent shows teacher, subject, date and time in the parent's time zone, duration, price, chapters, material requests and status. It has Accept and Decline (optional reason).
+- **TL3-6 = Option D** (owner, 29 Oct 2026, 14:25 IST): **no rollback script; a reviewed forward-fix migration instead.** This replaces the Option C approval of 28 Oct 2026, 20:39 IST.
+  - Rationale (owner): avoid a rollback that could remove or mis-attribute proposal history.
+  - The `before-TL3` restore point stays a last-resort recovery measure under the established procedure.
+  - This selects the policy only: it doesn't approve unreviewed SQL, a database change or deployment.
+- **Unchanged and still open:** D-TLS-4 (confirmed-lesson changes stay cancel and re-request, D3A-6); RS-1 to RS-6; CR-15 Phase B (packages deferred); OD-B (pre-launch blocker); no production release.
 
 **v1.97 changes (owner, 25 Oct 2026, 13:18 IST — OD-A decided; OD-B open; B1–B4):**
 - **OD-A decided:** OC-53 Option A applies when a parent removes a teacher **or removes one child's link** to that teacher (that child's lessons with the teacher), and when a parent **unticks one subject** (only that child's lessons in that subject). Unrelated children, subjects and lessons are not affected; a lesson whose link ended by some other, earlier event is never kept by the parent's change. Preserved lessons keep the explicit, lesson-scoped Join Class permission model of v1.96.
