@@ -1,6 +1,6 @@
 # AA Pro — Phase 3 (Scheduling and Calendar) Backlog
 
-> **Status note — 11 Nov 2026 (Roadmap Phase 0, OC-146).** "Phase 3 planning has not started" is out of date. Scheduling work was planned and built as Phase 3A (CR-17, migrations 0029–0034). The open decisions listed here (D-45, D-05b and the others) are still open unless the decision register says otherwise. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** "Phase 3 planning has not started" is out of date. Scheduling work was planned and built as Phase 3A (CR-17, migrations 0029–0034). The open decisions listed here (D-45, D-05b and the others) are still open unless the decision register says otherwise. The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
 
 **Version:** 0.1 · 18 Oct 2026 · **Status:** backlog only. Phase 3 planning has not started, and nothing here is built or decided unless it says so.
 

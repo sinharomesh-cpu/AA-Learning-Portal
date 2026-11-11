@@ -1,6 +1,6 @@
 # AA Pro — G1-08 Owner Action Plan
 
-> **Status note — 11 Nov 2026 (Roadmap Phase 0, OC-146).** The statements that the repository is empty and that the listed decisions are pending are historical. The repository is in active use and the decisions are recorded in the decision register (G1-05). Open owner actions are in G1-05 Part D (A-01, A-03, A-08). The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** The statements that the repository is empty and that the listed decisions are pending are historical. The repository is in active use and the decisions are recorded in the decision register (G1-05). Open owner actions are in G1-05 Part D (A-01, A-03, A-08). The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
 
 **Version:** 1.0 · 14 Oct 2026 · **Companion to:** G1-05 Decision Register v1.4
 **Status:** for owner review. Nothing in this document has been implemented, committed, pushed or deployed. Repository `sinharomesh-cpu/AA-Learning-Portal` is still empty: `main` has no commits (re-verified 14 Oct 2026).

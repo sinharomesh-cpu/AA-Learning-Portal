@@ -1,6 +1,6 @@
 # AA Pro — Design Implementation Gap Report
 
-> **Status note — 11 Nov 2026 (Roadmap Phase 0, OC-146).** Since version 1.2, DV-92 moved all signed-in, account and Super Admin pages except the homepage and the student pages onto the shared design kit, so the student pages are the main remaining signed-in gap. This report's "Phase 4" label for the AI classroom corresponds to delivery Phase 5 and Roadmap Phase RP-3. Stitch is no longer an ongoing design reference (OC-145). The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
+> **Status note — 11 Nov 2026 (Roadmap Phase 0, RPD-4).** Since version 1.2, DV-92 moved all signed-in, account and Super Admin pages except the homepage and the student pages onto the shared design kit, so the student pages are the main remaining signed-in gap. This report's "Phase 4" label for the AI classroom corresponds to delivery Phase 5 and Roadmap Phase RP-3. Stitch is no longer an ongoing design reference (RPD-3). The text below is kept unchanged as the historical record. Current state: `docs/status/AA_Pro_Project_Status_and_Roadmap.md`.
 
 **Version:** 1.2 · 17 Oct 2026 · **Prepared by:** Claude.
 **Requested by the owner:**

@@ -59,7 +59,7 @@ Many documents below are dated records of a decision or a phase. Where one has b
 ## Design (`design/`)
 | File | Content |
 |---|---|
-| `Design_Ownership_and_Brand_Guardrails.md` | Design ownership (Claude owns ongoing UI/UX; Stitch was initial design only), brand identity and design-change rules (OC-144, OC-145) |
+| `Design_Ownership_and_Brand_Guardrails.md` | Design ownership (Claude owns ongoing UI/UX; Stitch was initial design only), brand identity and design-change rules (RPD-2, RPD-3) |
 | `missing-screens.md` | The design canvas and the per-screen approval record (D-32) |
 | `deviation-log.md` | Every implementation difference from an approved board, with the reason |
 | `AA_Pro_Design_Implementation_Gap_Report.md` | Design implementation gap report |

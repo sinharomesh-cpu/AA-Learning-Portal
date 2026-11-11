@@ -1,6 +1,6 @@
 # AA Pro — Design Ownership and Brand Guardrails
 
-**Version:** 1.0 · 11 Nov 2026 · **Decisions:** OC-144 (typography and brand retained), OC-145 (design ownership), building on OC-01, OC-02, OC-11 and OC-83.
+**Version:** 1.0 · 11 Nov 2026 · **Decisions:** RPD-2 (typography and brand retained), RPD-3 (design ownership), building on OC-01, OC-02, OC-11 and OC-83.
 
 ## 1. Ownership
 

@@ -81,10 +81,10 @@ Hosted environments and their safety rules: `docs/deployment/hosted-demo-preview
 - **Design references are read-only.**
   - The files in `design-reference/stitch-selected/` are redacted derivatives kept for reference.
   - They are not production code and are not edited.
-- **Design ownership (OC-145).**
+- **Design ownership (RPD-3).**
   - Google Stitch was used only for the initial design and is not an ongoing design dependency.
   - Claude owns ongoing UI/UX design and frontend implementation; the owner approves designs and decisions.
-  - The brand identity and design tokens are preserved unless the owner approves a change (OC-144): Outfit headings, Plus Jakarta Sans portal body text, Inter on public pages, primary colour `#006194`.
-- **Commercial scope (OC-03, OC-143).** No payments or subscriptions are built in the current scope. The future Academy subscription direction is recorded in the decision register only.
+  - The brand identity and design tokens are preserved unless the owner approves a change (RPD-2): Outfit headings, Plus Jakarta Sans portal body text, Inter on public pages, primary colour `#006194`.
+- **Commercial scope (OC-03, RPD-1).** No payments or subscriptions are built in the current scope. The future Academy subscription direction is recorded in the decision register only.
 - **CI must pass.** Every push and pull request runs `.github/workflows/repo-hygiene.yml` (identifying data, brand strings, forbidden files, secret scan) and `.github/workflows/ci.yml` (lint, type-check, unit tests, build, end-to-end and accessibility tests).
 - **Dependencies** are pinned to exact versions, released at least 14 days before adoption (OC-29). Install scripts are blocked unless listed in `allowScripts`.

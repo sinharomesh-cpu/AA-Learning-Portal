@@ -1,7 +1,7 @@
 # AA Pro — Project Status, Architecture and Roadmap
 
-**Version:** 1.0 · 11 Nov 2026 · **Status:** for owner review (Roadmap Phase 0, housekeeping; OC-146).
-**Source:** read-only assessment of `main` at `379701a` (Merge PR #134, 31 Oct 2026), reconciled with the decision register G1-05 v1.98.
+**Version:** 1.0 · 11 Nov 2026 · **Status:** for owner review (Roadmap Phase 0, housekeeping; RPD-4).
+**Source:** read-only assessment of `main` at `379701a` (Merge PR #134, 31 Oct 2026), reconciled with the decision register G1-05 (v1.97 + RP-0 records). Open pull requests were listed but not reviewed in depth (§3.1).
 **Scope:** documentation only. Nothing in the application, database, configuration, hosting or settings was changed to produce this document.
 
 This is the single place that describes **what is actually built today**, how it fits together, what is missing and the proposed order of work. Business rules stay in the decision register (`docs/g1/G1-05_Decision_Register.md`), which remains the authority where the two differ.
@@ -85,10 +85,35 @@ Legend: **Built** = real database logic in real mode · **Partial** = built with
 | Student history (`/student/history`) | Sample only | Real students see an empty list (D-24 open) |
 | Parent "Schedule an AI class" (`/parent/book-ai`), parent history (`/parent/history`) | Placeholder | `rolePlaceholder` |
 | Whiteboard and lesson notes (CR-09), lesson review/recording (CR-10), grammar and dictionary (CR-11) | Not built | Specifications only |
-| Payments and subscriptions | Not built | Out of scope (OC-03); future direction recorded in OC-143 |
+| Payments and subscriptions | Not built | Out of scope (OC-03); future direction recorded in RPD-1 |
 | Google services (Calendar, Drive, Classroom, Google sign-in) | Not built | Google Classroom out of scope (OC-03). Fonts are self-hosted |
 | WhatsApp / SMS | Not built | PL-04 |
 | Error monitoring, analytics, structured logging | Not built | `console.error` only |
+
+### 3.1 Work in flight (open pull requests, not merged into `main`)
+
+On 11 Nov 2026 there were 16 open pull requests. None of them is part of the status above until it is approved and merged.
+
+| PR | Subject (from its title) |
+|---|---|
+| #126 | CR-17 PR 8: full regression and Friends & Family script (tests only) |
+| #127 | F2: show "Propose a meeting" to real teachers as not available yet |
+| #128 | Hide the optional email-reminder consent while email is unavailable |
+| #131 | Teacher scheduling: week calendar on My schedule |
+| #132 | Records: decision register v1.98, TL-3 decisions (documentation only) |
+| #135 | TL-F7: count lesson-topic characters as the database does |
+| #136 | PL-BO: booking options start from the parent's own children |
+| #138 | Trial branch for CI evidence only (never merged) |
+| #139 | TL-6: chapters on the three home pages, information only |
+| #140 | Test-only: notification checks and accessibility scan timing |
+| #141 | Records: decision register v1.99 to v2.02, decisions of 29–30 Oct 2026 (documentation only, stacked on #132) |
+| #142 | TL-4: final design SQL for technical review (moving a confirmed lesson) |
+| #143 | TL-4 application layer: move a confirmed lesson (stacked on #142) |
+| #145 | Test only: lessons spec no longer depends on the time of day |
+| #146 | Test only: reminder test counts only its own outbox rows |
+| #147 | Admin paths: no deadlock with concurrent lesson and link actions |
+
+Records PRs #132 and #141 also change the decision register; whichever of them and the RP-0 pull request merges later will need its register text reconciled.
 
 **Database tables by domain (0001–0034):** identity and auth (`accounts`, `sessions`, `one_time_tokens`, `sign_in_throttle`, `mfa_factors`, `recovery_codes`, `consents`, `rate_events`); family (`student_profiles`, `guardian_links`); teachers and marketplace (`teacher_profiles`, `teacher_photos`, `teacher_usual_times`, `teacher_student_links`, `teacher_listings`, `listing_prices`, `pending_connects`, `teacher_enquiries`, `rate_negotiations`, `rate_offers`, `learning_packages`, `pricing_migration_log`, `teacher_verification_requests`, `teacher_verification_decisions`); lessons (`lessons` including proposals, `meeting_link_permissions`, `lesson_meeting_links`, `lessons_kept`, `lesson_chapters`, `material_requests`); content and homework (`teacher_resources`, `resource_shares`, `worksheets`, `worksheet_questions`, `assignments`, `assignment_resources`, `questions`, `assignment_targets`, `answers`, `assignment_events`, `books`, `book_children`, `book_chapters`, `book_chapter_files`); files (`stored_files`, `upload_parts`, `platform_settings`); messaging (`notifications`, `notification_throttles`, `email_outbox`); AI (`ai_sessions`); admin (`admin_permissions`, `audit_events`); bookkeeping (`schema_migrations`). `db/README.md` describes the earlier groups in more detail.
 
@@ -115,7 +140,7 @@ The applied migration state of the hosted test database was not checked for this
 | AI providers | None integrated. Research in `docs/ai-teacher/`: no provider is cleared for children (R-AI-1); legal checklist L-1 to L-10 open |
 | Object storage | None; `STORAGE_*` settings are names only (OC-87, OC-96) |
 | Google services | None |
-| Payments | None (OC-03, OC-79, OC-143) |
+| Payments | None (OC-03, OC-79, RPD-1) |
 | WhatsApp / SMS | None |
 
 ## 6. Gaps, technical debt and risks
@@ -172,15 +197,15 @@ Each phase starts only after the owner's explicit approval. Phases build on the 
 
 | Phase | Scope | Gate | Status |
 |---|---|---|---|
-| **RP-0 Housekeeping** | Documentation reflects the real implementation, decisions and ownership; no code changes | OC-146 | **Done on branch, awaiting owner review** |
+| **RP-0 Housekeeping** | Documentation reflects the real implementation, decisions and ownership; no code changes | RPD-4 | **Done on branch, awaiting owner review** |
 | **RP-1 Hardening** | CSP and HSTS headers; database timeouts; structured logging; recipient time zones in email; shared page-guard helper; module extraction without behaviour change; upload clean-up index; PL-01 review | Owner approval; ₹0 | Not started |
 | **RP-2 Complete Phase 3A** | Parent restrictions page; D-45 and OD-B rules; trial lesson (CR-12 point 2); real student history; student-page design refresh (gap report priority 1) | D-45, OD-B, D-05b, D-24 | Not started |
 | **RP-3 AI Teacher proof of concept** | Provider adapter behind `TutorProvider`; AI booking for parent and student; classroom page with push-to-talk and hard cost caps; adults and synthetic data only | Provider choice, R-AI-1, L-1 to L-10, OD-10 budget | Blocked — owner decisions |
 | **RP-4 Library and lesson tools** | Whiteboard and lesson notes (CR-09); grammar and dictionary (CR-11); D-17 library state | Design boards (e.g. EG0–EG5) | Not started |
 | **RP-5 Launch services** | Object storage; scheduler (PL-05); email for real users and WhatsApp decision (PL-04); Zoom approach for children (PL-03, D-10) | Budget approvals; adviser review | Blocked — budget |
-| **RP-6 Commercial model** | Academy subscriptions and payments as recorded in OC-143 (first two chapters free; quarterly, half-yearly and yearly plans) | Separate business decision and change request; D-46 | **Deferred by owner (OC-143)** |
+| **RP-6 Commercial model** | Academy subscriptions and payments as recorded in RPD-1 (first two chapters free; quarterly, half-yearly and yearly plans) | Separate business decision and change request; D-46 | **Deferred by owner (RPD-1)** |
 | **RP-7 Production readiness** | D-28 residency; production environment; secret rotation; private repository; monitoring; security review; go-live | D-28, PL-02, explicit go-live approval | Not started |
 
 ## 9. Future commercial direction (recorded, not in scope)
 
-Per OC-143, the long-term direction is an **Academy subscription model**: the first two chapters free, then quarterly, half-yearly or yearly subscription options. OC-03 (payments out of the initial release) and OC-79 (survey question only) stay in force. No payment, subscription, pricing or entitlement functionality is designed or built until a separate business decision and approval. Open questions are tracked as D-46 in the decision register.
+Per RPD-1, the long-term direction is an **Academy subscription model**: the first two chapters free, then quarterly, half-yearly or yearly subscription options. OC-03 (payments out of the initial release) and OC-79 (survey question only) stay in force. No payment, subscription, pricing or entitlement functionality is designed or built until a separate business decision and approval. Open questions are tracked as D-46 in the decision register.
