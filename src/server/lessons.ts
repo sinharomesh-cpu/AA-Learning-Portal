@@ -120,21 +120,32 @@ export async function bookingOptions(sql: Db, parentId: string): Promise<Bookabl
       minutes: number | null;
     }>
   >`
+    -- PL-BO: start from this parent's own children, whatever the planner statistics say. With
+    -- out-of-date statistics (a freshly loaded database) the planner otherwise began from every
+    -- active student and their links, then filtered to this parent: ~25-29 s at 20,000 families
+    -- instead of under a millisecond. MATERIALIZED and LATERAL fix the order; the rows are the same.
+    WITH kids AS MATERIALIZED (
+      SELECT c.id, c.display_name
+      FROM guardian_links g
+      JOIN accounts p ON p.id = g.parent_id AND p.role = 'parent' AND p.status = 'active'
+      JOIN accounts c ON c.id = g.student_id AND c.role = 'student' AND c.status = 'active'
+      WHERE g.parent_id = ${parentId} AND g.status = 'active'
+    )
     SELECT c.id AS child_id, c.display_name AS child_name, sp.grade,
            t.id AS teacher_id, t.display_name AS teacher_name, l.subjects, t.time_zone AS zone,
            tl.hourly_offered AS hourly, tl.hourly_currency AS currency, tl.hourly_rate_minor AS rate,
            tl.hourly_minutes AS minutes
-    FROM guardian_links g
-    JOIN accounts p ON p.id = g.parent_id AND p.role = 'parent' AND p.status = 'active'
-    JOIN accounts c ON c.id = g.student_id AND c.role = 'student' AND c.status = 'active'
+    FROM kids c
     LEFT JOIN student_profiles sp ON sp.account_id = c.id
-    LEFT JOIN teacher_student_links l ON l.student_id = c.id AND l.status = 'active'
-      AND EXISTS (SELECT 1 FROM accounts ta JOIN teacher_profiles tp ON tp.account_id = ta.id
-                  WHERE ta.id = l.teacher_id AND ta.role = 'teacher' AND ta.status = 'active'
-                    AND tp.approval_status = 'approved')
+    LEFT JOIN LATERAL (
+      SELECT l.teacher_id, l.subjects FROM teacher_student_links l
+      WHERE l.student_id = c.id AND l.status = 'active'
+        AND EXISTS (SELECT 1 FROM accounts ta JOIN teacher_profiles tp ON tp.account_id = ta.id
+                    WHERE ta.id = l.teacher_id AND ta.role = 'teacher' AND ta.status = 'active'
+                      AND tp.approval_status = 'approved')
+    ) l ON true
     LEFT JOIN accounts t ON t.id = l.teacher_id
     LEFT JOIN teacher_listings tl ON tl.teacher_id = t.id
-    WHERE g.parent_id = ${parentId} AND g.status = 'active'
     ORDER BY c.display_name, c.id, t.display_name, t.id`;
   const out: BookableChild[] = [];
   for (const r of rows) {
